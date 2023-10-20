@@ -51,6 +51,7 @@ class AbfParser:
                         path_without_persist_root = backup_file.Path
                     matched_data.append({
                         'Path': path_without_persist_root,
+                        'FileName': path_without_persist_root.split('\\')[-1],
                         'StoragePath': backup_file.StoragePath,
                         'Size': matched_file.Size,
                         'm_cbOffsetHeader': matched_file.m_cbOffsetHeader

@@ -1,7 +1,8 @@
 from ..unpack import PbixUnpacker
 from ..meta.metadata_query import MetadataQuery
 from ..meta.sqlite_handler import SQLiteHandler
-import json
+import pandas as pd
+from .. import decode
 class PBIXRay:
     def __init__(self, file_path):
         self.file_path = file_path
@@ -20,20 +21,44 @@ class PBIXRay:
         self._metadata = MetadataQuery(sqliteHandler)
 
     def get_table(self, table_name):
-        for table in self.tables:
-            if table.name == table_name:
-                return table
-        return None
+        table_metadata_df = self._metadata.schema_df[self._metadata.schema_df['TableName'] == table_name]
+        dataframe_data = {}
 
-    def model_to_arrow(self):
-        # Logic to convert the entire model to an Arrow table (if applicable)
-        pass
+        for _, column_metadata in table_metadata_df.iterrows():
+            # Read the IDF file
+            idfmeta_path = column_metadata["IDF"]+'meta'
+            idfmeta_ref = [x for x in self._file_log if x['FileName'] == idfmeta_path][0]
+            meta = decode.read_idfmeta(self._decompressed_data[idfmeta_ref['m_cbOffsetHeader']:idfmeta_ref['m_cbOffsetHeader']+idfmeta_ref['Size']])
+
+            # Read the IDF file
+            idf_ref = [x for x in self._file_log if x['FileName'] == column_metadata["IDF"]][0]
+            idf_bufer = self._decompressed_data[idf_ref['m_cbOffsetHeader']:idf_ref['m_cbOffsetHeader']+idf_ref['Size']]
+            idf = decode.read_rle_bit_packed_hybrid(idf_bufer, meta['count_bit_packed'], meta['min_data_id'], meta['bit_width'])
+            idf_series = pd.Series(idf)  # Convert the list to a pandas Series
+
+            # Check if we need to use dictionary or hidx
+            if pd.notnull(column_metadata["Dictionary"]):
+                dictionary_ref = [x for x in self._file_log if x['FileName'] == column_metadata["Dictionary"]][0]
+                dictionary_buffer = self._decompressed_data[dictionary_ref['m_cbOffsetHeader']:dictionary_ref['m_cbOffsetHeader']+dictionary_ref['Size']]
+                dictionary = decode.read_dictionary(dictionary_buffer, min_data_id=meta['min_data_id'])
+                dataframe_data[column_metadata["ColumnName"]] = idf_series.map(dictionary)
+
+            elif pd.notnull(column_metadata["HIDX"]):
+                dataframe_data[column_metadata["ColumnName"]] = idf_series.add(column_metadata["BaseId"])/column_metadata["Magnitude"]
+            else:
+                print(f"Neither dictionary nor hidx found for column {column_metadata['ColumnName']} in table {table_name}.")
+                return None
+
+        df = pd.DataFrame(dataframe_data)
+        return df
+
 
     # You can also include some utility methods for users to easily access certain functionalities:
     def list_tables(self):
-        return [table.name for table in self.tables]
+        return self._metadata.schema_df['TableName'].unique()
 
     def list_columns(self, table_name):
-        table = self.get_table(table_name)
-        return [column.name for column in table.columns] if table else []
+        columns = self._metadata.schema_df[self._metadata.schema_df['TableName'] == table_name]['ColumnName']
+        return columns.unique()
+
 
