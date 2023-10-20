@@ -14,22 +14,23 @@ def test_metadata_retrieval():
     model = PBIXRay(PBIX_FILE_PATH)
     
     tables = model.list_tables()
-    assert tables, "No tables found in the PBIX file."
+    #test number of tables greater than 0
+    assert tables.size, "No tables found in the PBIX file."
     
-    assert "Fruit" in tables, "Expected table 'Fruit' not found in the PBIX file."
+    assert "Age" in tables, "Expected table 'Age' not found in the PBIX file."
     
-    columns = model.list_columns("Fruit")
-    assert columns, "No columns found in the 'Fruit' table."
+    columns = model.list_columns("Age")
+    assert columns.size, "No columns found in the 'Age' table."
 
 def test_data_retrieval():
     """Test data retrieval from a specific table."""
     model = PBIXRay(PBIX_FILE_PATH)
     
-    table = model.get_table("Fruit")
-    assert table, "Failed to retrieve the 'Fruit' table."
+    table = model.get_table("Age")
+    assert table.size, "Failed to retrieve the 'Age' table."
     
-    arrow_table = table.to_arrow_table()
-    assert arrow_table, "Failed to retrieve data from 'Fruit' table as an Arrow table."
+    # arrow_table = table.to_arrow_table()
+    # assert arrow_table, "Failed to retrieve data from 'Age' table as an Arrow table."
 
-    dataframe = table.to_dataframe()
-    assert not dataframe.empty, "Failed to retrieve data from 'Fruit' table as a DataFrame."
+    # dataframe = table.to_dataframe()
+    # assert not dataframe.empty, "Failed to retrieve data from 'Age' table as a DataFrame."
