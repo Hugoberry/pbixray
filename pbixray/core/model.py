@@ -20,37 +20,38 @@ class PBIXRay:
         sqliteHandler = SQLiteHandler(self._decompressed_data[sqliteRef['m_cbOffsetHeader']:sqliteRef['m_cbOffsetHeader']+sqliteRef['Size']])
         self._metadata = MetadataQuery(sqliteHandler)
 
+    def _get_data_slice(self, filename):
+        file_ref = next((x for x in self._file_log if x['FileName'] == filename), None)
+        if not file_ref:
+            raise ValueError(f"File reference not found for filename: {filename}.")
+        return self._decompressed_data[file_ref['m_cbOffsetHeader']:file_ref['m_cbOffsetHeader'] + file_ref['Size']]
+
+    def _get_column_data(self, column_metadata, meta):
+        if pd.notnull(column_metadata["Dictionary"]):
+            dictionary_buffer = self._get_data_slice(column_metadata["Dictionary"])
+            dictionary = decode.read_dictionary(dictionary_buffer, min_data_id=meta['min_data_id'])
+            return pd.Series(decode.read_rle_bit_packed_hybrid(self._get_data_slice(column_metadata["IDF"]), 
+                                   meta['count_bit_packed'], meta['min_data_id'], meta['bit_width'])).map(dictionary)
+        
+        elif pd.notnull(column_metadata["HIDX"]):
+            return pd.Series(decode.read_rle_bit_packed_hybrid(self._get_data_slice(column_metadata["IDF"]), 
+                                   meta['count_bit_packed'], meta['min_data_id'], meta['bit_width'])).add(column_metadata["BaseId"])/column_metadata["Magnitude"]
+        
+        else:
+            raise ValueError(f"Neither dictionary nor hidx found for column {column_metadata['ColumnName']} in table.")
+
     def get_table(self, table_name):
         table_metadata_df = self._metadata.schema_df[self._metadata.schema_df['TableName'] == table_name]
         dataframe_data = {}
 
         for _, column_metadata in table_metadata_df.iterrows():
-            # Read the IDF file
-            idfmeta_path = column_metadata["IDF"]+'meta'
-            idfmeta_ref = [x for x in self._file_log if x['FileName'] == idfmeta_path][0]
-            meta = decode.read_idfmeta(self._decompressed_data[idfmeta_ref['m_cbOffsetHeader']:idfmeta_ref['m_cbOffsetHeader']+idfmeta_ref['Size']])
+            idfmeta_buffer = self._get_data_slice(column_metadata["IDF"] + 'meta')
+            meta = decode.read_idfmeta(idfmeta_buffer)
+            
+            column_data = self._get_column_data(column_metadata, meta)
+            dataframe_data[column_metadata["ColumnName"]] = column_data
 
-            # Read the IDF file
-            idf_ref = [x for x in self._file_log if x['FileName'] == column_metadata["IDF"]][0]
-            idf_bufer = self._decompressed_data[idf_ref['m_cbOffsetHeader']:idf_ref['m_cbOffsetHeader']+idf_ref['Size']]
-            idf = decode.read_rle_bit_packed_hybrid(idf_bufer, meta['count_bit_packed'], meta['min_data_id'], meta['bit_width'])
-            idf_series = pd.Series(idf)  # Convert the list to a pandas Series
-
-            # Check if we need to use dictionary or hidx
-            if pd.notnull(column_metadata["Dictionary"]):
-                dictionary_ref = [x for x in self._file_log if x['FileName'] == column_metadata["Dictionary"]][0]
-                dictionary_buffer = self._decompressed_data[dictionary_ref['m_cbOffsetHeader']:dictionary_ref['m_cbOffsetHeader']+dictionary_ref['Size']]
-                dictionary = decode.read_dictionary(dictionary_buffer, min_data_id=meta['min_data_id'])
-                dataframe_data[column_metadata["ColumnName"]] = idf_series.map(dictionary)
-
-            elif pd.notnull(column_metadata["HIDX"]):
-                dataframe_data[column_metadata["ColumnName"]] = idf_series.add(column_metadata["BaseId"])/column_metadata["Magnitude"]
-            else:
-                print(f"Neither dictionary nor hidx found for column {column_metadata['ColumnName']} in table {table_name}.")
-                return None
-
-        df = pd.DataFrame(dataframe_data)
-        return df
+        return pd.DataFrame(dataframe_data)
 
 
     # You can also include some utility methods for users to easily access certain functionalities:
