@@ -1,8 +1,9 @@
-from ..unpack import PbixUnpacker
-from ..meta.metadata_query import MetadataQuery
-from ..meta.sqlite_handler import SQLiteHandler
+from .unpack import PbixUnpacker
+from .meta.metadata_query import MetadataQuery
+from .meta.sqlite_handler import SQLiteHandler
+from . import decode
 import pandas as pd
-from .. import decode
+
 class PBIXRay:
     def __init__(self, file_path):
         self.file_path = file_path

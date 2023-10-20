@@ -1,1 +1,1 @@
-from .core.model import PBIXRay
+from .main import PBIXRay
