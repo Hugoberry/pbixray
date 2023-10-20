@@ -1,8 +1,12 @@
 import xml.etree.ElementTree as ET
 
 class BackupLog:
-    def __init__(self, xml_string):
-        root = ET.fromstring(xml_string)
+    def __init__(self, xml_string, error_code):
+        #if error_code trim last 4 bytes
+        if error_code:
+            xml_string = xml_string[:-4]
+        trimmed_xml_string = xml_string.decode('utf-16')
+        root = ET.fromstring(trimmed_xml_string)
         self.BackupRestoreSyncVersion = root.findtext("BackupRestoreSyncVersion")
         self.ServerRoot = root.findtext("ServerRoot")
         self.SvrEncryptPwdFlag = root.findtext("SvrEncryptPwdFlag") == "true"

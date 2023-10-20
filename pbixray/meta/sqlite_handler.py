@@ -1,5 +1,6 @@
 import apsw
 import pandas as pd
+import warnings
 
 class SQLiteHandler:
     def __init__(self, sqlite_buffer):
@@ -14,10 +15,12 @@ class SQLiteHandler:
 
     def execute_query(self, sql):
         """Execute a SQL query and return the result as a pandas DataFrame."""
-        try:
-            return pd.read_sql_query(sql, self.conn)
-        except apsw.SQLError as e:
-            print(f"SQL error: {e}")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                return pd.read_sql_query(sql, self.conn)
+            except apsw.SQLError as e:
+                print(f"SQL error: {e}")
 
     def close_connection(self):
         """Close the SQLite connection."""

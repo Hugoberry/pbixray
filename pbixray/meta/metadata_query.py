@@ -3,13 +3,14 @@ class MetadataQuery:
     def __init__(self, sqlite_handler):
         self.handler = sqlite_handler
         
-        # Initialize dataframes as class attributes
-        self.schema_df = None
-        self.m_df = None
-        self.dax_tables_df = None
-        self.dax_measures_df = None
+        # Populate dataframes upon instantiation
+        self.schema_df = self.__populate_schema()
+        self.m_df = self.__populate_m()
+        self.dax_tables_df = self.__populate_dax_tables()
+        self.dax_measures_df = self.__populate_dax_measures()
+        self.handler.close_connection()
 
-    def populate_schema(self):
+    def __populate_schema(self):
         sql = """ 
         SELECT 
             t.Name AS TableName,
@@ -37,9 +38,9 @@ class MetadataQuery:
         WHERE c.Type = 1
         ORDER BY t.Name, cs.StoragePosition
         """
-        self.schema_df = self.handler.execute_query(sql)
+        return self.handler.execute_query(sql)
 
-    def populate_m(self):
+    def __populate_m(self):
         sql = """ 
         SELECT 
             t.Name AS 'TableName', 
@@ -48,9 +49,9 @@ class MetadataQuery:
         JOIN [Table] t ON t.ID = p.TableID 
         WHERE p.Type = 4;
         """
-        self.m_df = self.handler.execute_query(sql)
+        return self.handler.execute_query(sql)
 
-    def populate_dax_tables(self):
+    def __populate_dax_tables(self):
         sql = """ 
         SELECT 
             t.Name AS 'TableName', 
@@ -59,9 +60,9 @@ class MetadataQuery:
         JOIN [Table] t ON t.ID = p.TableID 
         WHERE p.Type = 2;
         """
-        self.dax_tables_df = self.handler.execute_query(sql)
+        return self.handler.execute_query(sql)
 
-    def populate_dax_measures(self):
+    def __populate_dax_measures(self):
         sql = """ 
         SELECT 
             t.Name AS TableName,
@@ -72,11 +73,4 @@ class MetadataQuery:
         FROM Measure m 
         JOIN [Table] t ON m.TableID = t.ID;
         """
-        self.dax_measures_df = self.handler.execute_query(sql)
-
-    def populate_all_dataframes(self):
-        self.populate_schema()
-        self.populate_m()
-        self.populate_dax_tables()
-        self.populate_dax_measures()
-        self.handler.close_connection()
+        return self.handler.execute_query(sql)
