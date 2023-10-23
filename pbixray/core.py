@@ -44,17 +44,15 @@ class PBIXRay:
 
     def _get_file_size_from_log(self, file_name):
         """Utility method to get the size of a file from self._file_log using 'FileName'."""
-        matched_entry = next((entry for entry in self._file_log if entry['FileName'] == file_name), None)
-        if matched_entry:
-            return matched_entry['Size']
+        file_ref = next((x for x in self._file_log if x['FileName'] == file_name), None)
+        if file_ref:
+            return file_ref['Size']
         return 0  # Returns 0 if no match is found
 
-
-
-    def _get_data_slice(self, filename):
-        file_ref = next((x for x in self._file_log if x['FileName'] == filename), None)
+    def _get_data_slice(self, file_name):
+        file_ref = next((x for x in self._file_log if x['FileName'] == file_name), None)
         if not file_ref:
-            raise ValueError(f"File reference not found for filename: {filename}.")
+            raise ValueError(f"File reference not found for filename: {file_name}.")
         return self._decompressed_data[file_ref['m_cbOffsetHeader']:file_ref['m_cbOffsetHeader'] + file_ref['Size']]
 
     def _get_column_data(self, column_metadata, meta):
