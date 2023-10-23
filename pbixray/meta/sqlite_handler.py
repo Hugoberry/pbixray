@@ -19,8 +19,11 @@ class SQLiteHandler:
             warnings.simplefilter("ignore")
             try:
                 return pd.read_sql_query(sql, self.conn)
-            except apsw.SQLError as e:
+            except apsw.ExecutionCompleteError:  
+                return pd.DataFrame()  # Return an empty DataFrame for ExecutionCompleteError
+            except apsw.SQLError as e:  # Handle other SQLErrors
                 print(f"SQL error: {e}")
+                return pd.DataFrame()  # Optional: Return an empty DataFrame or you can raise the error again
 
     def close_connection(self):
         """Close the SQLite connection."""
