@@ -1,1 +1,1 @@
-from .main import PBIXRay
+from .core import PBIXRay

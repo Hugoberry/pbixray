@@ -115,23 +115,3 @@ def read_dictionary(buffer,min_data_id):
         return {i: val for i, val  in enumerate(vector_values, start=min_data_id)}
 
     return None
-
-def get_storage_path_and_log_details(backup_log: BackupLog, virtual_directory: VirtualDirectory, path_suffix:str) -> tuple:
-    storage_path = None
-    size = None
-    offset = None
-    
-    # Find the storage path
-    for file in  virtual_directory.FileGroups[1].FileList:
-        if file.Path.endswith(path_suffix):
-            storage_path = file.StoragePath
-            break
-
-    # Find the log details
-    for log in backup_log.BackupFiles:
-        if log.Path == storage_path:
-            size = log.Size
-            offset = log.m_cbOffsetHeader
-            break
-
-    return size, offset
