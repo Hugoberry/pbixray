@@ -16,11 +16,10 @@ AMO_PANDAS_TYPE_MAPPING ={
 
 class PBIXRay:
     def __init__(self, file_path):
-        self.file_path = file_path
-        self.unpacker = PbixUnpacker(self.file_path)
+        unpacker = PbixUnpacker(file_path)
 
-        self._file_log = self.unpacker.file_log
-        self._decompressed_data = self.unpacker.decompressed_data
+        self._file_log = unpacker.file_log
+        self._decompressed_data = unpacker.decompressed_data
         
         self._load_metadata()
         self._compute_statistics()
