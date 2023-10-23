@@ -8,6 +8,7 @@ class MetadataQuery:
         self.m_df = self.__populate_m()
         self.dax_tables_df = self.__populate_dax_tables()
         self.dax_measures_df = self.__populate_dax_measures()
+        self.metadata_df = self.populate_metadata()
         self.handler.close_connection()
 
     def __populate_schema(self):
@@ -72,5 +73,13 @@ class MetadataQuery:
             m.Description
         FROM Measure m 
         JOIN [Table] t ON m.TableID = t.ID;
+        """
+        return self.handler.execute_query(sql)
+
+    def populate_metadata(self):
+        sql = """
+        SELECT Name,Value 
+        FROM Annotation 
+        WHERE ObjectType = 1
         """
         return self.handler.execute_query(sql)
