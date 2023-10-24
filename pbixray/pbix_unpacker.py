@@ -3,9 +3,7 @@ import platform
 import zipfile
 import os
 from .abf import parser
-import logging
 
-logging.basicConfig(level=logging.INFO)
 
 class PbixUnpacker:
     def __init__(self, file_path):
@@ -51,7 +49,6 @@ class PbixUnpacker:
     def __unpack(self):
         # Initialize the library
         result = self.lib.Initialize()
-        logging.info(result)
         if result:
             raise RuntimeError("Failed to initialize the library")
         
