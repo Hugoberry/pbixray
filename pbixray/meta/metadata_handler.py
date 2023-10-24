@@ -2,19 +2,19 @@ from .metadata_query import MetadataQuery
 from .sqlite_handler import SQLiteHandler
 from ..utils import AMO_PANDAS_TYPE_MAPPING, get_data_slice
 import pandas as pd
+from ..abf.data_model import DataModel
 
 # ---------- METADATA HANDLER ----------
 
 class MetadataHandler:
-    def __init__(self, file_log, decompressed_data):
-        self._file_log = file_log
-        self._decompressed_data = decompressed_data
+    def __init__(self, data_model:DataModel):
+        self._data_model=data_model
         self._load_metadata()
         self._compute_statistics()
         
     def _load_metadata(self):
         """Loads metadata for the given PBIX file."""
-        sqliteBuffer = get_data_slice(self._file_log, self._decompressed_data,'metadata.sqlitedb')
+        sqliteBuffer = get_data_slice(self._data_model,'metadata.sqlitedb')
         sqliteHandler = SQLiteHandler(sqliteBuffer)
         self._meta = MetadataQuery(sqliteHandler)
     
@@ -29,7 +29,7 @@ class MetadataHandler:
 
     def _get_file_size_from_log(self, file_name):
         """Utility to get the size of a file from the log using 'FileName'."""
-        file_ref = next((x for x in self._file_log if x['FileName'] == file_name), None)
+        file_ref = next((x for x in self._data_model.file_log if x['FileName'] == file_name), None)
         return file_ref['Size'] if file_ref else 0 
     
     @property
@@ -42,7 +42,7 @@ class MetadataHandler:
     
     @property
     def size(self):
-        return sum([x['Size'] for x in self._file_log])
+        return sum([x['Size'] for x in self._data_model.file_log])
     
     @property
     def schema(self):

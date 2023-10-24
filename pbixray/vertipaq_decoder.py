@@ -9,15 +9,15 @@ from kaitaistruct import KaitaiStream
 from .utils import AMO_PANDAS_TYPE_MAPPING, get_data_slice
 import io
 import pandas as pd
+from .abf.data_model import DataModel
 
 
 # ---------- VertiPaq CLASS ----------
 
 class VertiPaqDecoder:
-    def __init__(self, metadata, file_log, decompressed_data):
+    def __init__(self, metadata, data_model:DataModel):
         self._meta = metadata
-        self._file_log = file_log
-        self._decompressed_data = decompressed_data
+        self._data_model = data_model
 
     def _read_bitpacked(self,sub_segment, bit_width, min_data_id):
         """Reads bitpacked values from a sub_segment."""
@@ -136,12 +136,12 @@ class VertiPaqDecoder:
     def _get_column_data(self, column_metadata, meta):
         """Extracts column data based on the given column metadata and meta information."""
         if pd.notnull(column_metadata["Dictionary"]):
-            dictionary_buffer = get_data_slice(self._file_log, self._decompressed_data,column_metadata["Dictionary"])
+            dictionary_buffer = get_data_slice(self._data_model,column_metadata["Dictionary"])
             dictionary = self._read_dictionary(dictionary_buffer, min_data_id=meta['min_data_id'])
-            data_slice = get_data_slice(self._file_log, self._decompressed_data,column_metadata["IDF"])
+            data_slice = get_data_slice(self._data_model,column_metadata["IDF"])
             return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, meta['count_bit_packed'], meta['min_data_id'], meta['bit_width'])).map(dictionary)
         elif pd.notnull(column_metadata["HIDX"]):
-            data_slice = get_data_slice(self._file_log, self._decompressed_data,column_metadata["IDF"])
+            data_slice = get_data_slice(self._data_model,column_metadata["IDF"])
             return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, meta['count_bit_packed'], meta['min_data_id'], meta['bit_width'])).add(column_metadata["BaseId"]) / column_metadata["Magnitude"]
         else:
             raise ValueError(f"Neither dictionary nor hidx found for column {column_metadata['ColumnName']} in table.")
@@ -152,7 +152,7 @@ class VertiPaqDecoder:
         dataframe_data = {}
 
         for _, column_metadata in table_metadata_df.iterrows():
-            idfmeta_buffer = get_data_slice(self._file_log, self._decompressed_data,column_metadata["IDF"] + 'meta')
+            idfmeta_buffer = get_data_slice(self._data_model,column_metadata["IDF"] + 'meta')
             meta = self._read_idfmeta(idfmeta_buffer)
             
             column_data = self._get_column_data(column_metadata, meta)

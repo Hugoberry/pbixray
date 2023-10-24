@@ -3,6 +3,7 @@ import platform
 import zipfile
 import os
 from .abf import parser
+from .abf.data_model import DataModel
 
 
 class PbixUnpacker:
@@ -10,8 +11,7 @@ class PbixUnpacker:
         self.file_path = file_path
 
         # Attributes populated during unpacking
-        self._file_log = None
-        self._decompressed_data = None
+        self._data_model = DataModel(file_log=[], decompressed_data=b'')
         
         # Setup library
         self.__setup_library()
@@ -80,18 +80,20 @@ class PbixUnpacker:
         # Terminate the library
         self.lib.Terminate()
 
+        # Populate the byte array of the data bundle
+        self._data_model.decompressed_data = all_decompressed_data
+
         # Parse the decompressed data
-        abf_parser = parser.AbfParser(all_decompressed_data)
+        abf_parser = parser.AbfParser(self._data_model)
 
-        # Set the attributes
-        self._file_log = abf_parser.file_log
-        self._decompressed_data = all_decompressed_data
-
-    # Provide public properties to access the unpacked data
-    @property
-    def file_log(self):
-        return self._file_log
 
     @property
-    def decompressed_data(self):
-        return self._decompressed_data
+    def data_model(self):
+        return self._data_model
+
+    @data_model.setter
+    def data_model(self, value):
+        if isinstance(value, DataModel):
+            self._data_model = value
+        else:
+            raise ValueError("Expected an instance of DataModel.")

@@ -2,10 +2,12 @@ import xml.etree.ElementTree as ET
 from .backup_log import BackupLog
 from .backup_log_header import BackupLogHeader
 from .virtual_directory import VirtualDirectory
+from .data_model import DataModel
 
 class AbfParser:
-    def __init__(self, decompressed_buffer):
-        self.__buffer = decompressed_buffer
+    def __init__(self, data_model:DataModel):
+        self.data_model = data_model
+        self.__buffer = data_model.decompressed_data
         self.__backup_log_header = None
         self.__virtual_directory = None
         self.__backup_log = None
@@ -34,6 +36,7 @@ class AbfParser:
         log = self.__virtual_directory.BackupFiles[-1]
         offset = int(log.m_cbOffsetHeader)
         size = int(log.Size)
+        self.data_model.error_code = self.__backup_log_header.ErrorCode
         self.__backup_log = BackupLog(self.__buffer[offset:offset+size], self.__backup_log_header.ErrorCode)
 
     def __match_logs_and_get_attributes(self):
@@ -57,4 +60,4 @@ class AbfParser:
                         'm_cbOffsetHeader': matched_file.m_cbOffsetHeader
                     })
 
-        self.file_log = matched_data
+        self.data_model.file_log = matched_data

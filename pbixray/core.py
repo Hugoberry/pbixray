@@ -10,8 +10,8 @@ class PBIXRay:
     def __init__(self, file_path):
         unpacker = PbixUnpacker(file_path)
         
-        self._metadata_handler = MetadataHandler(unpacker.file_log, unpacker.decompressed_data)
-        self._vertipaq_decoder = VertiPaqDecoder(self._metadata_handler.metadata, unpacker.file_log, unpacker.decompressed_data)
+        self._metadata_handler = MetadataHandler(unpacker.data_model)
+        self._vertipaq_decoder = VertiPaqDecoder(self._metadata_handler.metadata, unpacker.data_model)
         
     def get_table(self, table_name):
         """Generates a DataFrame representation of the specified table."""
