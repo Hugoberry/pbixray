@@ -1,3 +1,3 @@
-include dlls/libxpress9.dll
-include dlls/libxpress9.so
-include dlls/libxpress9.dynlib
+include lib/libxpress9.dll
+include lib/libxpress9.so
+include lib/libxpress9.dynlib

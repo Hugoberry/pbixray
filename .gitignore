@@ -12,7 +12,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+lib/site-packages/
 lib64/
 parts/
 sdist/
@@ -157,5 +157,10 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-
+# Scraps
 /harvest
+pyvenv.cfg
+/Scripts
+/share
+/Include
+/etc
