@@ -25,11 +25,11 @@ class PbixUnpacker:
 
         # Determine the path to the shared library based on the platform
         if platform.system() == "Windows":
-            self.lib_path = os.path.join(current_dir, '..', 'lib', 'libxpress9.dll')
+            self.lib_path = os.path.join(current_dir, 'lib', 'libxpress9.dll')
         elif platform.system() == "Linux":
-            self.lib_path = os.path.join(current_dir, '..', 'lib', 'libxpress9.so')
+            self.lib_path = os.path.join(current_dir, 'lib', 'libxpress9.so')
         elif platform.system() == "Darwin":
-            self.lib_path = os.path.join(current_dir, '..', 'lib', 'libxpress9.dylib')
+            self.lib_path = os.path.join(current_dir, 'lib', 'libxpress9.dylib')
         else:
             raise RuntimeError("Unsupported platform")
 

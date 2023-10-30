@@ -2,15 +2,15 @@ from setuptools import setup, find_packages
 
 setup(
     name='pbixray',
-    version='0.1',
+    version='0.1.7',
     packages=find_packages(),
     install_requires=[
-        kaitai,
-        apsw
+        'kaitaistruct',
+        'pandas',
+        'apsw'
     ],
     include_package_data=True,
     package_data={
-        '': ['*.dll', '*.so', '*.dylib']
+        'pbixray': ['lib/*.dll', 'lib/*.so', 'lib/*.dylib'],
     }
-    # ... Other metadata
 )
