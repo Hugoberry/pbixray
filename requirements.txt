@@ -1,3 +1,4 @@
 kaitaistruct
 apsw
 icecream
+pandas

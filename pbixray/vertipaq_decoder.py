@@ -11,6 +11,8 @@ import io
 import pandas as pd
 from .abf.data_model import DataModel
 
+from .huffman import decompress_encode_array,build_huffman_tree, decode_substring
+from collections import defaultdict
 
 # ---------- VertiPaq CLASS ----------
 
@@ -110,28 +112,54 @@ class VertiPaqDecoder:
 
             return result_hash_table
 
-    def _read_dictionary(self,buffer,min_data_id):
+ 
+    def _read_dictionary(self, buffer, min_data_id):
         """Reads a dictionary from a buffer."""
         with io.BytesIO(buffer) as f:
             dictionary = ColumnDataDictionary.from_io(f)
 
-        # Extract data based on the dictionary type
         if dictionary.dictionary_type == ColumnDataDictionary.DictionaryTypes.xm_type_string:
-            # Create a hashtable for string-based dictionaries
             hashtable = {}
-            
-            page = dictionary.data.dictionary_pages  # Accessing the singular dictionary_page
-            strings = self._extract_strings(page.string_store.uncompressed_character_buffer)
-            hashtable = {i: val for i, val in enumerate(strings, start=min_data_id)}
+
+            pages = dictionary.data.dictionary_pages
+            record_handles = dictionary.data.dictionary_record_handles_vector_info.vector_of_record_handle_structures
+            record_handles_map = defaultdict(list)
+
+            for handle in record_handles:
+                record_handles_map[handle.page_id].append(handle.bit_or_byte_offset)
+
+            for page_id, page in enumerate(pages):
+                if page.page_compressed:
+                    compressed_store = page.string_store
+                    encode_array = compressed_store.encode_array
+                    store_total_bits = compressed_store.store_total_bits
+                    compressed_string_buffer = compressed_store.compressed_string_buffer
+                    ui_decode_bits = compressed_store.ui_decode_bits
+
+                    full_encode_array = decompress_encode_array(encode_array)
+                    huffman_tree = build_huffman_tree(full_encode_array)
+
+                    if page_id in record_handles_map:
+                        offsets = record_handles_map[page_id]
+                        for i in range(len(offsets)):
+                            start_bit = offsets[i]
+                            end_bit = offsets[i + 1] if i + 1 < len(offsets) else store_total_bits
+                            decompressed = decode_substring(compressed_string_buffer, huffman_tree, start_bit, end_bit)
+                            hashtable[min_data_id + i] = decompressed
+                    del huffman_tree
+                else:
+                    uncompressed_store = page.string_store
+                    uncompressed = uncompressed_store.uncompressed_character_buffer
+                    strings = self._extract_strings(uncompressed)
+                    for i, token in enumerate(strings):
+                        hashtable[min_data_id + i] = token
 
             return hashtable
-
         elif dictionary.dictionary_type in [ColumnDataDictionary.DictionaryTypes.xm_type_long, ColumnDataDictionary.DictionaryTypes.xm_type_real]:
-            # Return the values of vectorOfVectorsInfo
             vector_values = dictionary.data.vector_of_vectors_info.values
-            return {i: val for i, val  in enumerate(vector_values, start=min_data_id)}
+            return {i: val for i, val in enumerate(vector_values, start=min_data_id)}
 
-        return None
+        return None    
         
     def _get_column_data(self, column_metadata, meta):
         """Extracts column data based on the given column metadata and meta information."""
