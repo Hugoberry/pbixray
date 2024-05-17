@@ -1,8 +1,8 @@
 import pytest
 from pbixray import PBIXRay
 
-PBIX_FILE_PATH = r"C:\git\hub\pbixray\test-data\Sales & Returns Sample v201912.pbix"
-# C:\git\hub\pbixray\test-data\Excalidraw.pbix
+PBIX_FILE_PATH = r"C:\git\hub\pbixray\data\Sales & Returns Sample v201912.pbix"
+# C:\git\hub\pbixray\data\Excalidraw.pbix
 
 def test_initialization():
     """Test initialization of the library with the test PBIX file."""
