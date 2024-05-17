@@ -22,7 +22,8 @@ class MetadataQuery:
             cs.Statistics_DistinctStates as Cardinality,
             ds.DataType,
             ds.BaseId,
-            ds.Magnitude
+            ds.Magnitude,
+            ds.IsNullable
         FROM Column c 
         JOIN [Table] t ON c.TableId = t.ID
         JOIN ColumnStorage cs ON c.ColumnStorageID = cs.ID

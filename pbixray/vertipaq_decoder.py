@@ -120,6 +120,7 @@ class VertiPaqDecoder:
 
         if dictionary.dictionary_type == ColumnDataDictionary.DictionaryTypes.xm_type_string:
             hashtable = {}
+            index = min_data_id
 
             pages = dictionary.data.dictionary_pages
             record_handles = dictionary.data.dictionary_record_handles_vector_info.vector_of_record_handle_structures
@@ -145,14 +146,16 @@ class VertiPaqDecoder:
                             start_bit = offsets[i]
                             end_bit = offsets[i + 1] if i + 1 < len(offsets) else store_total_bits
                             decompressed = decode_substring(compressed_string_buffer, huffman_tree, start_bit, end_bit)
-                            hashtable[min_data_id + i] = decompressed
+                            hashtable[index] = decompressed
+                            index += 1
                     del huffman_tree
                 else:
                     uncompressed_store = page.string_store
                     uncompressed = uncompressed_store.uncompressed_character_buffer
                     strings = self._extract_strings(uncompressed)
                     for i, token in enumerate(strings):
-                        hashtable[min_data_id + i] = token
+                        hashtable[index] = token
+                        index += 1
 
             return hashtable
         elif dictionary.dictionary_type in [ColumnDataDictionary.DictionaryTypes.xm_type_long, ColumnDataDictionary.DictionaryTypes.xm_type_real]:
@@ -165,9 +168,12 @@ class VertiPaqDecoder:
         """Extracts column data based on the given column metadata and meta information."""
         if pd.notnull(column_metadata["Dictionary"]):
             dictionary_buffer = get_data_slice(self._data_model,column_metadata["Dictionary"])
+            null_adjustment = 1 if column_metadata["IsNullable"] else 0
+            # Read and construct the dictionary with appropriate minimum data ID
+            min_data_id_adj = meta['min_data_id'] - null_adjustment
             dictionary = self._read_dictionary(dictionary_buffer, min_data_id=meta['min_data_id'])
             data_slice = get_data_slice(self._data_model,column_metadata["IDF"])
-            return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, meta['count_bit_packed'], meta['min_data_id'], meta['bit_width'])).map(dictionary)
+            return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, meta['count_bit_packed'], min_data_id_adj , meta['bit_width'])).map(dictionary)
         elif pd.notnull(column_metadata["HIDX"]):
             data_slice = get_data_slice(self._data_model,column_metadata["IDF"])
             return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, meta['count_bit_packed'], meta['min_data_id'], meta['bit_width'])).add(column_metadata["BaseId"]) / column_metadata["Magnitude"]
