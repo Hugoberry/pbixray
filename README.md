@@ -1,5 +1,5 @@
 # PBIXRay
-
+[![Downloads](https://static.pepy.tech/badge/pbixray)](https://pepy.tech/project/pbixray)
 ## Overview
 
 PBIXRay is a Python library designed to parse and analyze PBIX files, which are used with Microsoft Power BI. This library provides a straightforward way to extract valuable information from PBIX files, including tables, metadata, Power Query code, and more.
@@ -9,7 +9,7 @@ PBIXRay is a Python library designed to parse and analyze PBIX files, which are 
 Before using PBIXRay, ensure you have the following Python modules installed: `apsw`, `kaitaistruct`, and `pbixray`. You can install them using pip:
 
 ```bash
-pip install apsw kaitaistruct pbixray
+pip install pbixray
 ```
 
 ## Getting Started
