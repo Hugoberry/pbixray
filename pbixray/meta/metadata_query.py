@@ -20,7 +20,8 @@ class MetadataQuery:
             sfh.FileName AS HIDX, 
             sfi.FileName AS IDF,
             cs.Statistics_DistinctStates as Cardinality,
-            ds.DataType,
+            c.ExplicitDataType AS DataType,
+            --ds.DataType,
             ds.BaseId,
             ds.Magnitude,
             ds.IsNullable

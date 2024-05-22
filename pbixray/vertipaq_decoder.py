@@ -9,6 +9,7 @@ from kaitaistruct import KaitaiStream
 from .utils import AMO_PANDAS_TYPE_MAPPING, get_data_slice
 import io
 import pandas as pd
+from decimal import Decimal
 from .abf.data_model import DataModel
 
 from .huffman import decompress_encode_array,build_huffman_tree, decode_substring
@@ -180,6 +181,15 @@ class VertiPaqDecoder:
         else:
             raise ValueError(f"Neither dictionary nor hidx found for column {column_metadata['ColumnName']} in table.")
         
+    def _handle_special_cases(self, column_data, data_type):
+        if data_type == 9:
+            # Convert to datetime
+            return pd.to_datetime(column_data, unit='d', origin='1899-12-30')
+        elif data_type == 10:
+            # Handle decimal.Decimal type
+            return column_data.apply(lambda x: Decimal(x)/10000 if pd.notnull(x) else None)
+        return column_data
+        
     def get_table(self, table_name):
         """Generates a DataFrame representation of the specified table."""
         table_metadata_df = self._meta.schema_df[self._meta.schema_df['TableName'] == table_name]
@@ -190,7 +200,14 @@ class VertiPaqDecoder:
             meta = self._read_idfmeta(idfmeta_buffer)
             
             column_data = self._get_column_data(column_metadata, meta)
+            # Handle special cases for certain data types
+            column_data = self._handle_special_cases(column_data, column_metadata["DataType"])
+            
             pandas_dtype = AMO_PANDAS_TYPE_MAPPING.get(column_metadata["DataType"], "object")  # default to object if no mapping is found
+            
+            # If it's a decimal type, keep it as object since pandas doesn't support Decimal natively
+            if pandas_dtype == 'decimal.Decimal':
+                pandas_dtype = 'object'
             dataframe_data[column_metadata["ColumnName"]] = column_data.astype(pandas_dtype)
 
         return pd.DataFrame(dataframe_data)
