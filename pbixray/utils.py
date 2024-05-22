@@ -3,8 +3,8 @@ from .abf.data_model import DataModel
 # ---------- CONSTANTS ----------
 AMO_PANDAS_TYPE_MAPPING = {
     2: 'string',
-    6: 'int64',
-    8: 'float64',
+    6: 'Int64',
+    8: 'Float64',
     9: 'datetime64[ns]',
     10: 'decimal.Decimal',
     11: 'bool',
