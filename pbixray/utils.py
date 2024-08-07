@@ -1,4 +1,5 @@
 from .abf.data_model import DataModel
+import datetime
 
 # ---------- CONSTANTS ----------
 AMO_PANDAS_TYPE_MAPPING = {
@@ -10,6 +11,9 @@ AMO_PANDAS_TYPE_MAPPING = {
     11: 'bool',
     17: 'bytes'
 }
+
+# Windows epoch start date
+WINDOWS_EPOCH_START = datetime.datetime(1601, 1, 1)
 
 # ---------- UTILITY FUNCTIONS ----------
 def get_data_slice(data_model:DataModel, file_name:str) -> bytes:
