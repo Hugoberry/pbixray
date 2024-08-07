@@ -24,7 +24,9 @@ class MetadataQuery:
             --ds.DataType,
             ds.BaseId,
             ds.Magnitude,
-            ds.IsNullable
+            ds.IsNullable,
+            c.ModifiedTime,
+            c.StructureModifiedTime
         FROM Column c 
         JOIN [Table] t ON c.TableId = t.ID
         JOIN ColumnStorage cs ON c.ColumnStorageID = cs.ID
