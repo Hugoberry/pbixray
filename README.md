@@ -65,6 +65,12 @@ To get details about the data model schema and column types in a dataframe with 
 schema = model.schema
 print(schema)
 ```
+### Relationships
+To get the details about the data model relationships in a dataframe with `FromTableName`, `FromColumnName`, `ToTableName`, `ToColumnName`, `IsActive`, `Cardinality`, `CrossFilteringBehavior`, `FromKeyCount` and  `ToKeyCount` columns:
+```python
+relationships = model.relationships
+print(relationships)
+```
 ### Get Table Contents
 To retrieve the contents of a specified table:
 ```python

@@ -9,6 +9,7 @@ class MetadataQuery:
         self.dax_tables_df = self.__populate_dax_tables()
         self.dax_measures_df = self.__populate_dax_measures()
         self.metadata_df = self.populate_metadata()
+        self.relationships_df = self.populate_relationships()
         self.handler.close_connection()
 
     def __populate_schema(self):
@@ -85,5 +86,40 @@ class MetadataQuery:
         SELECT Name,Value 
         FROM Annotation 
         WHERE ObjectType = 1
+        """
+        return self.handler.execute_query(sql)
+    
+    def populate_relationships(self):
+        sql = """
+        SELECT 
+            ft.Name AS FromTableName,
+            fc.ExplicitName AS FromColumnName,
+            tt.Name AS ToTableName,
+            tc.ExplicitName AS ToColumnName,
+            rel.IsActive,
+            CASE 
+                WHEN rel.FromCardinality = 2 THEN 'M'
+                ELSE '1'
+            END || ':' || 
+            CASE 
+                WHEN rel.ToCardinality = 2 THEN 'M'
+                ELSE '1'
+            END AS Cardinality,
+            CASE 
+                WHEN rel.CrossFilteringBehavior = 1 THEN 'Single'
+                WHEN rel.CrossFilteringBehavior = 2 THEN 'Both'
+                ELSE CAST(rel.CrossFilteringBehavior AS TEXT)
+            END AS CrossFilteringBehavior,
+            rid.RecordCount as FromKeyCount,
+            rid2.RecordCount AS ToKeyCount
+        FROM Relationship rel
+            LEFT JOIN [Table] ft ON rel.FromTableID = ft.id
+            LEFT JOIN [Column] fc ON rel.FromColumnID = fc.id
+            LEFT JOIN [Table] tt ON rel.ToTableID = tt.id AND tt.systemflags = 0
+            LEFT JOIN [Column] tc ON rel.ToColumnID = tc.id
+            LEFT JOIN RelationshipStorage rs ON rs.id = rel.RelationshipStorageID
+            LEFT JOIN RelationshipIndexStorage rid ON rs.RelationshipIndexStorageID = rid.id
+            LEFT JOIN RelationshipStorage rs2 ON rs2.id = rel.RelationshipStorage2ID
+            LEFT JOIN RelationshipIndexStorage rid2 ON rs2.RelationshipIndexStorageID = rid2.id
         """
         return self.handler.execute_query(sql)

@@ -30,6 +30,10 @@ def app():
         st.write("Statistics:")
         st.dataframe(model.statistics)
 
+        if model.relationships.size:
+            st.write("Relationships:")
+            st.write(model.relationships)
+
         if model.power_query.size:
             st.write("Power Query code:")
             st.dataframe(model.power_query)

@@ -50,3 +50,7 @@ class PBIXRay:
     @property
     def schema(self):
         return  self._metadata_handler.schema
+    
+    @property
+    def relationships(self):
+        return self._metadata_handler.metadata.relationships_df
