@@ -1,4 +1,8 @@
 import pytest
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'pbix')))
+
 from pbixray import PBIXRay
 
 PBIX_FILE_PATH = r"C:\git\hub\pbixray\data\Sales & Returns Sample v201912.pbix"
