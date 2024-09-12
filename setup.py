@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pbixray',
-    version='0.1.15',
+    version='0.1.17',
     packages=find_packages(),
     install_requires=[
         'kaitaistruct',
