@@ -111,7 +111,8 @@ class MetadataQuery:
                 ELSE CAST(rel.CrossFilteringBehavior AS TEXT)
             END AS CrossFilteringBehavior,
             rid.RecordCount as FromKeyCount,
-            rid2.RecordCount AS ToKeyCount
+            rid2.RecordCount AS ToKeyCount,
+            rel.RelyOnReferentialIntegrity
         FROM Relationship rel
             LEFT JOIN [Table] ft ON rel.FromTableID = ft.id
             LEFT JOIN [Column] fc ON rel.FromColumnID = fc.id
