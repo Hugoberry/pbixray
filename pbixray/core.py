@@ -40,6 +40,10 @@ class PBIXRay:
         return self._metadata_handler.metadata.dax_measures_df
     
     @property
+    def dax_columns(self):
+        return self._metadata_handler.metadata.dax_columns_df
+    
+    @property
     def metadata(self):
         return self._metadata_handler.metadata.metadata_df
     
