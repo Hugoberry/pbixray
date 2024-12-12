@@ -59,6 +59,12 @@ To access DAX measures in a dataframe with `TableName`, `Name`, `Expression`, `D
 dax_measures = model.dax_measures
 print(dax_measures)
 ```
+### Calculated Columns
+To access calculated column DAX expressions in a dataframe with `TableName`,`ColumnName` and `Expression` columns:
+```python
+dax_columns = model.dax_columns
+print(dax_columns)
+```
 ### Schema
 To get details about the data model schema and column types in a dataframe with `TableName`, `ColumnName`, and `PandasDataType` columns:
 ```python

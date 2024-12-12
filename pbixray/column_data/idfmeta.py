@@ -132,7 +132,8 @@ class IdfmetaParser(KaitaiStruct):
 
         def _read(self):
             self.cp = IdfmetaParser.CPElement(self._io, self, self._root)
-            self.sdos = IdfmetaParser.SDOsElement(self._io, self, self._root)
+            if self._io.size() > self._io.pos():
+                self.sdos = IdfmetaParser.SDOsElement(self._io, self, self._root)
 
 
     class CSDOs1Element(KaitaiStruct):

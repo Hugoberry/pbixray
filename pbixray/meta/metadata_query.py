@@ -8,8 +8,9 @@ class MetadataQuery:
         self.m_df = self.__populate_m()
         self.dax_tables_df = self.__populate_dax_tables()
         self.dax_measures_df = self.__populate_dax_measures()
-        self.metadata_df = self.populate_metadata()
-        self.relationships_df = self.populate_relationships()
+        self.dax_columns_df = self.__populate_dax_columns()
+        self.metadata_df = self.__populate_metadata()
+        self.relationships_df = self.__populate_relationships()
         self.handler.close_connection()
 
     def __populate_schema(self):
@@ -41,7 +42,7 @@ class MetadataQuery:
         --IDF
         JOIN ColumnPartitionStorage cps ON cps.ColumnStorageID = cs.ID
         JOIN StorageFile sfi ON sfi.ID = cps.StorageFileID
-        WHERE c.Type = 1
+        WHERE c.Type IN (1,2)
         ORDER BY t.Name, cs.StoragePosition
         """
         return self.handler.execute_query(sql)
@@ -80,8 +81,20 @@ class MetadataQuery:
         JOIN [Table] t ON m.TableID = t.ID;
         """
         return self.handler.execute_query(sql)
+    
+    def __populate_dax_columns(self):
+        sql = """ 
+        SELECT 
+            t.Name AS TableName,
+            c.ExplicitName AS ColumnName,
+            c.Expression
+        FROM Column c 
+        JOIN [Table] t ON c.TableID = t.ID
+        WHERE c.Type = 2;
+        """
+        return self.handler.execute_query(sql)
 
-    def populate_metadata(self):
+    def __populate_metadata(self):
         sql = """
         SELECT Name,Value 
         FROM Annotation 
@@ -89,7 +102,7 @@ class MetadataQuery:
         """
         return self.handler.execute_query(sql)
     
-    def populate_relationships(self):
+    def __populate_relationships(self):
         sql = """
         SELECT 
             ft.Name AS FromTableName,
