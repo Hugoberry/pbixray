@@ -46,6 +46,10 @@ def app():
             st.write("DAX measures:")
             st.dataframe(model.dax_measures)
 
+        if model.dax_columns.size:
+            st.write("Calculated columns:")
+            st.dataframe(model.dax_columns)
+            
         # Let the user select a table name
         table_name_input = st.selectbox("Select a table to peek at its contents:", model.tables)
 
