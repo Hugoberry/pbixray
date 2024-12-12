@@ -42,7 +42,7 @@ class MetadataQuery:
         --IDF
         JOIN ColumnPartitionStorage cps ON cps.ColumnStorageID = cs.ID
         JOIN StorageFile sfi ON sfi.ID = cps.StorageFileID
-        WHERE c.Type = 1
+        WHERE c.Type IN (1,2)
         ORDER BY t.Name, cs.StoragePosition
         """
         return self.handler.execute_query(sql)
