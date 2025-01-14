@@ -3,6 +3,8 @@
 from .pbix_unpacker import PbixUnpacker
 from .vertipaq_decoder import VertiPaqDecoder
 from .meta.metadata_handler import MetadataHandler
+from .utils import WINDOWS_EPOCH_START
+import datetime
 
 # ---------- MAIN CLASS ----------
 
@@ -31,6 +33,15 @@ class PBIXRay:
     def power_query(self):
         return self._metadata_handler.metadata.m_df
     
+    @property
+    def m_parameters(self):
+        df = self._metadata_handler.metadata.m_parameters_df
+        return df if df.empty else df.assign(
+            ModifiedTime=lambda df: df['ModifiedTime'].apply(
+                lambda x: WINDOWS_EPOCH_START + datetime.timedelta(seconds=x / 1e7)
+            )
+        )
+
     @property
     def dax_tables(self):
         return self._metadata_handler.metadata.dax_tables_df
