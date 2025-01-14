@@ -38,6 +38,10 @@ def app():
             st.write("Power Query code:")
             st.dataframe(model.power_query)
 
+        if model.m_parameters.size:
+            st.write("M parameters:")
+            st.dataframe(model.m_parameters)
+
         if model.dax_tables.size:
             st.write("DAX tables:")
             st.dataframe(model.dax_tables)

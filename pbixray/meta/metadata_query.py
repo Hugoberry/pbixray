@@ -6,6 +6,7 @@ class MetadataQuery:
         # Populate dataframes upon instantiation
         self.schema_df = self.__populate_schema()
         self.m_df = self.__populate_m()
+        self.m_parameters_df = self.__populate_m_parameters()
         self.dax_tables_df = self.__populate_dax_tables()
         self.dax_measures_df = self.__populate_dax_measures()
         self.dax_columns_df = self.__populate_dax_columns()
@@ -57,6 +58,17 @@ class MetadataQuery:
         WHERE p.Type = 4;
         """
         return self.handler.execute_query(sql)
+    
+    def __populate_m_parameters(self):
+        sql = """ 
+        SELECT 
+            Name as ParameterName, 
+            Description, 
+            Expression, 
+            ModifiedTime 
+        FROM Expression;
+        """
+        return self.handler.execute_query(sql)  
 
     def __populate_dax_tables(self):
         sql = """ 

@@ -41,6 +41,12 @@ To display all M/Power Query code used for data transformation, in a dataframe w
 power_query = model.power_query
 print(power_query)
 ```
+### M Parameters
+To display all M Parameters values in a dataframe with `ParameterName`, `Description`, `Expression` and `ModifiedTime` columns:
+```python
+m_parameters = model.m_parameters
+print(m_parameters)
+```
 ### Model Size
 To find out the model size in bytes:
 ```python
