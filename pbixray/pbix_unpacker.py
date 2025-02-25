@@ -108,49 +108,68 @@ class PbixUnpacker:
         main_thread_count = int.from_bytes(data_model_file.read(8), 'little')
         chunk_uncompressed_size = int.from_bytes(data_model_file.read(8), 'little')
 
-        # Read all prefix chunks and group by thread
-        prefix_chunks = []
-        for _ in range(prefix_thread_count * prefix_chunks_per_thread):
-            uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
-            compressed_size = int.from_bytes(data_model_file.read(4), 'little')
-            compressed_data = data_model_file.read(compressed_size)
-            prefix_chunks.append((uncompressed_size, compressed_size, compressed_data))
+        # Process prefix chunks if there are any
+        if prefix_thread_count > 0 and prefix_chunks_per_thread > 0:
+            # Read all prefix chunks and group by thread
+            prefix_chunks = []
+            for _ in range(prefix_thread_count * prefix_chunks_per_thread):
+                uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
+                compressed_size = int.from_bytes(data_model_file.read(4), 'little')
+                compressed_data = data_model_file.read(compressed_size)
+                prefix_chunks.append((uncompressed_size, compressed_size, compressed_data))
 
-        prefix_groups = [prefix_chunks[i*prefix_chunks_per_thread : (i+1)*prefix_chunks_per_thread]
-                        for i in range(prefix_thread_count)]
+            prefix_groups = [prefix_chunks[i*prefix_chunks_per_thread : (i+1)*prefix_chunks_per_thread]
+                            for i in range(prefix_thread_count)]
 
-        # Process prefix groups in parallel, maintaining order
-        with concurrent.futures.ThreadPoolExecutor(max_workers=prefix_thread_count) as executor:
-            future_to_group = {executor.submit(self.__process_chunk_group, group): idx 
-                              for idx, group in enumerate(prefix_groups)}
-            # Collect results in original order
-            for future in concurrent.futures.as_completed(future_to_group):
-                idx = future_to_group[future]
-                all_decompressed_data.extend(future.result())
+            # Process prefix groups in parallel, maintaining order
+            if prefix_thread_count > 0:  # Ensure we only create a ThreadPoolExecutor if we have threads
+                with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, prefix_thread_count)) as executor:
+                    future_to_group = {executor.submit(self.__process_chunk_group, group): idx 
+                                    for idx, group in enumerate(prefix_groups)}
+                    # Collect results in original order
+                    ordered_results = [None] * len(prefix_groups)
+                    for future in concurrent.futures.as_completed(future_to_group):
+                        idx = future_to_group[future]
+                        ordered_results[idx] = future.result()
+                    
+                    for result in ordered_results:
+                        if result:
+                            all_decompressed_data.extend(result)
         
-        # Read all main chunks and group by thread
-        main_chunks = []
-        for _ in range(main_thread_count * main_chunks_per_thread):
-            uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
-            compressed_size = int.from_bytes(data_model_file.read(4), 'little')
-            compressed_data = data_model_file.read(compressed_size)
-            main_chunks.append((uncompressed_size, compressed_size, compressed_data))
+        # Process main chunks if there are any
+        if main_thread_count > 0 and main_chunks_per_thread > 0:
+            # Read all main chunks and group by thread
+            main_chunks = []
+            for _ in range(main_thread_count * main_chunks_per_thread):
+                uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
+                compressed_size = int.from_bytes(data_model_file.read(4), 'little')
+                compressed_data = data_model_file.read(compressed_size)
+                main_chunks.append((uncompressed_size, compressed_size, compressed_data))
 
-        main_groups = [main_chunks[i*main_chunks_per_thread : (i+1)*main_chunks_per_thread]
-                      for i in range(main_thread_count)]
+            main_groups = [main_chunks[i*main_chunks_per_thread : (i+1)*main_chunks_per_thread]
+                        for i in range(main_thread_count)]
 
-        # Process main groups in parallel, maintaining order
-        with concurrent.futures.ThreadPoolExecutor(max_workers=main_thread_count) as executor:
-            future_to_group = {executor.submit(self.__process_chunk_group, group): idx 
-                              for idx, group in enumerate(main_groups)}
-            # Collect results in original order
-            for future in concurrent.futures.as_completed(future_to_group):
-                idx = future_to_group[future]
-                all_decompressed_data.extend(future.result())
+            # Process main groups in parallel, maintaining order
+            if main_thread_count > 0:  # Ensure we only create a ThreadPoolExecutor if we have threads
+                with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, main_thread_count)) as executor:
+                    future_to_group = {executor.submit(self.__process_chunk_group, group): idx 
+                                    for idx, group in enumerate(main_groups)}
+                    # Collect results in original order
+                    ordered_results = [None] * len(main_groups)
+                    for future in concurrent.futures.as_completed(future_to_group):
+                        idx = future_to_group[future]
+                        ordered_results[idx] = future.result()
+                    
+                    for result in ordered_results:
+                        if result:
+                            all_decompressed_data.extend(result)
 
         self._data_model.decompressed_data = all_decompressed_data
 
     def __process_chunk_group(self, chunk_group):
+        if not chunk_group:
+            return bytearray()
+            
         xpress9_lib = Xpress9Library()
         xpress9_lib.initialize()
         decompressed = bytearray()
@@ -174,4 +193,3 @@ class PbixUnpacker:
             self._data_model = value
         else:
             raise ValueError("Expected an instance of DataModel.")
-            
