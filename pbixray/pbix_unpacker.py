@@ -1,4 +1,5 @@
 import zipfile
+import concurrent.futures
 from .xpress9_lib import Xpress9Library
 from .abf import parser
 from .abf.data_model import DataModel
@@ -98,68 +99,70 @@ class PbixUnpacker:
         self._data_model.decompressed_data = all_decompressed_data
 
     def __process_multi_threaded(self, data_model_file):
-        """Process a multi-threaded Xpress9 compressed DataModel file."""
         all_decompressed_data = bytearray()
-        
-        # Skip signature
         data_model_file.seek(102)
-        
-        # Read thread distribution information
+
         main_chunks_per_thread = int.from_bytes(data_model_file.read(8), 'little')
         prefix_chunks_per_thread = int.from_bytes(data_model_file.read(8), 'little')
         prefix_thread_count = int.from_bytes(data_model_file.read(8), 'little')
         main_thread_count = int.from_bytes(data_model_file.read(8), 'little')
         chunk_uncompressed_size = int.from_bytes(data_model_file.read(8), 'little')
 
-        # Create a new xpress9 library instance
-        xpress9_lib = Xpress9Library()
+        # Read all prefix chunks and group by thread
+        prefix_chunks = []
+        for _ in range(prefix_thread_count * prefix_chunks_per_thread):
+            uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
+            compressed_size = int.from_bytes(data_model_file.read(4), 'little')
+            compressed_data = data_model_file.read(compressed_size)
+            prefix_chunks.append((uncompressed_size, compressed_size, compressed_data))
 
-        # Process all prefix chunks
-        for _ in range(prefix_thread_count):
-            # Initialize the library for each thread
-            xpress9_lib.initialize()
-            
-            try:
-                for _ in range(prefix_chunks_per_thread):
-                    uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                    compressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                    compressed_data = data_model_file.read(compressed_size)
+        prefix_groups = [prefix_chunks[i*prefix_chunks_per_thread : (i+1)*prefix_chunks_per_thread]
+                        for i in range(prefix_thread_count)]
 
-                    # Use the xpress9_lib to decompress
-                    decompressed_chunk = xpress9_lib.decompress(
-                        compressed_data, compressed_size, uncompressed_size
-                    )
-                    
-                    # Append decompressed data
-                    all_decompressed_data.extend(decompressed_chunk)
-            finally:
-                # Terminate the library after processing chunks for a thread
-                xpress9_lib.terminate()
+        # Process prefix groups in parallel, maintaining order
+        with concurrent.futures.ThreadPoolExecutor(max_workers=prefix_thread_count) as executor:
+            future_to_group = {executor.submit(self.__process_chunk_group, group): idx 
+                              for idx, group in enumerate(prefix_groups)}
+            # Collect results in original order
+            for future in concurrent.futures.as_completed(future_to_group):
+                idx = future_to_group[future]
+                all_decompressed_data.extend(future.result())
         
-        # Process all main chunks
-        for _ in range(main_thread_count):
-            # Initialize the library for each thread
-            xpress9_lib.initialize()
-            
-            try:
-                for _ in range(main_chunks_per_thread):
-                    uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                    compressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                    compressed_data = data_model_file.read(compressed_size)
+        # Read all main chunks and group by thread
+        main_chunks = []
+        for _ in range(main_thread_count * main_chunks_per_thread):
+            uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
+            compressed_size = int.from_bytes(data_model_file.read(4), 'little')
+            compressed_data = data_model_file.read(compressed_size)
+            main_chunks.append((uncompressed_size, compressed_size, compressed_data))
 
-                    # Use the xpress9_lib to decompress
-                    decompressed_chunk = xpress9_lib.decompress(
-                        compressed_data, compressed_size, uncompressed_size
-                    )
-                    
-                    # Append decompressed data
-                    all_decompressed_data.extend(decompressed_chunk)
-            finally:
-                # Terminate the library after processing chunks for a thread
-                xpress9_lib.terminate()
-            
-        # Populate the byte array of the data bundle
+        main_groups = [main_chunks[i*main_chunks_per_thread : (i+1)*main_chunks_per_thread]
+                      for i in range(main_thread_count)]
+
+        # Process main groups in parallel, maintaining order
+        with concurrent.futures.ThreadPoolExecutor(max_workers=main_thread_count) as executor:
+            future_to_group = {executor.submit(self.__process_chunk_group, group): idx 
+                              for idx, group in enumerate(main_groups)}
+            # Collect results in original order
+            for future in concurrent.futures.as_completed(future_to_group):
+                idx = future_to_group[future]
+                all_decompressed_data.extend(future.result())
+
         self._data_model.decompressed_data = all_decompressed_data
+
+    def __process_chunk_group(self, chunk_group):
+        xpress9_lib = Xpress9Library()
+        xpress9_lib.initialize()
+        decompressed = bytearray()
+        try:
+            for uncompressed_size, compressed_size, compressed_data in chunk_group:
+                decompressed_chunk = xpress9_lib.decompress(
+                    compressed_data, compressed_size, uncompressed_size
+                )
+                decompressed.extend(decompressed_chunk)
+        finally:
+            xpress9_lib.terminate()
+        return decompressed
 
     @property
     def data_model(self):
