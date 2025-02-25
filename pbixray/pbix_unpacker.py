@@ -1,7 +1,5 @@
-import ctypes
-import platform
 import zipfile
-import os
+from .xpress9_lib import Xpress9Library
 from .abf import parser
 from .abf.data_model import DataModel
 
@@ -18,38 +16,8 @@ class PbixUnpacker:
         # Attributes populated during unpacking
         self._data_model = DataModel(file_log=[], decompressed_data=b'')
         
-        # Setup library
-        self.__setup_library()
-        
         # Detect file type and unpack accordingly
         self.__unpack()
-
-    def __setup_library(self):
-        # Get the directory of the current file
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-
-        # Determine the path to the shared library based on the platform
-        if platform.system() == "Windows":
-            self.lib_path = os.path.join(current_dir, 'lib', 'libxpress9.dll')
-        elif platform.system() == "Linux":
-            self.lib_path = os.path.join(current_dir, 'lib', 'libxpress9.so')
-        elif platform.system() == "Darwin":
-            self.lib_path = os.path.join(current_dir, 'lib', 'libxpress9.dylib')
-        else:
-            raise RuntimeError("Unsupported platform")
-
-        # Load the shared library
-        self.lib = ctypes.CDLL(self.lib_path)
-
-        # Define the function signatures
-        self.lib.Initialize.argtypes = []
-        self.lib.Initialize.restype = ctypes.c_bool
-
-        self.lib.Decompress.argtypes = [ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int, ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int]
-        self.lib.Decompress.restype = ctypes.c_uint
-
-        self.lib.Terminate.argtypes = []
-        self.lib.Terminate.restype = None
 
     def __detect_file_type(self, data_model_file):
         """Detect the type of DataModel file based on its signature."""
@@ -75,11 +43,6 @@ class PbixUnpacker:
         return "unknown"
 
     def __unpack(self):
-        # Initialize the library
-        result = self.lib.Initialize()
-        if result:
-            raise RuntimeError("Failed to initialize the library")
-        
         with zipfile.ZipFile(self.file_path, 'r') as zip_ref:
             # Open the DataModel file within the ZIP
             with zip_ref.open('DataModel') as data_model_in_pbix:
@@ -93,9 +56,6 @@ class PbixUnpacker:
                     self.__process_multi_threaded(data_model_in_pbix)
                 else:
                     raise RuntimeError("Unknown or unsupported DataModel file format")
-
-        # Terminate the library
-        self.lib.Terminate()
 
         # Parse the decompressed data
         parser.AbfParser(self._data_model)
@@ -113,22 +73,26 @@ class PbixUnpacker:
         total_size = data_model_file.seek(0, 2)  # Get total size of file
         data_model_file.seek(102)  # Skip signature
 
-        while data_model_file.tell() < total_size:
-            uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')  # Read uint32 for uncompressed size
-            compressed_size = int.from_bytes(data_model_file.read(4), 'little')  # Read uint32 for compressed size
-            compressed_data = data_model_file.read(compressed_size)
+        # Create and initialize the xpress9 library
+        xpress9_lib = Xpress9Library()
+        xpress9_lib.initialize()
+        
+        try:
+            while data_model_file.tell() < total_size:
+                uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')  # Read uint32 for uncompressed size
+                compressed_size = int.from_bytes(data_model_file.read(4), 'little')  # Read uint32 for compressed size
+                compressed_data = data_model_file.read(compressed_size)
 
-            # Create ctypes buffers
-            compressed_buffer = (ctypes.c_ubyte * compressed_size)(*compressed_data)
-            decompressed_buffer = (ctypes.c_ubyte * uncompressed_size)()
-
-            # Decompress the data
-            decompressed_size = self.lib.Decompress(compressed_buffer, compressed_size, decompressed_buffer, uncompressed_size)
-            if decompressed_size != uncompressed_size:
-                raise RuntimeError(f"Expected {uncompressed_size} bytes after decompression, but got {decompressed_size} bytes")
-
-            # Append decompressed data
-            all_decompressed_data.extend(decompressed_buffer)
+                # Use the xpress9_lib to decompress
+                decompressed_chunk = xpress9_lib.decompress(
+                    compressed_data, compressed_size, uncompressed_size
+                )
+                
+                # Append decompressed data
+                all_decompressed_data.extend(decompressed_chunk)
+        finally:
+            # Ensure the library is properly terminated
+            xpress9_lib.terminate()
             
         # Populate the byte array of the data bundle
         self._data_model.decompressed_data = all_decompressed_data
@@ -146,51 +110,53 @@ class PbixUnpacker:
         prefix_thread_count = int.from_bytes(data_model_file.read(8), 'little')
         main_thread_count = int.from_bytes(data_model_file.read(8), 'little')
         chunk_uncompressed_size = int.from_bytes(data_model_file.read(8), 'little')
-        
-        # Calculate total expected chunks
-        total_chunks = (main_chunks_per_thread * main_thread_count) + (prefix_chunks_per_thread * prefix_thread_count)
-        
+
+        # Create a new xpress9 library instance
+        xpress9_lib = Xpress9Library()
+
         # Process all prefix chunks
         for _ in range(prefix_thread_count):
-            for _ in range(prefix_chunks_per_thread):
-                uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                compressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                compressed_data = data_model_file.read(compressed_size)
+            # Initialize the library for each thread
+            xpress9_lib.initialize()
+            
+            try:
+                for _ in range(prefix_chunks_per_thread):
+                    uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
+                    compressed_size = int.from_bytes(data_model_file.read(4), 'little')
+                    compressed_data = data_model_file.read(compressed_size)
 
-                # Create ctypes buffers
-                compressed_buffer = (ctypes.c_ubyte * compressed_size)(*compressed_data)
-                decompressed_buffer = (ctypes.c_ubyte * uncompressed_size)()
-
-                # Decompress the data
-                decompressed_size = self.lib.Decompress(compressed_buffer, compressed_size, decompressed_buffer, uncompressed_size)
-                if decompressed_size != uncompressed_size:
-                    raise RuntimeError(f"Expected {uncompressed_size} bytes after decompression, but got {decompressed_size} bytes")
-
-                # Append decompressed data
-                all_decompressed_data.extend(decompressed_buffer)
-            self.lib.Terminate()
-            self.lib.Initialize()
+                    # Use the xpress9_lib to decompress
+                    decompressed_chunk = xpress9_lib.decompress(
+                        compressed_data, compressed_size, uncompressed_size
+                    )
+                    
+                    # Append decompressed data
+                    all_decompressed_data.extend(decompressed_chunk)
+            finally:
+                # Terminate the library after processing chunks for a thread
+                xpress9_lib.terminate()
         
         # Process all main chunks
         for _ in range(main_thread_count):
-            for _ in range(main_chunks_per_thread):
-                uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                compressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                compressed_data = data_model_file.read(compressed_size)
+            # Initialize the library for each thread
+            xpress9_lib.initialize()
+            
+            try:
+                for _ in range(main_chunks_per_thread):
+                    uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
+                    compressed_size = int.from_bytes(data_model_file.read(4), 'little')
+                    compressed_data = data_model_file.read(compressed_size)
 
-                # Create ctypes buffers
-                compressed_buffer = (ctypes.c_ubyte * compressed_size)(*compressed_data)
-                decompressed_buffer = (ctypes.c_ubyte * uncompressed_size)()
-
-                # Decompress the data
-                decompressed_size = self.lib.Decompress(compressed_buffer, compressed_size, decompressed_buffer, uncompressed_size)
-                if decompressed_size != uncompressed_size:
-                    raise RuntimeError(f"Expected {uncompressed_size} bytes after decompression, but got {decompressed_size} bytes")
-
-                # Append decompressed data
-                all_decompressed_data.extend(decompressed_buffer)
-            self.lib.Terminate()
-            self.lib.Initialize()
+                    # Use the xpress9_lib to decompress
+                    decompressed_chunk = xpress9_lib.decompress(
+                        compressed_data, compressed_size, uncompressed_size
+                    )
+                    
+                    # Append decompressed data
+                    all_decompressed_data.extend(decompressed_chunk)
+            finally:
+                # Terminate the library after processing chunks for a thread
+                xpress9_lib.terminate()
             
         # Populate the byte array of the data bundle
         self._data_model.decompressed_data = all_decompressed_data
@@ -205,3 +171,4 @@ class PbixUnpacker:
             self._data_model = value
         else:
             raise ValueError("Expected an instance of DataModel.")
+            
