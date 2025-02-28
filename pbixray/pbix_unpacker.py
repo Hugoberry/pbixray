@@ -1,8 +1,8 @@
 import zipfile
 import concurrent.futures
-from .xpress9_lib import Xpress9Library
 from .abf import parser
 from .abf.data_model import DataModel
+from xpress9 import Xpress9
 
 
 class PbixUnpacker:
@@ -75,9 +75,8 @@ class PbixUnpacker:
         data_model_file.seek(102)  # Skip signature
 
         # Create and initialize the xpress9 library
-        xpress9_lib = Xpress9Library()
+        xpress9_lib = Xpress9()
         xpress9_lib.initialize()
-        
         try:
             while data_model_file.tell() < total_size:
                 uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')  # Read uint32 for uncompressed size
@@ -86,14 +85,14 @@ class PbixUnpacker:
 
                 # Use the xpress9_lib to decompress
                 decompressed_chunk = xpress9_lib.decompress(
-                    compressed_data, compressed_size, uncompressed_size
+                    compressed_data, uncompressed_size
                 )
                 
                 # Append decompressed data
                 all_decompressed_data.extend(decompressed_chunk)
         finally:
             # Ensure the library is properly terminated
-            xpress9_lib.terminate()
+            del xpress9_lib
             
         # Populate the byte array of the data bundle
         self._data_model.decompressed_data = all_decompressed_data
@@ -116,7 +115,7 @@ class PbixUnpacker:
                 uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
                 compressed_size = int.from_bytes(data_model_file.read(4), 'little')
                 compressed_data = data_model_file.read(compressed_size)
-                prefix_chunks.append((uncompressed_size, compressed_size, compressed_data))
+                prefix_chunks.append((uncompressed_size, compressed_data))
 
             prefix_groups = [prefix_chunks[i*prefix_chunks_per_thread : (i+1)*prefix_chunks_per_thread]
                             for i in range(prefix_thread_count)]
@@ -144,7 +143,7 @@ class PbixUnpacker:
                 uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
                 compressed_size = int.from_bytes(data_model_file.read(4), 'little')
                 compressed_data = data_model_file.read(compressed_size)
-                main_chunks.append((uncompressed_size, compressed_size, compressed_data))
+                main_chunks.append((uncompressed_size, compressed_data))
 
             main_groups = [main_chunks[i*main_chunks_per_thread : (i+1)*main_chunks_per_thread]
                         for i in range(main_thread_count)]
@@ -170,17 +169,16 @@ class PbixUnpacker:
         if not chunk_group:
             return bytearray()
             
-        xpress9_lib = Xpress9Library()
-        xpress9_lib.initialize()
+        xpress9_lib = Xpress9()
         decompressed = bytearray()
         try:
-            for uncompressed_size, compressed_size, compressed_data in chunk_group:
+            for uncompressed_size, compressed_data in chunk_group:
                 decompressed_chunk = xpress9_lib.decompress(
-                    compressed_data, compressed_size, uncompressed_size
+                    compressed_data, uncompressed_size
                 )
                 decompressed.extend(decompressed_chunk)
         finally:
-            xpress9_lib.terminate()
+            del xpress9_lib
         return decompressed
 
     @property
