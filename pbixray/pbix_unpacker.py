@@ -76,7 +76,6 @@ class PbixUnpacker:
 
         # Create and initialize the xpress9 library
         xpress9_lib = Xpress9()
-        xpress9_lib.initialize()
         try:
             while data_model_file.tell() < total_size:
                 uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')  # Read uint32 for uncompressed size
