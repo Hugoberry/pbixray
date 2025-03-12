@@ -1,0 +1,14 @@
+<BackupLog>
+    <BackupRestoreSyncVersion>140</BackupRestoreSyncVersion>
+    <Fault>false</Fault>
+    <faultcode>43981</faultcode>
+    <ErrorCode>false</ErrorCode>
+    <EncryptionFlag>false</EncryptionFlag>
+    <EncryptionKey>6</EncryptionKey>
+    <ApplyCompression>true</ApplyCompression>
+    <m_cbOffsetHeader>585728</m_cbOffsetHeader>
+    <DataSize>186038</DataSize>
+    <Files>336</Files>
+    <ObjectID>64D96BC6-0DBA-11E7-BF27-F4B7E2E6753D</ObjectID>
+    <m_cbOffsetData>4096</m_cbOffsetData>
+</BackupLog>
