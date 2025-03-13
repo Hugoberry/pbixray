@@ -5,3 +5,4 @@ class DataModel:
     file_log: list
     decompressed_data: bytes
     error_code: bool = False
+    apply_compression: bool = False
