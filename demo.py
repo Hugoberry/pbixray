@@ -1,8 +1,8 @@
 from pbixray import PBIXRay
 from icecream import ic
 
-# PBIX_FILE_PATH = r"C:\git\hub\pbixray\data\Excalidraw.pbix"
-PBIX_FILE_PATH = r"C:\git\hub\pbixray\data\Sales & Returns Sample v201912.pbix"
+# PBIX_FILE_PATH = r"data/Excalidraw.pbix"
+PBIX_FILE_PATH = r"data/Sales & Returns Sample v201912.pbix"
 model = PBIXRay(PBIX_FILE_PATH)
 ic(model.tables)
 ic(model.metadata)
@@ -14,7 +14,7 @@ ic(model.size)
 ic(model.schema)
 ic(model.relationships)
 ic(model.get_table("Age"))
-PBIX_FILE_PATH = r"C:\git\hub\pbixray\data\Adventure Works DW 2020.pbix"
+PBIX_FILE_PATH = r"data/Adventure Works DW 2020.pbix"
 model = PBIXRay(PBIX_FILE_PATH)
 ic(model.tables)
 ic(model.metadata)
@@ -26,7 +26,7 @@ ic(model.size)
 ic(model.schema)
 ic(model.relationships)
 ic(model.get_table("Sales Order"))
-model = PBIXRay(r"C:\git\hub\pbixray\data\Excalidraw.pbix")
+model = PBIXRay(r"data/Excalidraw.pbix")
 ic(model.tables)
 ic(model.metadata)
 ic(model.power_query)
@@ -39,7 +39,7 @@ ic(model.relationships)
 ic(model.dax_columns)
 ic(model.get_table("Fruit_RLE"))
 
-model = PBIXRay(r"C:\git\hub\pbixray\data\2020SU11 Blog Demo - November.pbix")
+model = PBIXRay(r"data/2020SU11 Blog Demo - November.pbix")
 ic(model.tables)
 ic(model.metadata)
 ic(model.power_query)
@@ -52,13 +52,13 @@ ic(model.schema)
 ic(model.relationships)
 ic(model.get_table("Reseller"))
 
-model = PBIXRay(r"C:\git\hub\pbixray\data\2020SU11 Blog Demo - November.pbix")
+model = PBIXRay(r"data/2020SU11 Blog Demo - November.pbix")
 ic(model.tables)
 ic(model.metadata)
 ic(model.m_parameters)
 ic(model.statistics)
 
-model = PBIXRay(r"C:\git\hub\pbixray\data\old-Supplier-Quality-Analysis-Sample-PBIX.pbix")
+model = PBIXRay(r"data/old-Supplier-Quality-Analysis-Sample-PBIX.pbix")
 ic(model.tables)
 ic(model.metadata)
 ic(model.m_parameters)
