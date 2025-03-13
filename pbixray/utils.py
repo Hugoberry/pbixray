@@ -1,5 +1,6 @@
 from .abf.data_model import DataModel
 import datetime
+from .xpress8 import Xpress8
 
 # ---------- CONSTANTS ----------
 AMO_PANDAS_TYPE_MAPPING = {
@@ -23,6 +24,19 @@ def get_data_slice(data_model:DataModel, file_name:str) -> bytes:
         raise ValueError(f"File reference not found for filename: {file_name}.")
     # if error_code trim last 4 bytes
     if data_model.error_code:
-        return data_model.decompressed_data[file_ref['m_cbOffsetHeader']:file_ref['m_cbOffsetHeader'] + file_ref['Size']-4]
+        raw_slice =  data_model.decompressed_data[file_ref['m_cbOffsetHeader']:file_ref['m_cbOffsetHeader'] + file_ref['Size']-4]
     else:
-        return data_model.decompressed_data[file_ref['m_cbOffsetHeader']:file_ref['m_cbOffsetHeader'] + file_ref['Size']]
+        raw_slice =  data_model.decompressed_data[file_ref['m_cbOffsetHeader']:file_ref['m_cbOffsetHeader'] + file_ref['Size']]
+
+    if data_model.apply_compression:
+        decompressed_data = Xpress8.decompress_chunked(raw_slice)
+        
+        # Validate the size of the decompressed data against the expected size from log
+        if len(decompressed_data) != file_ref['SizeFromLog']:
+            raise ValueError(
+                f"Decompression size mismatch for file '{file_name}': "
+                f"Expected {file_ref['SizeFromLog']} bytes, got {len(decompressed_data)} bytes"
+            )
+            
+        return decompressed_data
+    return raw_slice

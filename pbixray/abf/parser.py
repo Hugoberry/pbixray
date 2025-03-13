@@ -37,6 +37,7 @@ class AbfParser:
         offset = int(log.m_cbOffsetHeader)
         size = int(log.Size)
         self.data_model.error_code = self.__backup_log_header.ErrorCode
+        self.data_model.apply_compression = self.__backup_log_header.ApplyCompression
         self.__backup_log = BackupLog(self.__buffer[offset:offset+size], self.__backup_log_header.ErrorCode)
 
     def __match_logs_and_get_attributes(self):
@@ -57,6 +58,7 @@ class AbfParser:
                         'FileName': path_without_persist_root.split('\\')[-1],
                         'StoragePath': backup_file.StoragePath,
                         'Size': matched_file.Size,
+                        'SizeFromLog': backup_file.Size,
                         'm_cbOffsetHeader': matched_file.m_cbOffsetHeader
                     })
 
