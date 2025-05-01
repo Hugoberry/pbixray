@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pbixray',
-    version='0.3.2',
+    version='0.3.3',
     packages=find_packages(),
     install_requires=[
         'xpress9',
@@ -32,6 +32,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.8',
