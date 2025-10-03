@@ -12,6 +12,7 @@ class MetadataQuery:
         self.dax_columns_df = self.__populate_dax_columns()
         self.metadata_df = self.__populate_metadata()
         self.relationships_df = self.__populate_relationships()
+        self.rls_df = self.__populate_rls()
         self.handler.close_connection()
 
     def __populate_schema(self):
@@ -147,5 +148,19 @@ class MetadataQuery:
             LEFT JOIN RelationshipIndexStorage rid ON rs.RelationshipIndexStorageID = rid.id
             LEFT JOIN RelationshipStorage rs2 ON rs2.id = rel.RelationshipStorage2ID
             LEFT JOIN RelationshipIndexStorage rid2 ON rs2.RelationshipIndexStorageID = rid2.id
+        """
+        return self.handler.execute_query(sql)
+    
+    def __populate_rls(self):
+        sql = """
+        SELECT 
+            t.Name as TableName,
+            r.Name as RoleName,
+            r.Description as RoleDescription,
+            tp.FilterExpression,
+            tp.State
+        FROM TablePermission tp
+        JOIN [Table] t on t.ID = tp.TableID
+        JOIN Role r on r.ID = tp.RoleID
         """
         return self.handler.execute_query(sql)

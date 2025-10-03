@@ -83,6 +83,12 @@ To get the details about the data model relationships in a dataframe with `FromT
 relationships = model.relationships
 print(relationships)
 ```
+### Row-Level Security (RLS)
+To get the details about Row-Level Security roles and permissions in a dataframe with `TableName`, `RoleName`, `RoleDescription`, `FilterExpression` and `State` columns:
+```python
+rls = model.rls
+print(rls)
+```
 ### Get Table Contents
 To retrieve the contents of a specified table:
 ```python
