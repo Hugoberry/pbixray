@@ -71,3 +71,7 @@ ic(model.size)
 ic(model.schema)
 ic(model.relationships)
 ic(model.get_table("Vendor"))
+
+model = PBIXRay(r"data/rls-sample-report.pbix")
+ic(model.tables)
+ic(model.rls)
