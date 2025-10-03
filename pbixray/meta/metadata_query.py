@@ -158,7 +158,8 @@ class MetadataQuery:
             r.Name as RoleName,
             r.Description as RoleDescription,
             tp.FilterExpression,
-            tp.State
+            tp.State,
+            tp.MetadataPermission
         FROM TablePermission tp
         JOIN [Table] t on t.ID = tp.TableID
         JOIN Role r on r.ID = tp.RoleID

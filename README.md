@@ -84,7 +84,7 @@ relationships = model.relationships
 print(relationships)
 ```
 ### Row-Level Security (RLS)
-To get the details about Row-Level Security roles and permissions in a dataframe with `TableName`, `RoleName`, `RoleDescription`, `FilterExpression` and `State` columns:
+To get the details about Row-Level Security roles and permissions in a dataframe with `TableName`, `RoleName`, `RoleDescription`, `FilterExpression`, `State` and `MetadataPermission` columns:
 ```python
 rls = model.rls
 print(rls)
