@@ -1,0 +1,10 @@
+=== METRICS TABLE ANALYSIS ===
+
+Table Name: Metrics_29128f4d-37fd-4bf8-a576-cff821896940
+Class: XMSimpleTable
+Provider Version: 0
+
+=== TABLE PROPERTIES ===
+Version: 33
+Settings: 4353
+RIViolationCount: 0

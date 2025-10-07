@@ -1,0 +1,987 @@
+<Load xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+  xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+  xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+  xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100"
+  xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+  xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+  xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+  xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+  xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+  xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+  xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+  xmlns:ddl410="http://schemas.microsoft.com/analysisservices/2012/engine/410"
+  xmlns:ddl410_410="http://schemas.microsoft.com/analysisservices/2012/engine/410/410"
+  xmlns:ddl500="http://schemas.microsoft.com/analysisservices/2013/engine/500"
+  xmlns:ddl500_500="http://schemas.microsoft.com/analysisservices/2013/engine/500/500"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ParentObject>
+    <DatabaseID>32E74685AD35411E98FD</DatabaseID>
+    <CubeID>Model</CubeID>
+  </ParentObject>
+  <ObjectDefinition>
+    <MdxScript>
+      <Name>MdxScript</Name>
+      <ID>MdxScript</ID>
+      <CreatedTimestamp>2014-11-12T04:18:25.7</CreatedTimestamp>
+      <LastSchemaUpdate>2015-02-17T21:36:20.656667</LastSchemaUpdate>
+      <ObjectVersion>88</ObjectVersion>
+      <ObjectID>AB89B89A-D789-4A7B-A74B-C2724D9F8299</ObjectID>
+      <Ordinal>0</Ordinal>
+      <PersistLocation>88</PersistLocation>
+      <System>false</System>
+      <DataFileList />
+      <Description />
+      <DefaultScript>true</DefaultScript>
+      <Commands>
+        <Command>
+          <Text>CALCULATE;
+            CREATE MEMBER CURRENTCUBE.Measures.[__XL_Count of Models] AS 1, VISIBLE = 0;
+            ALTER CUBE CURRENTCUBE UPDATE DIMENSION Measures, Default_Member = [__XL_Count of
+            Models]; </Text>
+        </Command>
+        <Command>
+          <Text>----------------------------------------------------------
+            -- PowerPivot measures command (do not modify manually) --
+            ----------------------------------------------------------
+
+
+            CREATE MEASURE 'Metrics'[Total Defect Reports]=COUNTROWS(Metrics);
+          </Text>
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>FullName</Name>
+              <Value>Total Defect Reports</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Table</Name>
+              <Value>Metrics</Value>
+            </Annotation>
+          </Annotations>
+        </Command>
+        <Command>
+          <Text>----------------------------------------------------------
+            -- PowerPivot measures command (do not modify manually) --
+            ----------------------------------------------------------
+
+
+            CREATE MEASURE 'Metrics'[Defect Qty SPLY]=CALCULATE([Total Defect Qty],
+            SAMEPERIODLASTYEAR('Date'[Date]));
+          </Text>
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>FullName</Name>
+              <Value>Defect Qty SPLY</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Table</Name>
+              <Value>Metrics</Value>
+            </Annotation>
+          </Annotations>
+        </Command>
+        <Command>
+          <Text>----------------------------------------------------------
+            -- PowerPivot measures command (do not modify manually) --
+            ----------------------------------------------------------
+
+
+            CREATE MEASURE 'Metrics'[Total Downtime Minutes SPLY]=CALCULATE([Total Downtime
+            Minutes], SAMEPERIODLASTYEAR('Date'[Date]));
+          </Text>
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>FullName</Name>
+              <Value>Total Downtime Minutes SPLY</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Table</Name>
+              <Value>Metrics</Value>
+            </Annotation>
+          </Annotations>
+        </Command>
+        <Command>
+          <Text>----------------------------------------------------------
+            -- PowerPivot measures command (do not modify manually) --
+            ----------------------------------------------------------
+
+
+            CREATE MEASURE 'Metrics'[Total Defect Qty Max]=[Total Defect Qty]*1.25;
+          </Text>
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>FullName</Name>
+              <Value>Total Defect Qty Max</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Table</Name>
+              <Value>Metrics</Value>
+            </Annotation>
+          </Annotations>
+        </Command>
+        <Command>
+          <Text>----------------------------------------------------------
+            -- PowerPivot measures command (do not modify manually) --
+            ----------------------------------------------------------
+
+
+            CREATE MEASURE 'Metrics'[Total Downtime Minutes Max]=[Total Downtime Minutes]*1.15;
+          </Text>
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>FullName</Name>
+              <Value>Total Downtime Minutes Max</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Table</Name>
+              <Value>Metrics</Value>
+            </Annotation>
+          </Annotations>
+        </Command>
+        <Command>
+          <Text>----------------------------------------------------------
+            -- PowerPivot measures command (do not modify manually) --
+            ----------------------------------------------------------
+
+
+            CREATE MEASURE 'Metrics'[Total Defect Qty]=SUM([Defect Qty]);
+            CREATE MEASURE 'Metrics'[_Total Defect Qty Goal] = 'Metrics'[Defect Qty SPLY];
+            CREATE MEASURE 'Metrics'[_Total Defect Qty Status] = if(ISBLANK('Metrics'[Total Defect
+            Qty]/'Metrics'[_Total Defect Qty Goal]),BLANK(),
+            If('Metrics'[Total Defect Qty]/'Metrics'[_Total Defect Qty Goal]&lt;0.9,1,
+            If('Metrics'[Total Defect Qty]/'Metrics'[_Total Defect Qty Goal]&lt;1,0,-1)
+            )
+            )
+            ;
+            CREATE KPI CURRENTCUBE.[Total Defect Qty] AS Measures.[Total Defect Qty],
+            ASSOCIATED_MEASURE_GROUP = 'Metrics', GOAL = Measures.[_Total Defect Qty Goal], STATUS =
+            Measures.[_Total Defect Qty Status], STATUS_GRAPHIC = 'Traffic Light - Single';
+          </Text>
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>FullName</Name>
+              <Value>Total Defect Qty</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Table</Name>
+              <Value>Metrics</Value>
+            </Annotation>
+          </Annotations>
+        </Command>
+        <Command>
+          <Text>----------------------------------------------------------
+            -- PowerPivot measures command (do not modify manually) --
+            ----------------------------------------------------------
+
+
+            CREATE MEASURE 'Metrics'[Total Downtime Minutes]=SUM([Downtime min]);
+            CREATE MEASURE 'Metrics'[_Total Downtime Minutes Goal] = 'Metrics'[Total Downtime
+            Minutes SPLY];
+            CREATE MEASURE 'Metrics'[_Total Downtime Minutes Status] = if(ISBLANK('Metrics'[Total
+            Downtime Minutes]/'Metrics'[_Total Downtime Minutes Goal]),BLANK(),
+            If('Metrics'[Total Downtime Minutes]/'Metrics'[_Total Downtime Minutes Goal]&lt;0.9,1,
+            If('Metrics'[Total Downtime Minutes]/'Metrics'[_Total Downtime Minutes Goal]&lt;1,0,-1)
+            )
+            )
+            ;
+            CREATE KPI CURRENTCUBE.[Total Downtime Minutes] AS Measures.[Total Downtime Minutes],
+            ASSOCIATED_MEASURE_GROUP = 'Metrics', GOAL = Measures.[_Total Downtime Minutes Goal],
+            STATUS = Measures.[_Total Downtime Minutes Status], STATUS_GRAPHIC = 'Traffic Light -
+            Single';
+          </Text>
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>FullName</Name>
+              <Value>Total Downtime Minutes</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Table</Name>
+              <Value>Metrics</Value>
+            </Annotation>
+          </Annotations>
+        </Command>
+      </Commands>
+      <CalculationProperties>
+        <CalculationProperty>
+          <CalculationReference>[Total Defect Reports]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <FormatString>'#,0'</FormatString>
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>User</Value>
+            </Annotation>
+            <Annotation>
+              <Name>IsPrivate</Name>
+              <Value>False</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Format</Name>
+              <Value>
+                <Format Format="NumberWhole" ThousandSeparator="True" xmlns="" />
+              </Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>[Defect Qty SPLY]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <FormatString>'#,0'</FormatString>
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>User</Value>
+            </Annotation>
+            <Annotation>
+              <Name>IsPrivate</Name>
+              <Value>False</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Format</Name>
+              <Value>
+                <Format Format="NumberWhole" ThousandSeparator="True" xmlns="" />
+              </Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>[Total Downtime Minutes SPLY]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <FormatString>''</FormatString>
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>User</Value>
+            </Annotation>
+            <Annotation>
+              <Name>IsPrivate</Name>
+              <Value>False</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Format</Name>
+              <Value>
+                <Format Format="General" xmlns="" />
+              </Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>[Total Defect Qty Max]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <FormatString>'#,0'</FormatString>
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>User</Value>
+            </Annotation>
+            <Annotation>
+              <Name>IsPrivate</Name>
+              <Value>False</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Format</Name>
+              <Value>
+                <Format Format="NumberWhole" ThousandSeparator="True" xmlns="" />
+              </Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>[Total Downtime Minutes Max]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <FormatString>'#,0'</FormatString>
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>User</Value>
+            </Annotation>
+            <Annotation>
+              <Name>IsPrivate</Name>
+              <Value>False</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Format</Name>
+              <Value>
+                <Format Format="NumberWhole" ThousandSeparator="True" xmlns="" />
+              </Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>[Total Defect Qty]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <FormatString>'#,0'</FormatString>
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>Kpi</Value>
+            </Annotation>
+            <Annotation>
+              <Name>IsPrivate</Name>
+              <Value>False</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Format</Name>
+              <Value>
+                <Format Format="NumberWhole" ThousandSeparator="True" xmlns="" />
+              </Value>
+            </Annotation>
+            <Annotation>
+              <Name>GoalType</Name>
+              <Value>Measure</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiStatusType</Name>
+              <Value>LinearReversed</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiThresholdType</Name>
+              <Value>Percentage</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiThresholdOrdering</Name>
+              <Value>Ascending</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiThresholdCount</Name>
+              <Value>2</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiThreshold_0</Name>
+              <Value>90</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiThreshold_1</Name>
+              <Value>100</Value>
+            </Annotation>
+            <Annotation>
+              <Name>ValueDescription</Name>
+            </Annotation>
+            <Annotation>
+              <Name>GoalDescription</Name>
+            </Annotation>
+            <Annotation>
+              <Name>StatusDescription</Name>
+            </Annotation>
+            <Annotation>
+              <Name>TrendDescription</Name>
+            </Annotation>
+            <Annotation>
+              <Name>GoalMeasure</Name>
+              <Value>Defect Qty SPLY</Value>
+            </Annotation>
+            <Annotation>
+              <Name>GoalMeasureTableName</Name>
+              <Value>Metrics</Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>[_Total Defect Qty Goal]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <Visible>false</Visible>
+          <FormatString />
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>SupportMdx</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectType</Name>
+              <Value>Measure</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectName</Name>
+              <Value>Total Defect Qty</Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>[_Total Defect Qty Status]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <Visible>false</Visible>
+          <FormatString />
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>SupportMdx</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectType</Name>
+              <Value>Measure</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectName</Name>
+              <Value>Total Defect Qty</Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>KPIs.[Total Defect Qty]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <FormatString />
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>SupportKpi</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectType</Name>
+              <Value>Measure</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectName</Name>
+              <Value>Total Defect Qty</Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>[Total Downtime Minutes]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <FormatString>'#,0'</FormatString>
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>Kpi</Value>
+            </Annotation>
+            <Annotation>
+              <Name>IsPrivate</Name>
+              <Value>False</Value>
+            </Annotation>
+            <Annotation>
+              <Name>Format</Name>
+              <Value>
+                <Format Format="NumberWhole" ThousandSeparator="True" xmlns="" />
+              </Value>
+            </Annotation>
+            <Annotation>
+              <Name>GoalType</Name>
+              <Value>Measure</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiStatusType</Name>
+              <Value>LinearReversed</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiThresholdType</Name>
+              <Value>Percentage</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiThresholdOrdering</Name>
+              <Value>Ascending</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiThresholdCount</Name>
+              <Value>2</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiThreshold_0</Name>
+              <Value>90</Value>
+            </Annotation>
+            <Annotation>
+              <Name>KpiThreshold_1</Name>
+              <Value>100</Value>
+            </Annotation>
+            <Annotation>
+              <Name>ValueDescription</Name>
+            </Annotation>
+            <Annotation>
+              <Name>GoalDescription</Name>
+            </Annotation>
+            <Annotation>
+              <Name>StatusDescription</Name>
+            </Annotation>
+            <Annotation>
+              <Name>TrendDescription</Name>
+            </Annotation>
+            <Annotation>
+              <Name>GoalMeasure</Name>
+              <Value>Total Downtime Minutes SPLY</Value>
+            </Annotation>
+            <Annotation>
+              <Name>GoalMeasureTableName</Name>
+              <Value>Metrics</Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>[_Total Downtime Minutes Goal]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <Visible>false</Visible>
+          <FormatString />
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>SupportMdx</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectType</Name>
+              <Value>Measure</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectName</Name>
+              <Value>Total Downtime Minutes</Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>[_Total Downtime Minutes Status]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <Visible>false</Visible>
+          <FormatString />
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>SupportMdx</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectType</Name>
+              <Value>Measure</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectName</Name>
+              <Value>Total Downtime Minutes</Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>KPIs.[Total Downtime Minutes]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <FormatString />
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Annotations
+            xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+            xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+            xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+            xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+            xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+            xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+            xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+            xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+            xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+            xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+            <Annotation>
+              <Name>Type</Name>
+              <Value>SupportKpi</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectType</Name>
+              <Value>Measure</Value>
+            </Annotation>
+            <Annotation>
+              <Name>MainObjectName</Name>
+              <Value>Total Downtime Minutes</Value>
+            </Annotation>
+          </Annotations>
+          <Translations />
+        </CalculationProperty>
+        <CalculationProperty>
+          <CalculationReference>[__XL_Count of Models]</CalculationReference>
+          <CalculationType>Member</CalculationType>
+          <Description />
+          <Visible>false</Visible>
+          <FormatString />
+          <ForeColor />
+          <BackColor />
+          <FontName />
+          <FontSize />
+          <FontFlags />
+          <NonEmptyBehavior />
+          <AssociatedMeasureGroupID />
+          <DisplayFolder />
+          <Language />
+          <Translations />
+        </CalculationProperty>
+      </CalculationProperties>
+    </MdxScript>
+  </ObjectDefinition>
+</Load>
