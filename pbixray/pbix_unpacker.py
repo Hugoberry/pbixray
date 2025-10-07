@@ -43,18 +43,34 @@ class PbixUnpacker:
         
         return "unknown"
 
+    def __get_data_model_path(self, zip_ref):
+        """Determine the path to the data model file based on file type."""
+        # Check if this is a PBIX file (has DataModel file)
+        if 'DataModel' in zip_ref.namelist():
+            return 'DataModel'
+        
+        # Check if this is an XLSX file with Power Pivot (has xl/model/item.data)
+        if 'xl/model/item.data' in zip_ref.namelist():
+            return 'xl/model/item.data'
+        
+        # If neither is found, raise an error
+        raise RuntimeError("No supported data model file found. File must be a PBIX file with 'DataModel' or an XLSX file with 'xl/model/item.data'")
+
     def __unpack(self):
         with zipfile.ZipFile(self.file_path, 'r') as zip_ref:
+            # Determine the data model file path based on file type
+            data_model_path = self.__get_data_model_path(zip_ref)
+            
             # Open the DataModel file within the ZIP
-            with zip_ref.open('DataModel') as data_model_in_pbix:
-                file_type = self.__detect_file_type(data_model_in_pbix)
+            with zip_ref.open(data_model_path) as data_model_in_archive:
+                file_type = self.__detect_file_type(data_model_in_archive)
                 
                 if file_type == "uncompressed":
-                    self.__process_uncompressed(data_model_in_pbix)
+                    self.__process_uncompressed(data_model_in_archive)
                 elif file_type == "single_threaded":
-                    self.__process_single_threaded(data_model_in_pbix)
+                    self.__process_single_threaded(data_model_in_archive)
                 elif file_type == "multi_threaded":
-                    self.__process_multi_threaded(data_model_in_pbix)
+                    self.__process_multi_threaded(data_model_in_archive)
                 else:
                     raise RuntimeError("Unknown or unsupported DataModel file format")
 
