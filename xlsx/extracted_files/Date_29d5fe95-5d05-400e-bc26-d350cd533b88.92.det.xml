@@ -1,1 +1,225 @@
-<Load xmlns="http://schemas.microsoft.com/analysisservices/2003/engine" xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100" xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300" xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300" xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400" xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400" xmlns:ddl410="http://schemas.microsoft.com/analysisservices/2012/engine/410" xmlns:ddl410_410="http://schemas.microsoft.com/analysisservices/2012/engine/410/410" xmlns:ddl500="http://schemas.microsoft.com/analysisservices/2013/engine/500" xmlns:ddl500_500="http://schemas.microsoft.com/analysisservices/2013/engine/500/500" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><ParentObject><DatabaseID>32E74685AD35411E98FD</DatabaseID><CubeID>Model</CubeID></ParentObject><ObjectDefinition><MeasureGroup><Name>Date</Name><ID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</ID><CreatedTimestamp>2014-12-12T22:10:51.85</CreatedTimestamp><LastSchemaUpdate>2015-02-17T21:36:20.643333</LastSchemaUpdate><ObjectVersion>92</ObjectVersion><ObjectID>5009993C-3E92-43A7-B1E0-823802F1E9B7</ObjectID><Ordinal>7</Ordinal><PersistLocation>83</PersistLocation><System>false</System><DataFileList/><Description/><LastProcessed>2014-12-15T16:21:52.543333</LastProcessed><Type>Regular</Type><DataAggregation>DataAndCacheAggregatable</DataAggregation><AggregationPrefix/><StorageMode valuens="ddl200_200">InMemory</StorageMode><ProcessingPriority>0</ProcessingPriority><StorageLocation/><IgnoreUnrelatedDimensions>true</IgnoreUnrelatedDimensions><EstimatedRows>0</EstimatedRows><ErrorConfiguration><KeyErrorLimit>0</KeyErrorLimit><KeyErrorLogFile/><KeyErrorAction>ConvertToUnknown</KeyErrorAction><KeyErrorLimitAction>StopProcessing</KeyErrorLimitAction><KeyDuplicate>ReportAndStop</KeyDuplicate><KeyNotFound>IgnoreError</KeyNotFound><NullKeyConvertedToUnknown>IgnoreError</NullKeyConvertedToUnknown><NullKeyNotAllowed>ReportAndStop</NullKeyNotAllowed></ErrorConfiguration><ProcessingMode>Regular</ProcessingMode><ProactiveCaching><SilenceInterval>-PT1S</SilenceInterval><Latency>-PT1S</Latency><SilenceOverrideInterval>-PT1S</SilenceOverrideInterval><ForceRebuildInterval>-PT1S</ForceRebuildInterval><Enabled>false</Enabled><AggregationStorage>Regular</AggregationStorage><OnlineMode>Immediate</OnlineMode><Source xsi:type="ProactiveCachingInheritedBinding"><NotificationTechnique>Client</NotificationTechnique></Source></ProactiveCaching><Measures><Measure><Name>_Count Date</Name><ID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</ID><Description/><AggregateFunction>Count</AggregateFunction><DataType>BigInt</DataType><Visible>false</Visible><MeasureExpression/><DisplayFolder/><FormatString/><BackColor/><ForeColor/><FontName/><FontSize/><FontFlags/><Source><DataType>BigInt</DataType><DataSize>8</DataSize><NullProcessing>Automatic</NullProcessing><Collation/><Format/><Source xsi:type="RowBinding"><TableID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</TableID></Source></Source><Translations/></Measure></Measures><Dimensions><Dimension xsi:type="DegenerateMeasureGroupDimension"><Attributes><Attribute><AttributeID>RowNumber</AttributeID><Type>Granularity</Type><Enabled>true</Enabled><KeyColumns><KeyColumn><DataType>Integer</DataType><DataSize>0</DataSize><NullProcessing>Automatic</NullProcessing><Collation/><Format/><Source xsi:type="ColumnBinding"><TableID>Date</TableID><ColumnID>RowNumber</ColumnID></Source></KeyColumn></KeyColumns></Attribute><Attribute><AttributeID>Year</AttributeID><Type>Regular</Type><Enabled>true</Enabled><KeyColumns><KeyColumn><DataType>WChar</DataType><DataSize>-1</DataSize><NullProcessing>Preserve</NullProcessing><InvalidXmlCharacters>Remove</InvalidXmlCharacters><Collation/><Format/><Source xsi:type="ColumnBinding"><TableID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</TableID><ColumnID>Year</ColumnID></Source></KeyColumn></KeyColumns></Attribute><Attribute><AttributeID>Month</AttributeID><Type>Regular</Type><Enabled>true</Enabled><KeyColumns><KeyColumn><DataType>BigInt</DataType><DataSize>-1</DataSize><NullProcessing>Preserve</NullProcessing><InvalidXmlCharacters>Remove</InvalidXmlCharacters><Collation/><Format/><Source xsi:type="ColumnBinding"><TableID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</TableID><ColumnID>Month</ColumnID></Source></KeyColumn></KeyColumns></Attribute><Attribute><AttributeID>Week</AttributeID><Type>Regular</Type><Enabled>true</Enabled><KeyColumns><KeyColumn><DataType>BigInt</DataType><DataSize>-1</DataSize><NullProcessing>Preserve</NullProcessing><InvalidXmlCharacters>Remove</InvalidXmlCharacters><Collation/><Format/><Source xsi:type="ColumnBinding"><TableID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</TableID><ColumnID>Week</ColumnID></Source></KeyColumn></KeyColumns></Attribute><Attribute><AttributeID>Date</AttributeID><Type>Regular</Type><Enabled>true</Enabled><KeyColumns><KeyColumn><DataType>Date</DataType><DataSize>-1</DataSize><NullProcessing>Preserve</NullProcessing><InvalidXmlCharacters>Remove</InvalidXmlCharacters><Collation/><Format/><Source xsi:type="ColumnBinding"><TableID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</TableID><ColumnID>Date</ColumnID></Source></KeyColumn></KeyColumns></Attribute><Attribute><AttributeID>CalculatedColumn1 1</AttributeID><Type>Regular</Type><Enabled>true</Enabled><KeyColumns><KeyColumn><DataType>Empty</DataType><DataSize>0</DataSize><NullProcessing>Automatic</NullProcessing><Collation/><Format/><Source xsi:type="ddl200_200:ExpressionBinding"><Expression>FORMAT([Date], "MMM")&amp;"-"&amp;RIGHT([Year], 2)</Expression></Source></KeyColumn></KeyColumns></Attribute></Attributes><ddl200_200:ShareDimensionStorage>Shared</ddl200_200:ShareDimensionStorage><CubeDimensionID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</CubeDimensionID></Dimension></Dimensions><Translations/><StructureVersion>24</StructureVersion><CacheVersion>25</CacheVersion><DataVersion>-1</DataVersion><LastBindingChange>2014-12-12T22:13:20.073333</LastBindingChange><AggregationDesignFileList/><PartitionFileList>Date_29d5fe95-5d05-400e-bc26-d350cd533b88.25.prt.xml</PartitionFileList></MeasureGroup></ObjectDefinition></Load>
+<Load xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+    xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+    xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+    xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100"
+    xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+    xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+    xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+    xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+    xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+    xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+    xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+    xmlns:ddl410="http://schemas.microsoft.com/analysisservices/2012/engine/410"
+    xmlns:ddl410_410="http://schemas.microsoft.com/analysisservices/2012/engine/410/410"
+    xmlns:ddl500="http://schemas.microsoft.com/analysisservices/2013/engine/500"
+    xmlns:ddl500_500="http://schemas.microsoft.com/analysisservices/2013/engine/500/500"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <ParentObject>
+        <DatabaseID>32E74685AD35411E98FD</DatabaseID>
+        <CubeID>Model</CubeID>
+    </ParentObject>
+    <ObjectDefinition>
+        <MeasureGroup>
+            <Name>Date</Name>
+            <ID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</ID>
+            <CreatedTimestamp>2014-12-12T22:10:51.85</CreatedTimestamp>
+            <LastSchemaUpdate>2015-02-17T21:36:20.643333</LastSchemaUpdate>
+            <ObjectVersion>92</ObjectVersion>
+            <ObjectID>5009993C-3E92-43A7-B1E0-823802F1E9B7</ObjectID>
+            <Ordinal>7</Ordinal>
+            <PersistLocation>83</PersistLocation>
+            <System>false</System>
+            <DataFileList />
+            <Description />
+            <LastProcessed>2014-12-15T16:21:52.543333</LastProcessed>
+            <Type>Regular</Type>
+            <DataAggregation>DataAndCacheAggregatable</DataAggregation>
+            <AggregationPrefix />
+            <StorageMode valuens="ddl200_200">InMemory</StorageMode>
+            <ProcessingPriority>0</ProcessingPriority>
+            <StorageLocation />
+            <IgnoreUnrelatedDimensions>true</IgnoreUnrelatedDimensions>
+            <EstimatedRows>0</EstimatedRows>
+            <ErrorConfiguration>
+                <KeyErrorLimit>0</KeyErrorLimit>
+                <KeyErrorLogFile />
+                <KeyErrorAction>ConvertToUnknown</KeyErrorAction>
+                <KeyErrorLimitAction>StopProcessing</KeyErrorLimitAction>
+                <KeyDuplicate>ReportAndStop</KeyDuplicate>
+                <KeyNotFound>IgnoreError</KeyNotFound>
+                <NullKeyConvertedToUnknown>IgnoreError</NullKeyConvertedToUnknown>
+                <NullKeyNotAllowed>ReportAndStop</NullKeyNotAllowed>
+            </ErrorConfiguration>
+            <ProcessingMode>Regular</ProcessingMode>
+            <ProactiveCaching>
+                <SilenceInterval>-PT1S</SilenceInterval>
+                <Latency>-PT1S</Latency>
+                <SilenceOverrideInterval>-PT1S</SilenceOverrideInterval>
+                <ForceRebuildInterval>-PT1S</ForceRebuildInterval>
+                <Enabled>false</Enabled>
+                <AggregationStorage>Regular</AggregationStorage>
+                <OnlineMode>Immediate</OnlineMode>
+                <Source xsi:type="ProactiveCachingInheritedBinding">
+                    <NotificationTechnique>Client</NotificationTechnique>
+                </Source>
+            </ProactiveCaching>
+            <Measures>
+                <Measure>
+                    <Name>_Count Date</Name>
+                    <ID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</ID>
+                    <Description />
+                    <AggregateFunction>Count</AggregateFunction>
+                    <DataType>BigInt</DataType>
+                    <Visible>false</Visible>
+                    <MeasureExpression />
+                    <DisplayFolder />
+                    <FormatString />
+                    <BackColor />
+                    <ForeColor />
+                    <FontName />
+                    <FontSize />
+                    <FontFlags />
+                    <Source>
+                        <DataType>BigInt</DataType>
+                        <DataSize>8</DataSize>
+                        <NullProcessing>Automatic</NullProcessing>
+                        <Collation />
+                        <Format />
+                        <Source xsi:type="RowBinding">
+                            <TableID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</TableID>
+                        </Source>
+                    </Source>
+                    <Translations />
+                </Measure>
+            </Measures>
+            <Dimensions>
+                <Dimension xsi:type="DegenerateMeasureGroupDimension">
+                    <Attributes>
+                        <Attribute>
+                            <AttributeID>RowNumber</AttributeID>
+                            <Type>Granularity</Type>
+                            <Enabled>true</Enabled>
+                            <KeyColumns>
+                                <KeyColumn>
+                                    <DataType>Integer</DataType>
+                                    <DataSize>0</DataSize>
+                                    <NullProcessing>Automatic</NullProcessing>
+                                    <Collation />
+                                    <Format />
+                                    <Source xsi:type="ColumnBinding">
+                                        <TableID>Date</TableID>
+                                        <ColumnID>RowNumber</ColumnID>
+                                    </Source>
+                                </KeyColumn>
+                            </KeyColumns>
+                        </Attribute>
+                        <Attribute>
+                            <AttributeID>Year</AttributeID>
+                            <Type>Regular</Type>
+                            <Enabled>true</Enabled>
+                            <KeyColumns>
+                                <KeyColumn>
+                                    <DataType>WChar</DataType>
+                                    <DataSize>-1</DataSize>
+                                    <NullProcessing>Preserve</NullProcessing>
+                                    <InvalidXmlCharacters>Remove</InvalidXmlCharacters>
+                                    <Collation />
+                                    <Format />
+                                    <Source xsi:type="ColumnBinding">
+                                        <TableID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</TableID>
+                                        <ColumnID>Year</ColumnID>
+                                    </Source>
+                                </KeyColumn>
+                            </KeyColumns>
+                        </Attribute>
+                        <Attribute>
+                            <AttributeID>Month</AttributeID>
+                            <Type>Regular</Type>
+                            <Enabled>true</Enabled>
+                            <KeyColumns>
+                                <KeyColumn>
+                                    <DataType>BigInt</DataType>
+                                    <DataSize>-1</DataSize>
+                                    <NullProcessing>Preserve</NullProcessing>
+                                    <InvalidXmlCharacters>Remove</InvalidXmlCharacters>
+                                    <Collation />
+                                    <Format />
+                                    <Source xsi:type="ColumnBinding">
+                                        <TableID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</TableID>
+                                        <ColumnID>Month</ColumnID>
+                                    </Source>
+                                </KeyColumn>
+                            </KeyColumns>
+                        </Attribute>
+                        <Attribute>
+                            <AttributeID>Week</AttributeID>
+                            <Type>Regular</Type>
+                            <Enabled>true</Enabled>
+                            <KeyColumns>
+                                <KeyColumn>
+                                    <DataType>BigInt</DataType>
+                                    <DataSize>-1</DataSize>
+                                    <NullProcessing>Preserve</NullProcessing>
+                                    <InvalidXmlCharacters>Remove</InvalidXmlCharacters>
+                                    <Collation />
+                                    <Format />
+                                    <Source xsi:type="ColumnBinding">
+                                        <TableID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</TableID>
+                                        <ColumnID>Week</ColumnID>
+                                    </Source>
+                                </KeyColumn>
+                            </KeyColumns>
+                        </Attribute>
+                        <Attribute>
+                            <AttributeID>Date</AttributeID>
+                            <Type>Regular</Type>
+                            <Enabled>true</Enabled>
+                            <KeyColumns>
+                                <KeyColumn>
+                                    <DataType>Date</DataType>
+                                    <DataSize>-1</DataSize>
+                                    <NullProcessing>Preserve</NullProcessing>
+                                    <InvalidXmlCharacters>Remove</InvalidXmlCharacters>
+                                    <Collation />
+                                    <Format />
+                                    <Source xsi:type="ColumnBinding">
+                                        <TableID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</TableID>
+                                        <ColumnID>Date</ColumnID>
+                                    </Source>
+                                </KeyColumn>
+                            </KeyColumns>
+                        </Attribute>
+                        <Attribute>
+                            <AttributeID>CalculatedColumn1 1</AttributeID>
+                            <Type>Regular</Type>
+                            <Enabled>true</Enabled>
+                            <KeyColumns>
+                                <KeyColumn>
+                                    <DataType>Empty</DataType>
+                                    <DataSize>0</DataSize>
+                                    <NullProcessing>Automatic</NullProcessing>
+                                    <Collation />
+                                    <Format />
+                                    <Source xsi:type="ddl200_200:ExpressionBinding">
+                                        <Expression>FORMAT([Date], "MMM")&amp;"-"&amp;RIGHT([Year],
+                                            2)</Expression>
+                                    </Source>
+                                </KeyColumn>
+                            </KeyColumns>
+                        </Attribute>
+                    </Attributes>
+                    <ddl200_200:ShareDimensionStorage>Shared</ddl200_200:ShareDimensionStorage>
+                    <CubeDimensionID>Date_29d5fe95-5d05-400e-bc26-d350cd533b88</CubeDimensionID>
+                </Dimension>
+            </Dimensions>
+            <Translations />
+            <StructureVersion>24</StructureVersion>
+            <CacheVersion>25</CacheVersion>
+            <DataVersion>-1</DataVersion>
+            <LastBindingChange>2014-12-12T22:13:20.073333</LastBindingChange>
+            <AggregationDesignFileList />
+            <PartitionFileList>Date_29d5fe95-5d05-400e-bc26-d350cd533b88.25.prt.xml</PartitionFileList>
+        </MeasureGroup>
+    </ObjectDefinition>
+</Load>

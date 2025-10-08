@@ -1,1 +1,588 @@
-<XMObject xmlns="http://schemas.microsoft.com/analysisservices/imbi" xmlns:imbi200="http://schemas.microsoft.com/analysisservices/2010/imbi/200" xmlns:imbi200_200="http://schemas.microsoft.com/analysisservices/2010/imbi/200/200" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="XMSimpleTable" name="Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab" ProviderVersion="0"><Properties><Version xsi:type="xsd:int">5</Version><Settings xsi:type="xsd:long">4353</Settings><RIViolationCount xsi:type="xsd:long">0</RIViolationCount></Properties><Members><Member><Name>SegmentMap</Name><XMObject class="XMMultiPartSegmentMap" ProviderVersion="0"><Properties><FirstPartitionRecordCount xsi:type="xsd:long">0</FirstPartitionRecordCount><FirstPartitionSegmentCount xsi:type="xsd:long">0</FirstPartitionSegmentCount></Properties><Collections><Collection><Name>Partitions</Name><XMObject class="XMSegment1Map" ProviderVersion="0"><Properties><Records xsi:type="xsd:long">22</Records></Properties></XMObject></Collection></Collections></XMObject></Member><Member><Name>TableStats</Name><XMObject class="XMTableStats" ProviderVersion="0"><Properties><SegmentSize xsi:type="xsd:long">0</SegmentSize><Usage xsi:type="xsd:int">0</Usage></Properties></XMObject></Member></Members><Collections><Collection><Name>Partitions</Name><XMObject class="XMPartition" name="Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab" ProviderVersion="0"><Properties><IsProcessed xsi:type="xsd:boolean">true</IsProcessed><Partition xsi:type="xsd:int">0</Partition></Properties></XMObject></Collection><Collection><Name>Columns</Name><XMObject class="XMRawColumn" name="RowNumber" ProviderVersion="1"><Properties><Settings xsi:type="xsd:long">1025</Settings><ColumnFlags xsi:type="xsd:long">31</ColumnFlags><Collation/><OrderByColumn/><Locale xsi:type="xsd:long">1033</Locale><BinaryCharacters xsi:type="xsd:unsignedInt">0</BinaryCharacters></Properties><Members><Member><Name>IntrinsicHierarchy</Name><XMObject class="XMHierarchy" name="[Hierarchy for column RowNumber]" ProviderVersion="0"><Properties><SortOrder xsi:type="xsd:int">0</SortOrder><IsProcessed xsi:type="xsd:boolean">true</IsProcessed><TypeMaterialization xsi:type="xsd:int">3</TypeMaterialization><ColumnPosition2DataID xsi:type="xsd:long">-1</ColumnPosition2DataID><ColumnDataID2Position xsi:type="xsd:long">-1</ColumnDataID2Position><DistinctDataIDs xsi:type="xsd:long">22</DistinctDataIDs><TableStore/></Properties></XMObject></Member><Member><Name>ColumnStats</Name><XMObject class="XMColumnStats" ProviderVersion="0"><Properties><DistinctStates xsi:type="xsd:int">22</DistinctStates><MinDataID xsi:type="xsd:int">3</MinDataID><MaxDataID xsi:type="xsd:int">24</MaxDataID><OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID><RLESortOrder xsi:type="xsd:long">-1</RLESortOrder><RowCount xsi:type="xsd:long">22</RowCount><HasNulls xsi:type="xsd:boolean">false</HasNulls><RLERuns xsi:type="xsd:long">0</RLERuns><OthersRLERuns xsi:type="xsd:long">0</OthersRLERuns><Usage xsi:type="xsd:int">3</Usage><DBType xsi:type="xsd:short">3</DBType><XMType xsi:type="xsd:int">0</XMType><CompressionType xsi:type="xsd:int">0</CompressionType><CompressionParam xsi:type="xsd:long">0</CompressionParam><EncodingHint xsi:type="xsd:int">1</EncodingHint><AggCounter xsi:type="xsd:long">0</AggCounter><WhereCounter xsi:type="xsd:long">0</WhereCounter><OrderByCounter xsi:type="xsd:long">0</OrderByCounter></Properties></XMObject></Member></Members><Collections><Collection><Name>Segments</Name><XMObject class="XMColumnSegment" ProviderVersion="0"><Properties><Records xsi:type="xsd:long">22</Records><Mask xsi:type="xsd:long">0</Mask></Properties><Members><Member><Name>SubSegment</Name><XMObject class="XMColumnSegment" ProviderVersion="0"><Properties><Records xsi:type="xsd:long">22</Records><Mask xsi:type="xsd:long">0</Mask></Properties><Members><Member><Name>CompressionInfo</Name><XMObject class="XM123CompressionInfo" ProviderVersion="0"><Properties><Min xsi:type="xsd:int">3</Min></Properties></XMObject></Member><Member><Name>ColumnSegmentStats</Name><XMObject class="XMColumnSegmentStats" ProviderVersion="0"><Properties><DistinctStates xsi:type="xsd:long">0</DistinctStates><MinDataID xsi:type="xsd:int">2</MinDataID><MaxDataID xsi:type="xsd:int">2</MaxDataID><OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID><RLESortOrder xsi:type="xsd:long">-1</RLESortOrder><RowCount xsi:type="xsd:long">0</RowCount><HasNulls xsi:type="xsd:boolean">false</HasNulls><RLERuns xsi:type="xsd:long">0</RLERuns><OthersRLERuns xsi:type="xsd:long">0</OthersRLERuns></Properties></XMObject></Member></Members></XMObject></Member><Member><Name>CompressionInfo</Name><XMObject class="XMHybridRLECompressionInfo&lt;class XM123CompressionInfo>" ProviderVersion="0"><Members><Member><Name>RLECompression</Name><XMObject class="XMRLECompressionInfo" ProviderVersion="0"><Properties><BookmarkBits xsi:type="xsd:long">24</BookmarkBits><StorageAllocSize xsi:type="xsd:long">32</StorageAllocSize><StorageUsedSize xsi:type="xsd:long">2</StorageUsedSize><SegmentNeedsResizing xsi:type="xsd:boolean">false</SegmentNeedsResizing></Properties></XMObject></Member><Member><Name>SubCompression</Name><XMObject class="XM123CompressionInfo" ProviderVersion="0"><Properties><Min xsi:type="xsd:int">3</Min></Properties></XMObject></Member></Members></XMObject></Member><Member><Name>ColumnSegmentStats</Name><XMObject class="XMColumnSegmentStats" ProviderVersion="0"><Properties><DistinctStates xsi:type="xsd:long">0</DistinctStates><MinDataID xsi:type="xsd:int">3</MinDataID><MaxDataID xsi:type="xsd:int">24</MaxDataID><OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID><RLESortOrder xsi:type="xsd:long">-1</RLESortOrder><RowCount xsi:type="xsd:long">22</RowCount><HasNulls xsi:type="xsd:boolean">false</HasNulls><RLERuns xsi:type="xsd:long">0</RLERuns><OthersRLERuns xsi:type="xsd:long">0</OthersRLERuns></Properties></XMObject></Member></Members></XMObject></Collection></Collections><DataObjects><DataObject><XMObject class="XMValueDataDictionary&lt;XM_Long>" ProviderVersion="0"><Properties><DataVersion xsi:type="xsd:int">5</DataVersion><BaseId xsi:type="xsd:long">-3</BaseId><Magnitude xsi:type="xsd:double">1.</Magnitude></Properties></XMObject></DataObject><DataObject><XMObject class="XMRawColumnPartitionDataObject" name="5.Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab.RowNumber.0.idf" ProviderVersion="0"><Properties><DataVersion xsi:type="xsd:int">5</DataVersion><Partition xsi:type="xsd:int">0</Partition><SegmentCount xsi:type="xsd:int">1</SegmentCount></Properties></XMObject></DataObject></DataObjects></XMObject><XMObject class="XMRawColumn" name="Material Type" ProviderVersion="1"><Properties><Settings xsi:type="xsd:long">1025</Settings><ColumnFlags xsi:type="xsd:long">8</ColumnFlags><Collation/><OrderByColumn/><Locale xsi:type="xsd:long">1033</Locale><BinaryCharacters xsi:type="xsd:unsignedInt">0</BinaryCharacters></Properties><Members><Member><Name>IntrinsicHierarchy</Name><XMObject class="XMHierarchy" name="[Hierarchy for column Material Type]" ProviderVersion="0"><Properties><SortOrder xsi:type="xsd:int">0</SortOrder><IsProcessed xsi:type="xsd:boolean">true</IsProcessed><TypeMaterialization xsi:type="xsd:int">0</TypeMaterialization><ColumnPosition2DataID xsi:type="xsd:long">0</ColumnPosition2DataID><ColumnDataID2Position xsi:type="xsd:long">1</ColumnDataID2Position><DistinctDataIDs xsi:type="xsd:long">22</DistinctDataIDs><TableStore>H$Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab$Material Type</TableStore></Properties></XMObject></Member><Member><Name>ColumnStats</Name><XMObject class="XMColumnStats" ProviderVersion="0"><Properties><DistinctStates xsi:type="xsd:int">0</DistinctStates><MinDataID xsi:type="xsd:int">3</MinDataID><MaxDataID xsi:type="xsd:int">24</MaxDataID><OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID><RLESortOrder xsi:type="xsd:long">-1</RLESortOrder><RowCount xsi:type="xsd:long">22</RowCount><HasNulls xsi:type="xsd:boolean">false</HasNulls><RLERuns xsi:type="xsd:long">0</RLERuns><OthersRLERuns xsi:type="xsd:long">1</OthersRLERuns><Usage xsi:type="xsd:int">3</Usage><DBType xsi:type="xsd:short">130</DBType><XMType xsi:type="xsd:int">2</XMType><CompressionType xsi:type="xsd:int">0</CompressionType><CompressionParam xsi:type="xsd:long">0</CompressionParam><EncodingHint xsi:type="xsd:int">0</EncodingHint><AggCounter xsi:type="xsd:long">0</AggCounter><WhereCounter xsi:type="xsd:long">0</WhereCounter><OrderByCounter xsi:type="xsd:long">0</OrderByCounter></Properties></XMObject></Member></Members><Collections><Collection><Name>Segments</Name><XMObject class="XMColumnSegment" ProviderVersion="0"><Properties><Records xsi:type="xsd:long">22</Records><Mask xsi:type="xsd:long">1</Mask></Properties><Members><Member><Name>SubSegment</Name><XMObject class="XMColumnSegment" ProviderVersion="0"><Properties><Records xsi:type="xsd:long">22</Records><Mask xsi:type="xsd:long">0</Mask></Properties><Members><Member><Name>CompressionInfo</Name><XMObject class="XMRENoSplitCompressionInfo&lt;5>" ProviderVersion="0"><Properties><Min xsi:type="xsd:int">3</Min></Properties></XMObject></Member><Member><Name>ColumnSegmentStats</Name><XMObject class="XMColumnSegmentStats" ProviderVersion="0"><Properties><DistinctStates xsi:type="xsd:long">0</DistinctStates><MinDataID xsi:type="xsd:int">2</MinDataID><MaxDataID xsi:type="xsd:int">2</MaxDataID><OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID><RLESortOrder xsi:type="xsd:long">-1</RLESortOrder><RowCount xsi:type="xsd:long">0</RowCount><HasNulls xsi:type="xsd:boolean">false</HasNulls><RLERuns xsi:type="xsd:long">0</RLERuns><OthersRLERuns xsi:type="xsd:long">0</OthersRLERuns></Properties></XMObject></Member></Members></XMObject></Member><Member><Name>CompressionInfo</Name><XMObject class="XMHybridRLECompressionInfo&lt;class XMRENoSplitCompressionInfo&lt;5>>" ProviderVersion="0"><Members><Member><Name>RLECompression</Name><XMObject class="XMRLECompressionInfo" ProviderVersion="0"><Properties><BookmarkBits xsi:type="xsd:long">1</BookmarkBits><StorageAllocSize xsi:type="xsd:long">32</StorageAllocSize><StorageUsedSize xsi:type="xsd:long">4</StorageUsedSize><SegmentNeedsResizing xsi:type="xsd:boolean">false</SegmentNeedsResizing></Properties></XMObject></Member><Member><Name>SubCompression</Name><XMObject class="XMRENoSplitCompressionInfo&lt;5>" ProviderVersion="0"><Properties><Min xsi:type="xsd:int">3</Min></Properties></XMObject></Member></Members></XMObject></Member><Member><Name>ColumnSegmentStats</Name><XMObject class="XMColumnSegmentStats" ProviderVersion="0"><Properties><DistinctStates xsi:type="xsd:long">0</DistinctStates><MinDataID xsi:type="xsd:int">3</MinDataID><MaxDataID xsi:type="xsd:int">24</MaxDataID><OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID><RLESortOrder xsi:type="xsd:long">-1</RLESortOrder><RowCount xsi:type="xsd:long">22</RowCount><HasNulls xsi:type="xsd:boolean">false</HasNulls><RLERuns xsi:type="xsd:long">0</RLERuns><OthersRLERuns xsi:type="xsd:long">1</OthersRLERuns></Properties></XMObject></Member></Members></XMObject></Collection></Collections><DataObjects><DataObject><XMObject class="XMHashDataDictionary&lt;XM_String>" name="5.Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab.Material Type.dictionary" ProviderVersion="0"><Properties><DataVersion xsi:type="xsd:int">5</DataVersion><LastId xsi:type="xsd:int">24</LastId><Nullable xsi:type="xsd:boolean">false</Nullable><Unique xsi:type="xsd:boolean">false</Unique><DictionaryFlags xsi:type="xsd:long">3</DictionaryFlags></Properties></XMObject></DataObject><DataObject><XMObject class="XMRawColumnPartitionDataObject" name="5.Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab.Material Type.0.idf" ProviderVersion="0"><Properties><DataVersion xsi:type="xsd:int">5</DataVersion><Partition xsi:type="xsd:int">0</Partition><SegmentCount xsi:type="xsd:int">1</SegmentCount></Properties></XMObject></DataObject></DataObjects></XMObject><XMObject class="XMRawColumn" name="Material Type ID" ProviderVersion="1"><Properties><Settings xsi:type="xsd:long">1025</Settings><ColumnFlags xsi:type="xsd:long">11</ColumnFlags><Collation/><OrderByColumn/><Locale xsi:type="xsd:long">1033</Locale><BinaryCharacters xsi:type="xsd:unsignedInt">0</BinaryCharacters></Properties><Members><Member><Name>IntrinsicHierarchy</Name><XMObject class="XMHierarchy" name="[Hierarchy for column Material Type ID]" ProviderVersion="0"><Properties><SortOrder xsi:type="xsd:int">0</SortOrder><IsProcessed xsi:type="xsd:boolean">true</IsProcessed><TypeMaterialization xsi:type="xsd:int">0</TypeMaterialization><ColumnPosition2DataID xsi:type="xsd:long">0</ColumnPosition2DataID><ColumnDataID2Position xsi:type="xsd:long">1</ColumnDataID2Position><DistinctDataIDs xsi:type="xsd:long">22</DistinctDataIDs><TableStore>H$Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab$Material Type ID</TableStore></Properties></XMObject></Member><Member><Name>ColumnStats</Name><XMObject class="XMColumnStats" ProviderVersion="0"><Properties><DistinctStates xsi:type="xsd:int">0</DistinctStates><MinDataID xsi:type="xsd:int">3</MinDataID><MaxDataID xsi:type="xsd:int">24</MaxDataID><OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID><RLESortOrder xsi:type="xsd:long">-1</RLESortOrder><RowCount xsi:type="xsd:long">22</RowCount><HasNulls xsi:type="xsd:boolean">false</HasNulls><RLERuns xsi:type="xsd:long">0</RLERuns><OthersRLERuns xsi:type="xsd:long">1</OthersRLERuns><Usage xsi:type="xsd:int">0</Usage><DBType xsi:type="xsd:short">5</DBType><XMType xsi:type="xsd:int">1</XMType><CompressionType xsi:type="xsd:int">0</CompressionType><CompressionParam xsi:type="xsd:long">0</CompressionParam><EncodingHint xsi:type="xsd:int">1</EncodingHint><AggCounter xsi:type="xsd:long">0</AggCounter><WhereCounter xsi:type="xsd:long">0</WhereCounter><OrderByCounter xsi:type="xsd:long">0</OrderByCounter></Properties></XMObject></Member></Members><Collections><Collection><Name>Segments</Name><XMObject class="XMColumnSegment" ProviderVersion="0"><Properties><Records xsi:type="xsd:long">22</Records><Mask xsi:type="xsd:long">1</Mask></Properties><Members><Member><Name>SubSegment</Name><XMObject class="XMColumnSegment" ProviderVersion="0"><Properties><Records xsi:type="xsd:long">22</Records><Mask xsi:type="xsd:long">0</Mask></Properties><Members><Member><Name>CompressionInfo</Name><XMObject class="XMRENoSplitCompressionInfo&lt;5>" ProviderVersion="0"><Properties><Min xsi:type="xsd:int">3</Min></Properties></XMObject></Member><Member><Name>ColumnSegmentStats</Name><XMObject class="XMColumnSegmentStats" ProviderVersion="0"><Properties><DistinctStates xsi:type="xsd:long">0</DistinctStates><MinDataID xsi:type="xsd:int">2</MinDataID><MaxDataID xsi:type="xsd:int">2</MaxDataID><OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID><RLESortOrder xsi:type="xsd:long">-1</RLESortOrder><RowCount xsi:type="xsd:long">0</RowCount><HasNulls xsi:type="xsd:boolean">false</HasNulls><RLERuns xsi:type="xsd:long">0</RLERuns><OthersRLERuns xsi:type="xsd:long">0</OthersRLERuns></Properties></XMObject></Member></Members></XMObject></Member><Member><Name>CompressionInfo</Name><XMObject class="XMHybridRLECompressionInfo&lt;class XMRENoSplitCompressionInfo&lt;5>>" ProviderVersion="0"><Members><Member><Name>RLECompression</Name><XMObject class="XMRLECompressionInfo" ProviderVersion="0"><Properties><BookmarkBits xsi:type="xsd:long">1</BookmarkBits><StorageAllocSize xsi:type="xsd:long">32</StorageAllocSize><StorageUsedSize xsi:type="xsd:long">4</StorageUsedSize><SegmentNeedsResizing xsi:type="xsd:boolean">false</SegmentNeedsResizing></Properties></XMObject></Member><Member><Name>SubCompression</Name><XMObject class="XMRENoSplitCompressionInfo&lt;5>" ProviderVersion="0"><Properties><Min xsi:type="xsd:int">3</Min></Properties></XMObject></Member></Members></XMObject></Member><Member><Name>ColumnSegmentStats</Name><XMObject class="XMColumnSegmentStats" ProviderVersion="0"><Properties><DistinctStates xsi:type="xsd:long">0</DistinctStates><MinDataID xsi:type="xsd:int">3</MinDataID><MaxDataID xsi:type="xsd:int">24</MaxDataID><OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID><RLESortOrder xsi:type="xsd:long">-1</RLESortOrder><RowCount xsi:type="xsd:long">22</RowCount><HasNulls xsi:type="xsd:boolean">false</HasNulls><RLERuns xsi:type="xsd:long">0</RLERuns><OthersRLERuns xsi:type="xsd:long">1</OthersRLERuns></Properties></XMObject></Member></Members></XMObject></Collection></Collections><DataObjects><DataObject><XMObject class="XMHashDataDictionary&lt;XM_Real>" name="5.Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab.Material Type ID.dictionary" ProviderVersion="0"><Properties><DataVersion xsi:type="xsd:int">5</DataVersion><LastId xsi:type="xsd:int">24</LastId><Nullable xsi:type="xsd:boolean">false</Nullable><Unique xsi:type="xsd:boolean">true</Unique></Properties></XMObject></DataObject><DataObject><XMObject class="XMRawColumnPartitionDataObject" name="5.Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab.Material Type ID.0.idf" ProviderVersion="0"><Properties><DataVersion xsi:type="xsd:int">5</DataVersion><Partition xsi:type="xsd:int">0</Partition><SegmentCount xsi:type="xsd:int">1</SegmentCount></Properties></XMObject></DataObject></DataObjects></XMObject></Collection><Collection><Name>Relationships</Name></Collection><Collection><Name>UserHierarchies</Name></Collection></Collections></XMObject>
+<XMObject xmlns="http://schemas.microsoft.com/analysisservices/imbi"
+    xmlns:imbi200="http://schemas.microsoft.com/analysisservices/2010/imbi/200"
+    xmlns:imbi200_200="http://schemas.microsoft.com/analysisservices/2010/imbi/200/200"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="XMSimpleTable"
+    name="Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab" ProviderVersion="0">
+    <Properties>
+        <Version xsi:type="xsd:int">5</Version>
+        <Settings xsi:type="xsd:long">4353</Settings>
+        <RIViolationCount xsi:type="xsd:long">0</RIViolationCount>
+    </Properties>
+    <Members>
+        <Member>
+            <Name>SegmentMap</Name>
+            <XMObject class="XMMultiPartSegmentMap" ProviderVersion="0">
+                <Properties>
+                    <FirstPartitionRecordCount xsi:type="xsd:long">0</FirstPartitionRecordCount>
+                    <FirstPartitionSegmentCount xsi:type="xsd:long">0</FirstPartitionSegmentCount>
+                </Properties>
+                <Collections>
+                    <Collection>
+                        <Name>Partitions</Name>
+                        <XMObject class="XMSegment1Map" ProviderVersion="0">
+                            <Properties>
+                                <Records xsi:type="xsd:long">22</Records>
+                            </Properties>
+                        </XMObject>
+                    </Collection>
+                </Collections>
+            </XMObject>
+        </Member>
+        <Member>
+            <Name>TableStats</Name>
+            <XMObject class="XMTableStats" ProviderVersion="0">
+                <Properties>
+                    <SegmentSize xsi:type="xsd:long">0</SegmentSize>
+                    <Usage xsi:type="xsd:int">0</Usage>
+                </Properties>
+            </XMObject>
+        </Member>
+    </Members>
+    <Collections>
+        <Collection>
+            <Name>Partitions</Name>
+            <XMObject class="XMPartition" name="Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab"
+                ProviderVersion="0">
+                <Properties>
+                    <IsProcessed xsi:type="xsd:boolean">true</IsProcessed>
+                    <Partition xsi:type="xsd:int">0</Partition>
+                </Properties>
+            </XMObject>
+        </Collection>
+        <Collection>
+            <Name>Columns</Name>
+            <XMObject class="XMRawColumn" name="RowNumber" ProviderVersion="1">
+                <Properties>
+                    <Settings xsi:type="xsd:long">1025</Settings>
+                    <ColumnFlags xsi:type="xsd:long">31</ColumnFlags>
+                    <Collation />
+                    <OrderByColumn />
+                    <Locale xsi:type="xsd:long">1033</Locale>
+                    <BinaryCharacters xsi:type="xsd:unsignedInt">0</BinaryCharacters>
+                </Properties>
+                <Members>
+                    <Member>
+                        <Name>IntrinsicHierarchy</Name>
+                        <XMObject class="XMHierarchy" name="[Hierarchy for column RowNumber]"
+                            ProviderVersion="0">
+                            <Properties>
+                                <SortOrder xsi:type="xsd:int">0</SortOrder>
+                                <IsProcessed xsi:type="xsd:boolean">true</IsProcessed>
+                                <TypeMaterialization xsi:type="xsd:int">3</TypeMaterialization>
+                                <ColumnPosition2DataID xsi:type="xsd:long">-1</ColumnPosition2DataID>
+                                <ColumnDataID2Position xsi:type="xsd:long">-1</ColumnDataID2Position>
+                                <DistinctDataIDs xsi:type="xsd:long">22</DistinctDataIDs>
+                                <TableStore />
+                            </Properties>
+                        </XMObject>
+                    </Member>
+                    <Member>
+                        <Name>ColumnStats</Name>
+                        <XMObject class="XMColumnStats" ProviderVersion="0">
+                            <Properties>
+                                <DistinctStates xsi:type="xsd:int">22</DistinctStates>
+                                <MinDataID xsi:type="xsd:int">3</MinDataID>
+                                <MaxDataID xsi:type="xsd:int">24</MaxDataID>
+                                <OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID>
+                                <RLESortOrder xsi:type="xsd:long">-1</RLESortOrder>
+                                <RowCount xsi:type="xsd:long">22</RowCount>
+                                <HasNulls xsi:type="xsd:boolean">false</HasNulls>
+                                <RLERuns xsi:type="xsd:long">0</RLERuns>
+                                <OthersRLERuns xsi:type="xsd:long">0</OthersRLERuns>
+                                <Usage xsi:type="xsd:int">3</Usage>
+                                <DBType xsi:type="xsd:short">3</DBType>
+                                <XMType xsi:type="xsd:int">0</XMType>
+                                <CompressionType xsi:type="xsd:int">0</CompressionType>
+                                <CompressionParam xsi:type="xsd:long">0</CompressionParam>
+                                <EncodingHint xsi:type="xsd:int">1</EncodingHint>
+                                <AggCounter xsi:type="xsd:long">0</AggCounter>
+                                <WhereCounter xsi:type="xsd:long">0</WhereCounter>
+                                <OrderByCounter xsi:type="xsd:long">0</OrderByCounter>
+                            </Properties>
+                        </XMObject>
+                    </Member>
+                </Members>
+                <Collections>
+                    <Collection>
+                        <Name>Segments</Name>
+                        <XMObject class="XMColumnSegment" ProviderVersion="0">
+                            <Properties>
+                                <Records xsi:type="xsd:long">22</Records>
+                                <Mask xsi:type="xsd:long">0</Mask>
+                            </Properties>
+                            <Members>
+                                <Member>
+                                    <Name>SubSegment</Name>
+                                    <XMObject class="XMColumnSegment" ProviderVersion="0">
+                                        <Properties>
+                                            <Records xsi:type="xsd:long">22</Records>
+                                            <Mask xsi:type="xsd:long">0</Mask>
+                                        </Properties>
+                                        <Members>
+                                            <Member>
+                                                <Name>CompressionInfo</Name>
+                                                <XMObject class="XM123CompressionInfo"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <Min xsi:type="xsd:int">3</Min>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                            <Member>
+                                                <Name>ColumnSegmentStats</Name>
+                                                <XMObject class="XMColumnSegmentStats"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <DistinctStates xsi:type="xsd:long">0</DistinctStates>
+                                                        <MinDataID xsi:type="xsd:int">2</MinDataID>
+                                                        <MaxDataID xsi:type="xsd:int">2</MaxDataID>
+                                                        <OriginalMinSegmentDataID xsi:type="xsd:int">
+                                                            2</OriginalMinSegmentDataID>
+                                                        <RLESortOrder xsi:type="xsd:long">-1</RLESortOrder>
+                                                        <RowCount xsi:type="xsd:long">0</RowCount>
+                                                        <HasNulls xsi:type="xsd:boolean">false</HasNulls>
+                                                        <RLERuns xsi:type="xsd:long">0</RLERuns>
+                                                        <OthersRLERuns xsi:type="xsd:long">0</OthersRLERuns>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                        </Members>
+                                    </XMObject>
+                                </Member>
+                                <Member>
+                                    <Name>CompressionInfo</Name>
+                                    <XMObject
+                                        class="XMHybridRLECompressionInfo&lt;class XM123CompressionInfo>"
+                                        ProviderVersion="0">
+                                        <Members>
+                                            <Member>
+                                                <Name>RLECompression</Name>
+                                                <XMObject class="XMRLECompressionInfo"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <BookmarkBits xsi:type="xsd:long">24</BookmarkBits>
+                                                        <StorageAllocSize xsi:type="xsd:long">32</StorageAllocSize>
+                                                        <StorageUsedSize xsi:type="xsd:long">2</StorageUsedSize>
+                                                        <SegmentNeedsResizing xsi:type="xsd:boolean">
+                                                            false</SegmentNeedsResizing>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                            <Member>
+                                                <Name>SubCompression</Name>
+                                                <XMObject class="XM123CompressionInfo"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <Min xsi:type="xsd:int">3</Min>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                        </Members>
+                                    </XMObject>
+                                </Member>
+                                <Member>
+                                    <Name>ColumnSegmentStats</Name>
+                                    <XMObject class="XMColumnSegmentStats" ProviderVersion="0">
+                                        <Properties>
+                                            <DistinctStates xsi:type="xsd:long">0</DistinctStates>
+                                            <MinDataID xsi:type="xsd:int">3</MinDataID>
+                                            <MaxDataID xsi:type="xsd:int">24</MaxDataID>
+                                            <OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID>
+                                            <RLESortOrder xsi:type="xsd:long">-1</RLESortOrder>
+                                            <RowCount xsi:type="xsd:long">22</RowCount>
+                                            <HasNulls xsi:type="xsd:boolean">false</HasNulls>
+                                            <RLERuns xsi:type="xsd:long">0</RLERuns>
+                                            <OthersRLERuns xsi:type="xsd:long">0</OthersRLERuns>
+                                        </Properties>
+                                    </XMObject>
+                                </Member>
+                            </Members>
+                        </XMObject>
+                    </Collection>
+                </Collections>
+                <DataObjects>
+                    <DataObject>
+                        <XMObject class="XMValueDataDictionary&lt;XM_Long>" ProviderVersion="0">
+                            <Properties>
+                                <DataVersion xsi:type="xsd:int">5</DataVersion>
+                                <BaseId xsi:type="xsd:long">-3</BaseId>
+                                <Magnitude xsi:type="xsd:double">1.</Magnitude>
+                            </Properties>
+                        </XMObject>
+                    </DataObject>
+                    <DataObject>
+                        <XMObject class="XMRawColumnPartitionDataObject"
+                            name="5.Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab.RowNumber.0.idf"
+                            ProviderVersion="0">
+                            <Properties>
+                                <DataVersion xsi:type="xsd:int">5</DataVersion>
+                                <Partition xsi:type="xsd:int">0</Partition>
+                                <SegmentCount xsi:type="xsd:int">1</SegmentCount>
+                            </Properties>
+                        </XMObject>
+                    </DataObject>
+                </DataObjects>
+            </XMObject>
+            <XMObject class="XMRawColumn" name="Material Type" ProviderVersion="1">
+                <Properties>
+                    <Settings xsi:type="xsd:long">1025</Settings>
+                    <ColumnFlags xsi:type="xsd:long">8</ColumnFlags>
+                    <Collation />
+                    <OrderByColumn />
+                    <Locale xsi:type="xsd:long">1033</Locale>
+                    <BinaryCharacters xsi:type="xsd:unsignedInt">0</BinaryCharacters>
+                </Properties>
+                <Members>
+                    <Member>
+                        <Name>IntrinsicHierarchy</Name>
+                        <XMObject class="XMHierarchy" name="[Hierarchy for column Material Type]"
+                            ProviderVersion="0">
+                            <Properties>
+                                <SortOrder xsi:type="xsd:int">0</SortOrder>
+                                <IsProcessed xsi:type="xsd:boolean">true</IsProcessed>
+                                <TypeMaterialization xsi:type="xsd:int">0</TypeMaterialization>
+                                <ColumnPosition2DataID xsi:type="xsd:long">0</ColumnPosition2DataID>
+                                <ColumnDataID2Position xsi:type="xsd:long">1</ColumnDataID2Position>
+                                <DistinctDataIDs xsi:type="xsd:long">22</DistinctDataIDs>
+                                <TableStore>H$Material
+                                    Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab$Material Type</TableStore>
+                            </Properties>
+                        </XMObject>
+                    </Member>
+                    <Member>
+                        <Name>ColumnStats</Name>
+                        <XMObject class="XMColumnStats" ProviderVersion="0">
+                            <Properties>
+                                <DistinctStates xsi:type="xsd:int">0</DistinctStates>
+                                <MinDataID xsi:type="xsd:int">3</MinDataID>
+                                <MaxDataID xsi:type="xsd:int">24</MaxDataID>
+                                <OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID>
+                                <RLESortOrder xsi:type="xsd:long">-1</RLESortOrder>
+                                <RowCount xsi:type="xsd:long">22</RowCount>
+                                <HasNulls xsi:type="xsd:boolean">false</HasNulls>
+                                <RLERuns xsi:type="xsd:long">0</RLERuns>
+                                <OthersRLERuns xsi:type="xsd:long">1</OthersRLERuns>
+                                <Usage xsi:type="xsd:int">3</Usage>
+                                <DBType xsi:type="xsd:short">130</DBType>
+                                <XMType xsi:type="xsd:int">2</XMType>
+                                <CompressionType xsi:type="xsd:int">0</CompressionType>
+                                <CompressionParam xsi:type="xsd:long">0</CompressionParam>
+                                <EncodingHint xsi:type="xsd:int">0</EncodingHint>
+                                <AggCounter xsi:type="xsd:long">0</AggCounter>
+                                <WhereCounter xsi:type="xsd:long">0</WhereCounter>
+                                <OrderByCounter xsi:type="xsd:long">0</OrderByCounter>
+                            </Properties>
+                        </XMObject>
+                    </Member>
+                </Members>
+                <Collections>
+                    <Collection>
+                        <Name>Segments</Name>
+                        <XMObject class="XMColumnSegment" ProviderVersion="0">
+                            <Properties>
+                                <Records xsi:type="xsd:long">22</Records>
+                                <Mask xsi:type="xsd:long">1</Mask>
+                            </Properties>
+                            <Members>
+                                <Member>
+                                    <Name>SubSegment</Name>
+                                    <XMObject class="XMColumnSegment" ProviderVersion="0">
+                                        <Properties>
+                                            <Records xsi:type="xsd:long">22</Records>
+                                            <Mask xsi:type="xsd:long">0</Mask>
+                                        </Properties>
+                                        <Members>
+                                            <Member>
+                                                <Name>CompressionInfo</Name>
+                                                <XMObject class="XMRENoSplitCompressionInfo&lt;5>"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <Min xsi:type="xsd:int">3</Min>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                            <Member>
+                                                <Name>ColumnSegmentStats</Name>
+                                                <XMObject class="XMColumnSegmentStats"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <DistinctStates xsi:type="xsd:long">0</DistinctStates>
+                                                        <MinDataID xsi:type="xsd:int">2</MinDataID>
+                                                        <MaxDataID xsi:type="xsd:int">2</MaxDataID>
+                                                        <OriginalMinSegmentDataID xsi:type="xsd:int">
+                                                            2</OriginalMinSegmentDataID>
+                                                        <RLESortOrder xsi:type="xsd:long">-1</RLESortOrder>
+                                                        <RowCount xsi:type="xsd:long">0</RowCount>
+                                                        <HasNulls xsi:type="xsd:boolean">false</HasNulls>
+                                                        <RLERuns xsi:type="xsd:long">0</RLERuns>
+                                                        <OthersRLERuns xsi:type="xsd:long">0</OthersRLERuns>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                        </Members>
+                                    </XMObject>
+                                </Member>
+                                <Member>
+                                    <Name>CompressionInfo</Name>
+                                    <XMObject
+                                        class="XMHybridRLECompressionInfo&lt;class XMRENoSplitCompressionInfo&lt;5>>"
+                                        ProviderVersion="0">
+                                        <Members>
+                                            <Member>
+                                                <Name>RLECompression</Name>
+                                                <XMObject class="XMRLECompressionInfo"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <BookmarkBits xsi:type="xsd:long">1</BookmarkBits>
+                                                        <StorageAllocSize xsi:type="xsd:long">32</StorageAllocSize>
+                                                        <StorageUsedSize xsi:type="xsd:long">4</StorageUsedSize>
+                                                        <SegmentNeedsResizing xsi:type="xsd:boolean">
+                                                            false</SegmentNeedsResizing>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                            <Member>
+                                                <Name>SubCompression</Name>
+                                                <XMObject class="XMRENoSplitCompressionInfo&lt;5>"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <Min xsi:type="xsd:int">3</Min>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                        </Members>
+                                    </XMObject>
+                                </Member>
+                                <Member>
+                                    <Name>ColumnSegmentStats</Name>
+                                    <XMObject class="XMColumnSegmentStats" ProviderVersion="0">
+                                        <Properties>
+                                            <DistinctStates xsi:type="xsd:long">0</DistinctStates>
+                                            <MinDataID xsi:type="xsd:int">3</MinDataID>
+                                            <MaxDataID xsi:type="xsd:int">24</MaxDataID>
+                                            <OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID>
+                                            <RLESortOrder xsi:type="xsd:long">-1</RLESortOrder>
+                                            <RowCount xsi:type="xsd:long">22</RowCount>
+                                            <HasNulls xsi:type="xsd:boolean">false</HasNulls>
+                                            <RLERuns xsi:type="xsd:long">0</RLERuns>
+                                            <OthersRLERuns xsi:type="xsd:long">1</OthersRLERuns>
+                                        </Properties>
+                                    </XMObject>
+                                </Member>
+                            </Members>
+                        </XMObject>
+                    </Collection>
+                </Collections>
+                <DataObjects>
+                    <DataObject>
+                        <XMObject class="XMHashDataDictionary&lt;XM_String>"
+                            name="5.Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab.Material Type.dictionary"
+                            ProviderVersion="0">
+                            <Properties>
+                                <DataVersion xsi:type="xsd:int">5</DataVersion>
+                                <LastId xsi:type="xsd:int">24</LastId>
+                                <Nullable xsi:type="xsd:boolean">false</Nullable>
+                                <Unique xsi:type="xsd:boolean">false</Unique>
+                                <DictionaryFlags xsi:type="xsd:long">3</DictionaryFlags>
+                            </Properties>
+                        </XMObject>
+                    </DataObject>
+                    <DataObject>
+                        <XMObject class="XMRawColumnPartitionDataObject"
+                            name="5.Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab.Material Type.0.idf"
+                            ProviderVersion="0">
+                            <Properties>
+                                <DataVersion xsi:type="xsd:int">5</DataVersion>
+                                <Partition xsi:type="xsd:int">0</Partition>
+                                <SegmentCount xsi:type="xsd:int">1</SegmentCount>
+                            </Properties>
+                        </XMObject>
+                    </DataObject>
+                </DataObjects>
+            </XMObject>
+            <XMObject class="XMRawColumn" name="Material Type ID" ProviderVersion="1">
+                <Properties>
+                    <Settings xsi:type="xsd:long">1025</Settings>
+                    <ColumnFlags xsi:type="xsd:long">11</ColumnFlags>
+                    <Collation />
+                    <OrderByColumn />
+                    <Locale xsi:type="xsd:long">1033</Locale>
+                    <BinaryCharacters xsi:type="xsd:unsignedInt">0</BinaryCharacters>
+                </Properties>
+                <Members>
+                    <Member>
+                        <Name>IntrinsicHierarchy</Name>
+                        <XMObject class="XMHierarchy" name="[Hierarchy for column Material Type ID]"
+                            ProviderVersion="0">
+                            <Properties>
+                                <SortOrder xsi:type="xsd:int">0</SortOrder>
+                                <IsProcessed xsi:type="xsd:boolean">true</IsProcessed>
+                                <TypeMaterialization xsi:type="xsd:int">0</TypeMaterialization>
+                                <ColumnPosition2DataID xsi:type="xsd:long">0</ColumnPosition2DataID>
+                                <ColumnDataID2Position xsi:type="xsd:long">1</ColumnDataID2Position>
+                                <DistinctDataIDs xsi:type="xsd:long">22</DistinctDataIDs>
+                                <TableStore>H$Material
+                                    Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab$Material Type ID</TableStore>
+                            </Properties>
+                        </XMObject>
+                    </Member>
+                    <Member>
+                        <Name>ColumnStats</Name>
+                        <XMObject class="XMColumnStats" ProviderVersion="0">
+                            <Properties>
+                                <DistinctStates xsi:type="xsd:int">0</DistinctStates>
+                                <MinDataID xsi:type="xsd:int">3</MinDataID>
+                                <MaxDataID xsi:type="xsd:int">24</MaxDataID>
+                                <OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID>
+                                <RLESortOrder xsi:type="xsd:long">-1</RLESortOrder>
+                                <RowCount xsi:type="xsd:long">22</RowCount>
+                                <HasNulls xsi:type="xsd:boolean">false</HasNulls>
+                                <RLERuns xsi:type="xsd:long">0</RLERuns>
+                                <OthersRLERuns xsi:type="xsd:long">1</OthersRLERuns>
+                                <Usage xsi:type="xsd:int">0</Usage>
+                                <DBType xsi:type="xsd:short">5</DBType>
+                                <XMType xsi:type="xsd:int">1</XMType>
+                                <CompressionType xsi:type="xsd:int">0</CompressionType>
+                                <CompressionParam xsi:type="xsd:long">0</CompressionParam>
+                                <EncodingHint xsi:type="xsd:int">1</EncodingHint>
+                                <AggCounter xsi:type="xsd:long">0</AggCounter>
+                                <WhereCounter xsi:type="xsd:long">0</WhereCounter>
+                                <OrderByCounter xsi:type="xsd:long">0</OrderByCounter>
+                            </Properties>
+                        </XMObject>
+                    </Member>
+                </Members>
+                <Collections>
+                    <Collection>
+                        <Name>Segments</Name>
+                        <XMObject class="XMColumnSegment" ProviderVersion="0">
+                            <Properties>
+                                <Records xsi:type="xsd:long">22</Records>
+                                <Mask xsi:type="xsd:long">1</Mask>
+                            </Properties>
+                            <Members>
+                                <Member>
+                                    <Name>SubSegment</Name>
+                                    <XMObject class="XMColumnSegment" ProviderVersion="0">
+                                        <Properties>
+                                            <Records xsi:type="xsd:long">22</Records>
+                                            <Mask xsi:type="xsd:long">0</Mask>
+                                        </Properties>
+                                        <Members>
+                                            <Member>
+                                                <Name>CompressionInfo</Name>
+                                                <XMObject class="XMRENoSplitCompressionInfo&lt;5>"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <Min xsi:type="xsd:int">3</Min>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                            <Member>
+                                                <Name>ColumnSegmentStats</Name>
+                                                <XMObject class="XMColumnSegmentStats"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <DistinctStates xsi:type="xsd:long">0</DistinctStates>
+                                                        <MinDataID xsi:type="xsd:int">2</MinDataID>
+                                                        <MaxDataID xsi:type="xsd:int">2</MaxDataID>
+                                                        <OriginalMinSegmentDataID xsi:type="xsd:int">
+                                                            2</OriginalMinSegmentDataID>
+                                                        <RLESortOrder xsi:type="xsd:long">-1</RLESortOrder>
+                                                        <RowCount xsi:type="xsd:long">0</RowCount>
+                                                        <HasNulls xsi:type="xsd:boolean">false</HasNulls>
+                                                        <RLERuns xsi:type="xsd:long">0</RLERuns>
+                                                        <OthersRLERuns xsi:type="xsd:long">0</OthersRLERuns>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                        </Members>
+                                    </XMObject>
+                                </Member>
+                                <Member>
+                                    <Name>CompressionInfo</Name>
+                                    <XMObject
+                                        class="XMHybridRLECompressionInfo&lt;class XMRENoSplitCompressionInfo&lt;5>>"
+                                        ProviderVersion="0">
+                                        <Members>
+                                            <Member>
+                                                <Name>RLECompression</Name>
+                                                <XMObject class="XMRLECompressionInfo"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <BookmarkBits xsi:type="xsd:long">1</BookmarkBits>
+                                                        <StorageAllocSize xsi:type="xsd:long">32</StorageAllocSize>
+                                                        <StorageUsedSize xsi:type="xsd:long">4</StorageUsedSize>
+                                                        <SegmentNeedsResizing xsi:type="xsd:boolean">
+                                                            false</SegmentNeedsResizing>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                            <Member>
+                                                <Name>SubCompression</Name>
+                                                <XMObject class="XMRENoSplitCompressionInfo&lt;5>"
+                                                    ProviderVersion="0">
+                                                    <Properties>
+                                                        <Min xsi:type="xsd:int">3</Min>
+                                                    </Properties>
+                                                </XMObject>
+                                            </Member>
+                                        </Members>
+                                    </XMObject>
+                                </Member>
+                                <Member>
+                                    <Name>ColumnSegmentStats</Name>
+                                    <XMObject class="XMColumnSegmentStats" ProviderVersion="0">
+                                        <Properties>
+                                            <DistinctStates xsi:type="xsd:long">0</DistinctStates>
+                                            <MinDataID xsi:type="xsd:int">3</MinDataID>
+                                            <MaxDataID xsi:type="xsd:int">24</MaxDataID>
+                                            <OriginalMinSegmentDataID xsi:type="xsd:int">2</OriginalMinSegmentDataID>
+                                            <RLESortOrder xsi:type="xsd:long">-1</RLESortOrder>
+                                            <RowCount xsi:type="xsd:long">22</RowCount>
+                                            <HasNulls xsi:type="xsd:boolean">false</HasNulls>
+                                            <RLERuns xsi:type="xsd:long">0</RLERuns>
+                                            <OthersRLERuns xsi:type="xsd:long">1</OthersRLERuns>
+                                        </Properties>
+                                    </XMObject>
+                                </Member>
+                            </Members>
+                        </XMObject>
+                    </Collection>
+                </Collections>
+                <DataObjects>
+                    <DataObject>
+                        <XMObject class="XMHashDataDictionary&lt;XM_Real>"
+                            name="5.Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab.Material Type ID.dictionary"
+                            ProviderVersion="0">
+                            <Properties>
+                                <DataVersion xsi:type="xsd:int">5</DataVersion>
+                                <LastId xsi:type="xsd:int">24</LastId>
+                                <Nullable xsi:type="xsd:boolean">false</Nullable>
+                                <Unique xsi:type="xsd:boolean">true</Unique>
+                            </Properties>
+                        </XMObject>
+                    </DataObject>
+                    <DataObject>
+                        <XMObject class="XMRawColumnPartitionDataObject"
+                            name="5.Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab.Material Type ID.0.idf"
+                            ProviderVersion="0">
+                            <Properties>
+                                <DataVersion xsi:type="xsd:int">5</DataVersion>
+                                <Partition xsi:type="xsd:int">0</Partition>
+                                <SegmentCount xsi:type="xsd:int">1</SegmentCount>
+                            </Properties>
+                        </XMObject>
+                    </DataObject>
+                </DataObjects>
+            </XMObject>
+        </Collection>
+        <Collection>
+            <Name>Relationships</Name>
+        </Collection>
+        <Collection>
+            <Name>UserHierarchies</Name>
+        </Collection>
+    </Collections>
+</XMObject>

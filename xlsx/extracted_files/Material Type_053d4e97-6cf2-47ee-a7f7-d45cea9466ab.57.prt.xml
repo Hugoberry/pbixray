@@ -1,12 +1,107 @@
-<Load xmlns="http://schemas.microsoft.com/analysisservices/2003/engine" xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100" xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300" xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300" xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400" xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400" xmlns:ddl410="http://schemas.microsoft.com/analysisservices/2012/engine/410" xmlns:ddl410_410="http://schemas.microsoft.com/analysisservices/2012/engine/410/410" xmlns:ddl500="http://schemas.microsoft.com/analysisservices/2013/engine/500" xmlns:ddl500_500="http://schemas.microsoft.com/analysisservices/2013/engine/500/500" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><ParentObject><DatabaseID>32E74685AD35411E98FD</DatabaseID><CubeID>Model</CubeID><MeasureGroupID>Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab</MeasureGroupID></ParentObject><ObjectDefinition><Partition><Name>Material Type</Name><ID>Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab</ID><CreatedTimestamp>2014-11-12T04:18:25.666667</CreatedTimestamp><LastSchemaUpdate>2015-02-17T21:36:20.596667</LastSchemaUpdate><ObjectVersion>57</ObjectVersion><ObjectID>D3BC7FEA-5386-4255-B2E2-571DCE9912C9</ObjectID><Ordinal>0</Ordinal><PersistLocation>57</PersistLocation><System>false</System><DataFileList/><Description/><Annotations xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400" xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400" xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300" xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300" xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://schemas.microsoft.com/analysisservices/2003/engine" xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
-                <Annotation>
-                  <Name>IsQueryEditorUsed</Name>
-                  <Value>False</Value>
-                </Annotation>
-                <Annotation>
-                  <Name>QueryEditorSerialization</Name>
-                </Annotation>
-                <Annotation>
-                  <Name>TableWidgetSerialization</Name>
-                </Annotation>
-              </Annotations><DataVersion>-1</DataVersion><LastBindingChange>1601-01-01T00:00:00</LastBindingChange><LastProcessed>2014-11-12T05:00:49.363333</LastProcessed><Type>Data</Type><AggregationPrefix/><StorageMode valuens="ddl200_200">InMemory</StorageMode><CurrentStorageMode valuens="ddl200_200">InMemory</CurrentStorageMode><ddl300:StringStoresCompatibilityLevel>1050</ddl300:StringStoresCompatibilityLevel><ddl300:InternalStringStoresCompatibilityLevel>1050</ddl300:InternalStringStoresCompatibilityLevel><ddl300:CurrentStringStoresCompatibilityLevel>1050</ddl300:CurrentStringStoresCompatibilityLevel><ProcessingMode>Regular</ProcessingMode><ProcessingPriority>0</ProcessingPriority><ErrorConfiguration><KeyErrorLimit>0</KeyErrorLimit><KeyErrorLogFile/><KeyErrorAction>ConvertToUnknown</KeyErrorAction><KeyErrorLimitAction>StopProcessing</KeyErrorLimitAction><KeyDuplicate>ReportAndStop</KeyDuplicate><KeyNotFound>IgnoreError</KeyNotFound><NullKeyConvertedToUnknown>IgnoreError</NullKeyConvertedToUnknown><NullKeyNotAllowed>ReportAndStop</NullKeyNotAllowed></ErrorConfiguration><StorageLocation/><RemoteDataSourceID/><Slice/><EstimatedRows>0</EstimatedRows><AggregationDesignID/><Source xsi:type="QueryBinding"><DataSourceID>7e974cef-ca4b-42bf-9f55-cb56de2cd491</DataSourceID><QueryDefinition>SELECT ['Material Type$'].*   FROM ['Material Type$']</QueryDefinition></Source><ProactiveCaching><SilenceInterval>-PT1S</SilenceInterval><Latency>-PT1S</Latency><SilenceOverrideInterval>-PT1S</SilenceOverrideInterval><ForceRebuildInterval>-PT1S</ForceRebuildInterval><Enabled>false</Enabled><AggregationStorage>Regular</AggregationStorage><OnlineMode>Immediate</OnlineMode><Source xsi:type="ProactiveCachingInheritedBinding"><NotificationTechnique>Client</NotificationTechnique></Source></ProactiveCaching><EstimatedSize>0</EstimatedSize><CacheVersion>13</CacheVersion></Partition></ObjectDefinition></Load>
+<Load xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+  xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+  xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+  xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100"
+  xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+  xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+  xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+  xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+  xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+  xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+  xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+  xmlns:ddl410="http://schemas.microsoft.com/analysisservices/2012/engine/410"
+  xmlns:ddl410_410="http://schemas.microsoft.com/analysisservices/2012/engine/410/410"
+  xmlns:ddl500="http://schemas.microsoft.com/analysisservices/2013/engine/500"
+  xmlns:ddl500_500="http://schemas.microsoft.com/analysisservices/2013/engine/500/500"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ParentObject>
+    <DatabaseID>32E74685AD35411E98FD</DatabaseID>
+    <CubeID>Model</CubeID>
+    <MeasureGroupID>Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab</MeasureGroupID>
+  </ParentObject>
+  <ObjectDefinition>
+    <Partition>
+      <Name>Material Type</Name>
+      <ID>Material Type_053d4e97-6cf2-47ee-a7f7-d45cea9466ab</ID>
+      <CreatedTimestamp>2014-11-12T04:18:25.666667</CreatedTimestamp>
+      <LastSchemaUpdate>2015-02-17T21:36:20.596667</LastSchemaUpdate>
+      <ObjectVersion>57</ObjectVersion>
+      <ObjectID>D3BC7FEA-5386-4255-B2E2-571DCE9912C9</ObjectID>
+      <Ordinal>0</Ordinal>
+      <PersistLocation>57</PersistLocation>
+      <System>false</System>
+      <DataFileList />
+      <Description />
+      <Annotations
+        xmlns:ddl400_400="http://schemas.microsoft.com/analysisservices/2012/engine/400/400"
+        xmlns:ddl400="http://schemas.microsoft.com/analysisservices/2012/engine/400"
+        xmlns:ddl300_300="http://schemas.microsoft.com/analysisservices/2011/engine/300/300"
+        xmlns:ddl300="http://schemas.microsoft.com/analysisservices/2011/engine/300"
+        xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200"
+        xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200"
+        xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100"
+        xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2"
+        xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+        xmlns="http://schemas.microsoft.com/analysisservices/2003/engine"
+        xmlns:ddl100="http://schemas.microsoft.com/analysisservices/2008/engine/100">
+        <Annotation>
+          <Name>IsQueryEditorUsed</Name>
+          <Value>False</Value>
+        </Annotation>
+        <Annotation>
+          <Name>QueryEditorSerialization</Name>
+        </Annotation>
+        <Annotation>
+          <Name>TableWidgetSerialization</Name>
+        </Annotation>
+      </Annotations>
+      <DataVersion>-1</DataVersion>
+      <LastBindingChange>1601-01-01T00:00:00</LastBindingChange>
+      <LastProcessed>2014-11-12T05:00:49.363333</LastProcessed>
+      <Type>Data</Type>
+      <AggregationPrefix />
+      <StorageMode valuens="ddl200_200">InMemory</StorageMode>
+      <CurrentStorageMode valuens="ddl200_200">InMemory</CurrentStorageMode>
+      <ddl300:StringStoresCompatibilityLevel>1050</ddl300:StringStoresCompatibilityLevel>
+      <ddl300:InternalStringStoresCompatibilityLevel>1050</ddl300:InternalStringStoresCompatibilityLevel>
+      <ddl300:CurrentStringStoresCompatibilityLevel>1050</ddl300:CurrentStringStoresCompatibilityLevel>
+      <ProcessingMode>Regular</ProcessingMode>
+      <ProcessingPriority>0</ProcessingPriority>
+      <ErrorConfiguration>
+        <KeyErrorLimit>0</KeyErrorLimit>
+        <KeyErrorLogFile />
+        <KeyErrorAction>ConvertToUnknown</KeyErrorAction>
+        <KeyErrorLimitAction>StopProcessing</KeyErrorLimitAction>
+        <KeyDuplicate>ReportAndStop</KeyDuplicate>
+        <KeyNotFound>IgnoreError</KeyNotFound>
+        <NullKeyConvertedToUnknown>IgnoreError</NullKeyConvertedToUnknown>
+        <NullKeyNotAllowed>ReportAndStop</NullKeyNotAllowed>
+      </ErrorConfiguration>
+      <StorageLocation />
+      <RemoteDataSourceID />
+      <Slice />
+      <EstimatedRows>0</EstimatedRows>
+      <AggregationDesignID />
+      <Source xsi:type="QueryBinding">
+        <DataSourceID>7e974cef-ca4b-42bf-9f55-cb56de2cd491</DataSourceID>
+        <QueryDefinition>SELECT ['Material Type$'].* FROM ['Material Type$']</QueryDefinition>
+      </Source>
+      <ProactiveCaching>
+        <SilenceInterval>-PT1S</SilenceInterval>
+        <Latency>-PT1S</Latency>
+        <SilenceOverrideInterval>-PT1S</SilenceOverrideInterval>
+        <ForceRebuildInterval>-PT1S</ForceRebuildInterval>
+        <Enabled>false</Enabled>
+        <AggregationStorage>Regular</AggregationStorage>
+        <OnlineMode>Immediate</OnlineMode>
+        <Source xsi:type="ProactiveCachingInheritedBinding">
+          <NotificationTechnique>Client</NotificationTechnique>
+        </Source>
+      </ProactiveCaching>
+      <EstimatedSize>0</EstimatedSize>
+      <CacheVersion>13</CacheVersion>
+    </Partition>
+  </ObjectDefinition>
+</Load>
