@@ -15,7 +15,7 @@ class PbixUnpacker:
         self.file_path = file_path
 
         # Attributes populated during unpacking
-        self._data_model = DataModel(file_log=[], decompressed_data=b'')
+        self._data_model = DataModel(file_log=[], decompressed_data=b'', file_type="pbix")
         
         # Detect file type and unpack accordingly
         self.__unpack()
@@ -47,10 +47,12 @@ class PbixUnpacker:
         """Determine the path to the data model file based on file type."""
         # Check if this is a PBIX file (has DataModel file)
         if 'DataModel' in zip_ref.namelist():
+            self._data_model.file_type = "pbix"
             return 'DataModel'
         
         # Check if this is an XLSX file with Power Pivot (has xl/model/item.data)
         if 'xl/model/item.data' in zip_ref.namelist():
+            self._data_model.file_type = "xlsx"
             return 'xl/model/item.data'
         
         # If neither is found, raise an error

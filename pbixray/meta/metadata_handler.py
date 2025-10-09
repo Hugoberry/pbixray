@@ -1,4 +1,5 @@
 from .metadata_query import MetadataQuery
+from .xml_metadata_query import XmlMetadataQuery
 from .sqlite_handler import SQLiteHandler
 from ..utils import AMO_PANDAS_TYPE_MAPPING, WINDOWS_EPOCH_START, get_data_slice
 import pandas as pd
@@ -14,10 +15,15 @@ class MetadataHandler:
         self._compute_statistics()
         
     def _load_metadata(self):
-        """Loads metadata for the given PBIX file."""
-        sqliteBuffer = get_data_slice(self._data_model,'metadata.sqlitedb')
-        sqliteHandler = SQLiteHandler(sqliteBuffer)
-        self._meta = MetadataQuery(sqliteHandler)
+        """Loads metadata for the given PBIX or XLSX file."""
+        if self._data_model.file_type == "xlsx":
+            # Use XML metadata query for Excel files
+            self._meta = XmlMetadataQuery(self._data_model)
+        else:
+            # Use SQLite metadata query for PBIX files
+            sqliteBuffer = get_data_slice(self._data_model,'metadata.sqlitedb')
+            sqliteHandler = SQLiteHandler(sqliteBuffer)
+            self._meta = MetadataQuery(sqliteHandler)
     
     def _compute_statistics(self):
         """Computes statistics from the metadata schema."""
