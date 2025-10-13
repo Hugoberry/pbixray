@@ -101,12 +101,12 @@ class XmlMetadataQuery:
                 for file_entry in self.data_model.file_log:
                     file_name = file_entry['FileName']
                     # Look for files that contain this table and column information
-                    if table_name.replace(' ', '') in file_name and column_name.replace(' ', '') in file_name:
-                        if 'ID_TO_POS' in file_name:
+                    if table_name in file_name and column_name in file_name:
+                        if '.dictionary' in file_name:
                             dictionary_file = file_name
-                        elif 'POS_TO_ID' in file_name:
+                        elif '.hidx' in file_name:
                             hidx_file = file_name
-                        elif '.idf' in file_name and 'ID_TO_POS' not in file_name and 'POS_TO_ID' not in file_name:
+                        elif '.idf' in file_name and '.ID_TO_POS.' not in file_name and '.POS_TO_ID.' not in file_name:
                             idf_file = file_name
                 
                 schema_data.append({
