@@ -165,3 +165,4 @@ pyvenv.cfg
 /Include
 /etc
 .pypirc
+.DS_Store
