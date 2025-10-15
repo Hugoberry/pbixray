@@ -40,22 +40,22 @@ from .database import Database, DatabaseXmlLoad
 
 # Import other XLDM classes that may be used
 try:
-    from .dimension import *
+    from .dimension import DimensionXmlLoad
 except ImportError:
     pass
 
 try:
-    from .measure_group import *
+    from .measure_group import MeasureGroupXmlLoad
 except ImportError:
     pass
 
 try:
-    from .partition import *
+    from .partition import PartitionXmlLoad
 except ImportError:
     pass
 
 try:
-    from .mdx_script import *
+    from .mdx_script import MdxScriptXmlLoad
 except ImportError:
     pass
 
@@ -63,6 +63,25 @@ try:
     from .xmobject import *
 except ImportError:
     pass
+
+# Add data source classes if they exist
+try:
+    from .data_source import DataSourceXmlLoad
+except ImportError:
+    # Create a placeholder if the file doesn't exist
+    class DataSourceXmlLoad:
+        @classmethod
+        def from_xml_string(cls, xml_content):
+            return type('DataSourceObj', (), {'DataSource': None})()
+
+try:
+    from .data_source_view import DataSourceViewXmlLoad
+except ImportError:
+    # Create a placeholder if the file doesn't exist
+    class DataSourceViewXmlLoad:
+        @classmethod
+        def from_xml_string(cls, xml_content):
+            return type('DataSourceViewObj', (), {'DataSourceView': None})()
 
 __all__ = [
     # Common classes
@@ -91,6 +110,12 @@ __all__ = [
     'DataSourceViewDefinition',
     'Database',
     'DatabaseXmlLoad',
+    'DimensionXmlLoad',
+    'PartitionXmlLoad',
+    'MeasureGroupXmlLoad',
+    'MdxScriptXmlLoad',
+    'DataSourceXmlLoad',
+    'DataSourceViewXmlLoad',
     
     # Utility functions
     'parse_int_or_default',

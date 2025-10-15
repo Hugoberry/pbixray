@@ -12,7 +12,7 @@ class Command:
         annotations_elem = element.find("Annotations", namespaces=namespaces)
         self.Annotations = []
         if annotations_elem is not None:
-            self.Annotations = [Annotation(ann) for ann in annotations_elem.findall("Annotation", namespaces=namespaces)]
+            self.Annotations = [Annotation(ann, namespaces) for ann in annotations_elem.findall("Annotation", namespaces=namespaces)]
 
 class CalculationProperty:
     def __init__(self, element, namespaces):
@@ -36,7 +36,7 @@ class CalculationProperty:
         annotations_elem = element.find("Annotations", namespaces=namespaces)
         self.Annotations = []
         if annotations_elem is not None:
-            self.Annotations = [Annotation(ann) for ann in annotations_elem.findall("Annotation", namespaces=namespaces)]
+            self.Annotations = [Annotation(ann, namespaces) for ann in annotations_elem.findall("Annotation", namespaces=namespaces)]
 
 class MdxScript:
     def __init__(self, element, namespaces):

@@ -49,7 +49,7 @@ class DimensionAttribute:
         annotations_elem = element.find("Annotations", namespaces=namespaces)
         self.Annotations = []
         if annotations_elem is not None:
-            self.Annotations = [Annotation(ann) for ann in annotations_elem.findall("Annotation", namespaces=namespaces)]
+            self.Annotations = [Annotation(ann, namespaces) for ann in annotations_elem.findall("Annotation", namespaces=namespaces)]
         
         # Type with namespace attribute
         type_elem = element.find("Type", namespaces=namespaces)
@@ -146,7 +146,7 @@ class Dimension:
         annotations_elem = element.find("Annotations", namespaces=namespaces)
         self.Annotations = []
         if annotations_elem is not None:
-            self.Annotations = [Annotation(ann) for ann in annotations_elem.findall("Annotation", namespaces=namespaces)]
+            self.Annotations = [Annotation(ann, namespaces) for ann in annotations_elem.findall("Annotation", namespaces=namespaces)]
         
         self.LastProcessed = element.findtext("LastProcessed", namespaces=namespaces)
         estimated_size = element.findtext("EstimatedSize", namespaces=namespaces)

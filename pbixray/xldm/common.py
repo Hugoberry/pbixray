@@ -11,13 +11,17 @@ from datetime import datetime
 class Annotation:
     """Common annotation class used across all XLDM objects."""
     
-    def __init__(self, element):
+    def __init__(self, element, namespaces=None):
         if element is None:
             self.Name = None
             self.Value = None
             return
-        self.Name = element.findtext("Name")
-        self.Value = element.findtext("Value")
+        
+        if namespaces is None:
+            namespaces = {}
+            
+        self.Name = element.findtext("Name", namespaces=namespaces)
+        self.Value = element.findtext("Value", namespaces=namespaces)
 
     def __repr__(self):
         return f"Annotation(Name='{self.Name}', Value='{self.Value}')"
@@ -26,26 +30,29 @@ class Annotation:
 class Source:
     """Common source class used for various binding types in XLDM objects."""
     
-    def __init__(self, element):
+    def __init__(self, element, namespaces=None):
         if element is None:
             self.type = None
             return
+        
+        if namespaces is None:
+            namespaces = {}
             
         self.type = element.get("{http://www.w3.org/2001/XMLSchema-instance}type")
         
         # Handle different source types
         if "DataSourceViewBinding" in (self.type or ""):
-            self.DataSourceViewID = element.findtext("DataSourceViewID")
+            self.DataSourceViewID = element.findtext("DataSourceViewID", namespaces=namespaces)
         elif "ColumnBinding" in (self.type or ""):
-            self.TableID = element.findtext("TableID")
-            self.ColumnID = element.findtext("ColumnID")
+            self.TableID = element.findtext("TableID", namespaces=namespaces)
+            self.ColumnID = element.findtext("ColumnID", namespaces=namespaces)
         elif "RowNumberBinding" in (self.type or ""):
             pass  # No additional properties for RowNumberBinding
         elif "ProactiveCachingInheritedBinding" in (self.type or ""):
-            self.NotificationTechnique = element.findtext("NotificationTechnique")
+            self.NotificationTechnique = element.findtext("NotificationTechnique", namespaces=namespaces)
         else:
             # Generic handling for other source types
-            self.DataSourceViewID = element.findtext("DataSourceViewID")
+            self.DataSourceViewID = element.findtext("DataSourceViewID", namespaces=namespaces)
 
     def __repr__(self):
         return f"Source(type='{self.type}')"
@@ -85,7 +92,7 @@ class MajorObject:
         """Parse annotations from an XML element."""
         annotations_elem = element.find("Annotations", namespaces=namespaces)
         if annotations_elem is not None:
-            return [Annotation(ann) for ann in annotations_elem.findall("Annotation", namespaces=namespaces)]
+            return [Annotation(ann, namespaces) for ann in annotations_elem.findall("Annotation", namespaces=namespaces)]
         return []
 
     def __repr__(self):

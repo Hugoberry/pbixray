@@ -6,28 +6,28 @@ from .common import Annotation, Source, ProcessableObject, parse_int_or_default,
 from .namespaces import XmlDefinitionBase, ParentObject, ObjectDefinitionBase, STANDARD_NAMESPACES, parse_storage_mode_with_namespace
 
 class Attribute:
-    def __init__(self, element):
-        self.AttributeID = element.findtext("AttributeID")
-        self.AggregationUsage = element.findtext("AggregationUsage")
-        self.AttributeHierarchyEnabled = element.findtext("AttributeHierarchyEnabled") == "true"
-        self.AttributeHierarchyVisible = element.findtext("AttributeHierarchyVisible") == "true"
-        self.AttributeHierarchyOptimizedState = element.findtext("AttributeHierarchyOptimizedState")
+    def __init__(self, element, namespaces):
+        self.AttributeID = element.findtext("AttributeID", namespaces=namespaces)
+        self.AggregationUsage = element.findtext("AggregationUsage", namespaces=namespaces)
+        self.AttributeHierarchyEnabled = element.findtext("AttributeHierarchyEnabled", namespaces=namespaces) == "true"
+        self.AttributeHierarchyVisible = element.findtext("AttributeHierarchyVisible", namespaces=namespaces) == "true"
+        self.AttributeHierarchyOptimizedState = element.findtext("AttributeHierarchyOptimizedState", namespaces=namespaces)
 
 class Dimension:
-    def __init__(self, element):
-        self.ID = element.findtext("ID")
-        self.Name = element.findtext("Name")
-        self.DimensionID = element.findtext("DimensionID")
-        self.Visible = element.findtext("Visible") == "true"
-        self.HierarchyUniqueNameStyle = element.findtext("HierarchyUniqueNameStyle")
-        self.MemberUniqueNameStyle = element.findtext("MemberUniqueNameStyle")
-        self.AllMemberAggregationUsage = element.findtext("AllMemberAggregationUsage")
+    def __init__(self, element, namespaces):
+        self.ID = element.findtext("ID", namespaces=namespaces)
+        self.Name = element.findtext("Name", namespaces=namespaces)
+        self.DimensionID = element.findtext("DimensionID", namespaces=namespaces)
+        self.Visible = element.findtext("Visible", namespaces=namespaces) == "true"
+        self.HierarchyUniqueNameStyle = element.findtext("HierarchyUniqueNameStyle", namespaces=namespaces)
+        self.MemberUniqueNameStyle = element.findtext("MemberUniqueNameStyle", namespaces=namespaces)
+        self.AllMemberAggregationUsage = element.findtext("AllMemberAggregationUsage", namespaces=namespaces)
         
         # Parse Attributes
-        attributes_elem = element.find("Attributes")
+        attributes_elem = element.find("Attributes", namespaces=namespaces)
         self.Attributes = []
         if attributes_elem is not None:
-            self.Attributes = [Attribute(attr) for attr in attributes_elem.findall("Attribute")]
+            self.Attributes = [Attribute(attr, namespaces) for attr in attributes_elem.findall("Attribute", namespaces=namespaces)]
 
 class ProactiveCachingSource:
     def __init__(self, element):
@@ -83,7 +83,7 @@ class Cube(ProcessableObject):
         dimensions_elem = element.find("Dimensions", namespaces=namespaces)
         self.Dimensions = []
         if dimensions_elem is not None:
-            self.Dimensions = [Dimension(dim) for dim in dimensions_elem.findall("Dimension", namespaces=namespaces)]
+            self.Dimensions = [Dimension(dim, namespaces) for dim in dimensions_elem.findall("Dimension", namespaces=namespaces)]
         
         # Additional fields
         self.StructureVersion = parse_int_or_default(element.findtext("StructureVersion", namespaces=namespaces), 0)
