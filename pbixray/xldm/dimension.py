@@ -1,23 +1,8 @@
 import xml.etree.ElementTree as ET
 from typing import List, Optional
 
-class Annotation:
-    def __init__(self, element):
-        self.Name = element.findtext("Name")
-        self.Value = element.findtext("Value")
-
-class Source:
-    def __init__(self, element):
-        self.type = element.get("{http://www.w3.org/2001/XMLSchema-instance}type")
-        if "DataSourceViewBinding" in (self.type or ""):
-            self.DataSourceViewID = element.findtext("DataSourceViewID")
-        elif "ColumnBinding" in (self.type or ""):
-            self.TableID = element.findtext("TableID")
-            self.ColumnID = element.findtext("ColumnID")
-        elif "RowNumberBinding" in (self.type or ""):
-            pass  # No additional properties for RowNumberBinding
-        elif "ProactiveCachingInheritedBinding" in (self.type or ""):
-            self.NotificationTechnique = element.findtext("NotificationTechnique")
+from .common import Annotation, Source, ProcessableObject, parse_int_or_default
+from .namespaces import XmlDefinitionBase, ObjectDefinitionBase, STANDARD_NAMESPACES, ParentObject
 
 class KeyColumn:
     def __init__(self, element, namespaces):
@@ -246,54 +231,16 @@ class Dimension:
         self.LastBindingChange = element.findtext("LastBindingChange", namespaces=namespaces)
         self.PermissionFileList = element.findtext("PermissionFileList", namespaces=namespaces)
 
-class ParentObject:
-    def __init__(self, element, namespaces):
-        self.DatabaseID = element.findtext("DatabaseID", namespaces=namespaces)
-
-class ObjectDefinition:
-    def __init__(self, element, namespaces):
-        dimension_elem = element.find("Dimension", namespaces=namespaces)
-        self.Dimension = Dimension(dimension_elem, namespaces) if dimension_elem is not None else None
-
-class DimensionXmlLoad:
-    def __init__(self, xml_string):
-        # Define namespaces
-        self.namespaces = {
-            '': 'http://schemas.microsoft.com/analysisservices/2003/engine',
-            'ddl2': 'http://schemas.microsoft.com/analysisservices/2003/engine/2',
-            'ddl2_2': 'http://schemas.microsoft.com/analysisservices/2003/engine/2/2',
-            'ddl100': 'http://schemas.microsoft.com/analysisservices/2008/engine/100',
-            'ddl100_100': 'http://schemas.microsoft.com/analysisservices/2008/engine/100/100',
-            'ddl200': 'http://schemas.microsoft.com/analysisservices/2010/engine/200',
-            'ddl200_200': 'http://schemas.microsoft.com/analysisservices/2010/engine/200/200',
-            'ddl300': 'http://schemas.microsoft.com/analysisservices/2011/engine/300',
-            'ddl300_300': 'http://schemas.microsoft.com/analysisservices/2011/engine/300/300',
-            'ddl400': 'http://schemas.microsoft.com/analysisservices/2012/engine/400',
-            'ddl400_400': 'http://schemas.microsoft.com/analysisservices/2012/engine/400/400',
-            'ddl410': 'http://schemas.microsoft.com/analysisservices/2012/engine/410',
-            'ddl410_410': 'http://schemas.microsoft.com/analysisservices/2012/engine/410/410',
-            'ddl500': 'http://schemas.microsoft.com/analysisservices/2013/engine/500',
-            'ddl500_500': 'http://schemas.microsoft.com/analysisservices/2013/engine/500/500',
-            'xsd': 'http://www.w3.org/2001/XMLSchema',
-            'xsi': 'http://www.w3.org/2001/XMLSchema-instance'
-        }
-        
-        root = ET.fromstring(xml_string)
-        
+class DimensionXmlLoad(XmlDefinitionBase):
+    def _parse_xml(self):
         # Parse ParentObject
-        parent_obj_elem = root.find("ParentObject", namespaces=self.namespaces)
+        parent_obj_elem = self.root.find("ParentObject", namespaces=self.namespaces)
         self.ParentObject = ParentObject(parent_obj_elem, self.namespaces) if parent_obj_elem is not None else None
         
-        # Parse ObjectDefinition
-        obj_def_elem = root.find("ObjectDefinition", namespaces=self.namespaces)
-        self.ObjectDefinition = ObjectDefinition(obj_def_elem, self.namespaces) if obj_def_elem is not None else None
-
-    @classmethod
-    def from_xml_file(cls, filepath):
-        with open(filepath, 'r', encoding='utf-8') as f:
-            xml_string = f.read()
-        return cls(xml_string)
-    
-    @classmethod
-    def from_xml_string(cls, xml_string):
-        return cls(xml_string)
+        # Parse ObjectDefinition and extract Dimension directly
+        obj_def_elem = self.root.find("ObjectDefinition", namespaces=self.namespaces)
+        if obj_def_elem is not None:
+            dimension_elem = obj_def_elem.find("Dimension", namespaces=self.namespaces)
+            self.Dimension = Dimension(dimension_elem, self.namespaces) if dimension_elem is not None else None
+        else:
+            self.Dimension = None
