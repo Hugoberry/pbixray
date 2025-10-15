@@ -156,7 +156,7 @@ def test_streamlined_core_api():
     try:
         from pbixray.xldm.xmobject import XMObjectDocument
         
-        test_file = base_path / "Date_29d5fe95-5d05-400e-bc26-d350cd533b88.31.tbl.xml"
+        test_file = base_path / "Plant_0e1735e0-0b86-4ffe-b864-c4ef70cca25e.8.tbl.xml"
         with open(test_file, 'r', encoding='utf-8') as f:
             xml_content = f.read()
         
