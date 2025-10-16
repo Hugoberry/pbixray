@@ -41,19 +41,14 @@ class XMSimpleTableProperties:
 
 
 class XMTableStatsProperties:
-    def __init__(self, element: ET.Element):
-        self.SegmentSize = int(element.findtext("SegmentSize", "0"))
-        self.Usage = int(element.findtext("Usage", "0"))
+    def __init__(self, element: ET.Element, namespaces=None):
+        if namespaces is None:
+            namespaces = XMOBJECT_NAMESPACES
+        self.SegmentSize = int(element.findtext("SegmentSize", "0", namespaces=namespaces))
+        self.Usage = int(element.findtext("Usage", "0", namespaces=namespaces))
 
 
-class XMRawColumnProperties:
-    def __init__(self, element: ET.Element):
-        self.Settings = int(element.findtext("Settings", "0"))
-        self.ColumnFlags = int(element.findtext("ColumnFlags", "0"))
-        self.Collation = element.findtext("Collation", "")
-        self.OrderByColumn = element.findtext("OrderByColumn", "")
-        self.Locale = int(element.findtext("Locale", "0"))
-        self.BinaryCharacters = int(element.findtext("BinaryCharacters", "0"))
+
 
 
 class XMColumnStatsProperties:
@@ -101,20 +96,15 @@ class XMColumnSegmentStatsProperties:
         self.HasNulls = element.findtext("HasNulls", "false", namespaces=namespaces) == "true"
         self.RLERuns = int(element.findtext("RLERuns", "0", namespaces=namespaces))
         self.OthersRLERuns = int(element.findtext("OthersRLERuns", "0", namespaces=namespaces))
-        self.MaxDataID = int(element.findtext("MaxDataID", "0"))
-        self.OriginalMinSegmentDataID = int(element.findtext("OriginalMinSegmentDataID", "0"))
-        self.RLESortOrder = int(element.findtext("RLESortOrder", "-1"))
-        self.RowCount = int(element.findtext("RowCount", "0"))
-        self.HasNulls = element.findtext("HasNulls", "false") == "true"
-        self.RLERuns = int(element.findtext("RLERuns", "0"))
-        self.OthersRLERuns = int(element.findtext("OthersRLERuns", "0"))
 
 
 class XMRelationshipProperties:
-    def __init__(self, element: ET.Element):
-        self.PrimaryTable = element.findtext("PrimaryTable", "")
-        self.PrimaryColumn = element.findtext("PrimaryColumn", "")
-        self.ForeignColumn = element.findtext("ForeignColumn", "")
+    def __init__(self, element: ET.Element, namespaces=None):
+        if namespaces is None:
+            namespaces = XMOBJECT_NAMESPACES
+        self.PrimaryTable = element.findtext("PrimaryTable", "", namespaces=namespaces)
+        self.PrimaryColumn = element.findtext("PrimaryColumn", "", namespaces=namespaces)
+        self.ForeignColumn = element.findtext("ForeignColumn", "", namespaces=namespaces)
 
 
 class XMPartitionProperties:
@@ -123,49 +113,39 @@ class XMPartitionProperties:
         self.Partition = int(element.findtext("Partition", "0"))
 
 
-class XMHierarchyProperties:
-    def __init__(self, element: ET.Element):
-        self.SortOrder = int(element.findtext("SortOrder", "0"))
-        self.IsProcessed = element.findtext("IsProcessed", "false") == "true"
-        self.TypeMaterialization = int(element.findtext("TypeMaterialization", "-1"))
-        self.ColumnPosition2DataID = int(element.findtext("ColumnPosition2DataID", "-1"))
-        self.ColumnDataID2Position = int(element.findtext("ColumnDataID2Position", "-1"))
-        self.DistinctDataIDs = int(element.findtext("DistinctDataIDs", "0"))
-        self.TableStore = element.findtext("TableStore", "")
-
-
 class XMUserHierarchyProperties:
-    def __init__(self, element: ET.Element):
-        self.IsProcessed = element.findtext("IsProcessed", "false") == "true"
-        self.TableStore = element.findtext("TableStore", "")
-        self.TableName = element.findtext("TableName", "")
+    def __init__(self, element: ET.Element, namespaces=None):
+        if namespaces is None:
+            namespaces = XMOBJECT_NAMESPACES
+        self.IsProcessed = element.findtext("IsProcessed", "false", namespaces=namespaces) == "true"
+        self.TableStore = element.findtext("TableStore", "", namespaces=namespaces)
+        self.TableName = element.findtext("TableName", "", namespaces=namespaces)
 
 
 class XMHashDictionaryProperties:
-    def __init__(self, element: ET.Element):
-        self.DataVersion = int(element.findtext("DataVersion", "0"))
-        self.LastId = int(element.findtext("LastId", "0"))
-        self.Nullable = element.findtext("Nullable", "false") == "true"
-        self.Unique = element.findtext("Unique", "false") == "true"
+    def __init__(self, element: ET.Element, namespaces=None):
+        if namespaces is None:
+            namespaces = XMOBJECT_NAMESPACES
+        self.DataVersion = int(element.findtext("DataVersion", "0", namespaces=namespaces))
+        self.LastId = int(element.findtext("LastId", "0", namespaces=namespaces))
+        self.Nullable = element.findtext("Nullable", "false", namespaces=namespaces) == "true"
+        self.Unique = element.findtext("Unique", "false", namespaces=namespaces) == "true"
 
 
 class XMHashDictionaryLongProperties(XMHashDictionaryProperties):
-    def __init__(self, element: ET.Element):
-        super().__init__(element)
-        self.OperatingOn32 = element.findtext("OperatingOn32", "false") == "true"
+    def __init__(self, element: ET.Element, namespaces=None):
+        super().__init__(element, namespaces)
+        if namespaces is None:
+            namespaces = XMOBJECT_NAMESPACES
+        self.OperatingOn32 = element.findtext("OperatingOn32", "false", namespaces=namespaces) == "true"
 
 
 class XMHashDictionaryStringProperties(XMHashDictionaryProperties):
-    def __init__(self, element: ET.Element):
-        super().__init__(element)
-        self.DictionaryFlags = int(element.findtext("DictionaryFlags", "0"))
-
-
-class XMValueDictionaryProperties:
-    def __init__(self, element: ET.Element):
-        self.DataVersion = int(element.findtext("DataVersion", "0"))
-        self.BaseId = int(element.findtext("BaseId", "0"))
-        self.Magnitude = float(element.findtext("Magnitude", "0.0"))
+    def __init__(self, element: ET.Element, namespaces=None):
+        super().__init__(element, namespaces)
+        if namespaces is None:
+            namespaces = XMOBJECT_NAMESPACES
+        self.DictionaryFlags = int(element.findtext("DictionaryFlags", "0", namespaces=namespaces))
 
 
 class XMRENoSplitCompressionInfoProperties:
@@ -380,15 +360,10 @@ class XMObject:
         
         properties_class = property_map.get(class_name)
         if properties_class:
-            # Pass namespaces to classes that have been updated to support them
-            updated_classes = {
-                "XMSimpleTable", "XMMultiPartSegmentMap", "XMRawColumnPartitionDataObject", 
-                "XMSegment1Map", "XMPartition", "XMRawColumn", "XMHierarchy", 
-                "XMValueDataDictionary<XM_Long>", "XMValueDataDictionary<XM_Real>",
-                "XMRelationshipIndexSparseDIDs", "XMRelationshipIndexDenseDIDs",
-                "XMColumnStats", "XMColumnSegment", "XMColumnSegmentStats"
-            }
-            if class_name in updated_classes:
+            # Automatically detect if the class supports namespaces by inspecting its signature
+            import inspect
+            sig = inspect.signature(properties_class.__init__)
+            if 'namespaces' in sig.parameters:
                 return properties_class(properties_elem, namespaces)
             else:
                 return properties_class(properties_elem)
