@@ -78,8 +78,6 @@ ic(model.rls)
 
 model = PBIXRay(r"data/Supplier Quality Analysis Sample-no-PV.xlsx")
 ic(model.tables)
-ic(model.metadata)
-ic(model.power_query)
 ic(model.statistics)
 ic(model.dax_tables)
 ic(model.dax_measures)
