@@ -207,16 +207,25 @@ class XmlMetadataQuery:
             if collection.Name == "Columns":
                 for xm_obj in collection.XMObjects:
                     if xm_obj.name == column_name and xm_obj.class_name == "XMRawColumn":
+                        # Get cardinality from Hierarchy member (DistinctDataIDs)
                         for member in xm_obj.members:
-                            if member.Name == "Statistics" and member.XMObject:
+                            if member.Name == "IntrinsicHierarchy" and member.XMObject:
+                                hierarchy_obj = member.XMObject
+                                if hierarchy_obj.properties and hasattr(hierarchy_obj.properties, 'DistinctDataIDs'):
+                                    stats['cardinality'] = hierarchy_obj.properties.DistinctDataIDs
+                            elif member.Name == "ColumnStats" and member.XMObject:
                                 stats_obj = member.XMObject
-                                if stats_obj.properties and hasattr(stats_obj.properties, 'DistinctStates'):
-                                    stats['cardinality'] = stats_obj.properties.DistinctStates
-                                    stats['min_data_id'] = stats_obj.properties.MinDataID
-                                    stats['max_data_id'] = stats_obj.properties.MaxDataID
-                                    stats['has_nulls'] = stats_obj.properties.HasNulls
-                                    stats['rle_runs'] = stats_obj.properties.RLERuns
-                                    stats['compression_type'] = stats_obj.properties.CompressionType
+                                if stats_obj.properties:
+                                    if hasattr(stats_obj.properties, 'MinDataID'):
+                                        stats['min_data_id'] = stats_obj.properties.MinDataID
+                                    if hasattr(stats_obj.properties, 'MaxDataID'):
+                                        stats['max_data_id'] = stats_obj.properties.MaxDataID
+                                    if hasattr(stats_obj.properties, 'HasNulls'):
+                                        stats['has_nulls'] = stats_obj.properties.HasNulls
+                                    if hasattr(stats_obj.properties, 'RLERuns'):
+                                        stats['rle_runs'] = stats_obj.properties.RLERuns
+                                    if hasattr(stats_obj.properties, 'CompressionType'):
+                                        stats['compression_type'] = stats_obj.properties.CompressionType
                         break
         return stats
     
