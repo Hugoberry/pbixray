@@ -46,7 +46,7 @@ def test_streamlined_core_api():
     try:
         from pbixray.xldm.dimension import DimensionXmlLoad
         
-        test_file = base_path / "Date_29d5fe95-5d05-400e-bc26-d350cd533b88.43.dim.xml"
+        test_file = base_path / "Metrics_29128f4d-37fd-4bf8-a576-cff821896940.38.dim.xml"
         with open(test_file, 'r', encoding='utf-8') as f:
             xml_content = f.read()
         
