@@ -15,7 +15,7 @@ class KeyColumn:
         self.Format = element.findtext("Format", namespaces=namespaces)
         
         source_elem = element.find("Source", namespaces=namespaces)
-        self.Source = Source(source_elem) if source_elem is not None else None
+        self.Source = Source(source_elem, namespaces) if source_elem is not None else None
 
 class MeasureSource:
     def __init__(self, element, namespaces):
@@ -27,7 +27,7 @@ class MeasureSource:
         self.Format = element.findtext("Format", namespaces=namespaces)
         
         source_elem = element.find("Source", namespaces=namespaces)
-        self.Source = Source(source_elem) if source_elem is not None else None
+        self.Source = Source(source_elem, namespaces) if source_elem is not None else None
 
 class Measure:
     def __init__(self, element, namespaces):
@@ -100,7 +100,7 @@ class ProactiveCaching:
         self.OnlineMode = element.findtext("OnlineMode", namespaces=namespaces)
         
         source_elem = element.find("Source", namespaces=namespaces)
-        self.Source = Source(source_elem) if source_elem is not None else None
+        self.Source = Source(source_elem, namespaces) if source_elem is not None else None
 
 class MeasureGroup:
     def __init__(self, element, namespaces):

@@ -73,7 +73,7 @@ class Cube(ProcessableObject):
         
         # Parse Source
         source_elem = element.find("Source", namespaces=namespaces)
-        self.Source = Source(source_elem) if source_elem is not None else None
+        self.Source = Source(source_elem, namespaces) if source_elem is not None else None
         
         # Parse ProactiveCaching
         pc_elem = element.find("ProactiveCaching", namespaces=namespaces)

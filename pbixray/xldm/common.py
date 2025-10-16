@@ -38,24 +38,94 @@ class Source:
         if namespaces is None:
             namespaces = {}
             
+        # Get the xsi:type attribute to determine binding type
         self.type = element.get("{http://www.w3.org/2001/XMLSchema-instance}type")
         
-        # Handle different source types
-        if "DataSourceViewBinding" in (self.type or ""):
+        # Initialize common attributes
+        self.TableID = None
+        self.ColumnID = None
+        self.DataSourceViewID = None
+        self.DataSourceID = None
+        self.DbTableName = None
+        self.DbSchemaName = None
+        self.QueryDefinition = None
+        self.NotificationTechnique = None
+        self.Expression = None
+        self.MeasureName = None
+        self.MeasureID = None
+        
+        # Parse based on binding type
+        if not self.type:
+            # Generic handling if no type specified
             self.DataSourceViewID = element.findtext("DataSourceViewID", namespaces=namespaces)
-        elif "ColumnBinding" in (self.type or ""):
+            return
+        
+        # Handle each binding type (remove namespace prefix if present)
+        binding_type = self.type.split(':')[-1]
+        
+        if binding_type == "ColumnBinding":
             self.TableID = element.findtext("TableID", namespaces=namespaces)
             self.ColumnID = element.findtext("ColumnID", namespaces=namespaces)
-        elif "RowNumberBinding" in (self.type or ""):
-            pass  # No additional properties for RowNumberBinding
-        elif "ProactiveCachingInheritedBinding" in (self.type or ""):
+            
+        elif binding_type == "RowBinding":
+            self.TableID = element.findtext("TableID", namespaces=namespaces)
+            
+        elif binding_type == "DataSourceViewBinding":
+            self.DataSourceViewID = element.findtext("DataSourceViewID", namespaces=namespaces)
+            
+        elif binding_type == "MeasureBinding":
+            self.MeasureID = element.findtext("MeasureID", namespaces=namespaces)
+            
+        elif binding_type == "TableBinding":
+            self.DataSourceID = element.findtext("DataSourceID", namespaces=namespaces)
+            self.DbTableName = element.findtext("DbTableName", namespaces=namespaces)
+            self.DbSchemaName = element.findtext("DbSchemaName", namespaces=namespaces)
+            
+        elif binding_type == "QueryBinding":
+            self.DataSourceID = element.findtext("DataSourceID", namespaces=namespaces)
+            self.QueryDefinition = element.findtext("QueryDefinition", namespaces=namespaces)
+            
+        elif binding_type == "ProactiveCachingInheritedBinding":
             self.NotificationTechnique = element.findtext("NotificationTechnique", namespaces=namespaces)
+            
+        elif binding_type == "RowNumberBinding":
+            pass  # No additional properties for RowNumberBinding
+            
+        elif binding_type == "CalculatedMeasureBinding":
+            self.MeasureName = element.findtext("MeasureName", namespaces=namespaces)
+            
+        elif binding_type == "ExpressionBinding":
+            self.Expression = element.findtext("Expression", namespaces=namespaces)
+            
         else:
-            # Generic handling for other source types
+            # Generic fallback
             self.DataSourceViewID = element.findtext("DataSourceViewID", namespaces=namespaces)
 
     def __repr__(self):
-        return f"Source(type='{self.type}')"
+        binding_type = self.type.split(':')[-1] if self.type else "Unknown"
+        
+        # Show relevant attributes based on what's populated
+        attrs = []
+        if self.TableID:
+            attrs.append(f"TableID='{self.TableID}'")
+        if self.ColumnID:
+            attrs.append(f"ColumnID='{self.ColumnID}'")
+        if self.DataSourceViewID:
+            attrs.append(f"DataSourceViewID='{self.DataSourceViewID}'")
+        if self.Expression:
+            expr_preview = self.Expression[:50] + "..." if len(self.Expression) > 50 else self.Expression
+            attrs.append(f"Expression='{expr_preview}'")
+        if self.MeasureID:
+            attrs.append(f"MeasureID='{self.MeasureID}'")
+        if self.MeasureName:
+            attrs.append(f"MeasureName='{self.MeasureName}'")
+        if self.QueryDefinition:
+            attrs.append(f"QueryDefinition='...'")
+        if self.NotificationTechnique:
+            attrs.append(f"NotificationTechnique='{self.NotificationTechnique}'")
+        
+        attrs_str = ", ".join(attrs) if attrs else ""
+        return f"Source(type='{binding_type}'{', ' + attrs_str if attrs_str else ''})"
 
 
 class MajorObject:
