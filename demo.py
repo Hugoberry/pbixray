@@ -76,7 +76,7 @@ model = PBIXRay(r"data/rls-sample-report.pbix")
 ic(model.tables)
 ic(model.rls)
 
-model =model = PBIXRay(r"data/Supplier Quality Analysis Sample-no-PV.xlsx")
+model = PBIXRay(r"data/Supplier Quality Analysis Sample-no-PV.xlsx")
 ic(model.tables)
 ic(model.metadata)
 ic(model.power_query)
