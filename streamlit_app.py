@@ -11,7 +11,7 @@ def sizeof_fmt(num, suffix="B"):
 def app():
     st.title("PBIX info")
 
-    uploaded_file = st.file_uploader("Choose a PBIX file", type="pbix")
+    uploaded_file = st.file_uploader("Choose a PBIX or XLSX file", type=["pbix", "xlsx"])
     if uploaded_file:
         # Unpack the PBIX file to get the schema_df
         model = PBIXRay(uploaded_file)
