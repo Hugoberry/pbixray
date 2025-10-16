@@ -28,15 +28,27 @@ class MetadataHandler:
     def _compute_statistics(self):
         """Computes statistics from the metadata schema."""
         self._stats = self._meta.schema_df[['TableName', 'ColumnName', 'Cardinality']].copy()
-        self._stats = self._stats.assign(
-            Dictionary=self._meta.schema_df['Dictionary'].map(self._get_file_size_from_log),
-            HashIndex=self._meta.schema_df['HIDX'].map(self._get_file_size_from_log),
-            DataSize=self._meta.schema_df['IDF'].map(self._get_file_size_from_log),
-            ModifiedTime=self._meta.schema_df['ModifiedTime'].apply(
-                lambda x: WINDOWS_EPOCH_START + datetime.timedelta(seconds=x / 1e7)),
-            StructureModifiedTime=self._meta.schema_df['StructureModifiedTime'].apply(
-                lambda x: WINDOWS_EPOCH_START + datetime.timedelta(seconds=x / 1e7))
-        )
+        
+        # For XLSX files, timestamps are already converted in xml_metadata_query
+        # For PBIX files, they need conversion from Windows ticks
+        if self._data_model.file_type == "xlsx":
+            self._stats = self._stats.assign(
+                Dictionary=self._meta.schema_df['Dictionary'].map(self._get_file_size_from_log),
+                HashIndex=self._meta.schema_df['HIDX'].map(self._get_file_size_from_log),
+                DataSize=self._meta.schema_df['IDF'].map(self._get_file_size_from_log),
+                ModifiedTime=self._meta.schema_df['ModifiedTime'],
+                StructureModifiedTime=self._meta.schema_df['StructureModifiedTime']
+            )
+        else:
+            self._stats = self._stats.assign(
+                Dictionary=self._meta.schema_df['Dictionary'].map(self._get_file_size_from_log),
+                HashIndex=self._meta.schema_df['HIDX'].map(self._get_file_size_from_log),
+                DataSize=self._meta.schema_df['IDF'].map(self._get_file_size_from_log),
+                ModifiedTime=self._meta.schema_df['ModifiedTime'].apply(
+                    lambda x: WINDOWS_EPOCH_START + datetime.timedelta(seconds=x / 1e7)),
+                StructureModifiedTime=self._meta.schema_df['StructureModifiedTime'].apply(
+                    lambda x: WINDOWS_EPOCH_START + datetime.timedelta(seconds=x / 1e7))
+            )
 
     def _get_file_size_from_log(self, file_name):
         """Utility to get the size of a file from the log using 'FileName'."""
@@ -66,3 +78,23 @@ class MetadataHandler:
     @property   
     def tables(self):
         return self._meta.schema_df['TableName'].unique()
+    
+    @property
+    def dax_measures(self):
+        """Get DAX measures from metadata."""
+        return self._meta.dax_measures_df
+    
+    @property
+    def dax_tables(self):
+        """Get DAX tables from metadata."""
+        return self._meta.dax_tables_df
+    
+    @property
+    def dax_columns(self):
+        """Get DAX calculated columns from metadata."""
+        return self._meta.dax_columns_df
+    
+    @property
+    def relationships(self):
+        """Get relationships from metadata."""
+        return self._meta.relationships_df

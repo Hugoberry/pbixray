@@ -1,416 +1,342 @@
-import xml.etree.ElementTree as ET
 import pandas as pd
 import re
-import datetime
+from datetime import datetime
 from ..utils import get_data_slice
+from ..xldm import (
+    CubXmlLoad,
+    DimensionXmlLoad,
+    PartitionXmlLoad,
+    MeasureGroupXmlLoad,
+    MdxScriptXmlLoad,
+    DataSourceXmlLoad,
+    DataSourceViewXmlLoad
+)
+from ..xldm.xmobject import XMObjectDocument
 
 class XmlMetadataQuery:
     """Handles metadata extraction from XML files in XLSX Power Pivot models."""
     
     def __init__(self, data_model):
         self.data_model = data_model
-        self._model_xml_content = None
-        self._dimension_data = {}  # Cache for dimension information
-        self._find_model_xml()
+        self._cube = None
+        self._dimensions = {}
+        self._partitions = {}
+        self._measure_groups = {}
+        self._mdx_script = None
+        self._data_sources = {}
+        self._data_source_view = None
+        self._tbl_objects = {}
         
-        # Parse the XML and populate dataframes
-        self._parse_model_xml()
-        
-        # Extract data from additional XML files
+        self._parse_cube()
         self._extract_dimension_metadata()
         self._extract_partition_metadata()
-        self._extract_measure_metadata()
+        self._extract_measure_group_metadata()
+        self._extract_mdx_script()
+        self._extract_data_sources()
+        self._extract_data_source_view()
+        self._extract_tbl_metadata()
         
-        # Initialize empty dataframes for compatibility with existing code
+        self._build_schema()
+        self._build_dax_tables()
+        self._build_dax_measures()
+        self._build_dax_columns()
+        self._build_relationships()
+        
         self.m_df = pd.DataFrame()
         self.m_parameters_df = pd.DataFrame()
-        self.dax_tables_df = pd.DataFrame()
         self.metadata_df = pd.DataFrame()
         self.rls_df = pd.DataFrame()
     
-    def _find_model_xml(self):
-        """Find the Model.{number}.cub.xml file in the data model."""
-        model_pattern = re.compile(r'Model\.\d+\.cub\.xml')
-        
+    def _parse_cube(self):
+        cube_pattern = re.compile(r'Model\.\d+\.cub\.xml')
         for file_entry in self.data_model.file_log:
-            if model_pattern.match(file_entry['FileName']):
-                # Found the model XML file, extract its content
-                self._model_xml_content = get_data_slice(self.data_model, file_entry['FileName'])
+            if cube_pattern.match(file_entry['FileName']):
+                cube_content = get_data_slice(self.data_model, file_entry['FileName'])
+                cube_xml = CubXmlLoad.from_xml_string(cube_content.decode('utf-8'))
+                self._cube = cube_xml.Cube
                 return
-        
-        raise RuntimeError("Model.{number}.cub.xml file not found in the data model")
+        raise RuntimeError("Model .cub.xml file not found in the data model")
     
-    def _parse_model_xml(self):
-        """Parse the Model XML and extract schema information."""
-        if not self._model_xml_content:
-            raise RuntimeError("Model XML content not loaded")
-        
-        # Parse the XML
-        root = ET.fromstring(self._model_xml_content.decode('utf-8'))
-        
-        # Define namespace map - the default namespace is the Analysis Services namespace
-        namespaces = {
-            'as': 'http://schemas.microsoft.com/analysisservices/2003/engine'
-        }
-        
-        # Find the Cube element within ObjectDefinition
-        cube = root.find('.//as:ObjectDefinition/as:Cube', namespaces)
-        if cube is None:
-            raise RuntimeError("Could not find Cube element in Model XML")
-        
-        # Extract dimensions (tables) and their attributes (columns)
-        self._extract_schema_from_xml(cube, namespaces)
-    
-    def _extract_schema_from_xml(self, cube, namespaces):
-        """Extract schema information from the XML cube definition."""
-        schema_data = []
-        
-        # Find all dimensions
-        dimensions = cube.findall('.//as:Dimension', namespaces)
-        
-        for dimension in dimensions:
-            # Get dimension information
-            dimension_id = dimension.find('as:ID', namespaces)
-            dimension_name = dimension.find('as:Name', namespaces)
-            dimension_visible = dimension.find('as:Visible', namespaces)
-            
-            if dimension_id is None or dimension_name is None:
-                continue
-                
-            table_name = dimension_name.text
-            table_id = dimension_id.text
-            is_visible = dimension_visible.text.lower() == 'true' if dimension_visible is not None else True
-            
-            # Store dimension info for later use
-            self._dimension_data[table_id] = {
-                'name': table_name,
-                'visible': is_visible,
-                'id': table_id
-            }
-            
-            # Get columns from .tbl.xml files first for accurate column structure
-            table_columns = self._extract_columns_from_tbl_xml(table_id)
-            
-            schema_data.extend(table_columns)
-        
-        # Create the schema DataFrame
-        self.schema_df = pd.DataFrame(schema_data)
-    
-    def _extract_columns_from_tbl_xml(self, dimension_id):
-        """Extract column information from .tbl.xml files."""
-        columns_data = []
-        
-        # Find the main table XML file for this dimension
-        tbl_pattern = re.compile(f'{re.escape(dimension_id)}\.\\d+\.tbl\.xml')
-        
+    def _extract_dimension_metadata(self):
+        dim_pattern = re.compile(r'(.+)\.(\d+)\.dim\.xml')
         for file_entry in self.data_model.file_log:
-            if tbl_pattern.match(file_entry['FileName']):
+            match = dim_pattern.match(file_entry['FileName'])
+            if match:
+                dimension_id = match.group(1)
+                try:
+                    dim_content = get_data_slice(self.data_model, file_entry['FileName'])
+                    dim_xml = DimensionXmlLoad.from_xml_string(dim_content.decode('utf-8'))
+                    self._dimensions[dimension_id] = dim_xml.Dimension
+                except Exception as e:
+                    print(f"Error parsing dimension file {file_entry['FileName']}: {e}")
+    
+    def _extract_partition_metadata(self):
+        prt_pattern = re.compile(r'(.+)\.(\d+)\.prt\.xml')
+        for file_entry in self.data_model.file_log:
+            match = prt_pattern.match(file_entry['FileName'])
+            if match:
+                dimension_id = match.group(1)
+                try:
+                    prt_content = get_data_slice(self.data_model, file_entry['FileName'])
+                    prt_xml = PartitionXmlLoad.from_xml_string(prt_content.decode('utf-8'))
+                    self._partitions[dimension_id] = prt_xml.Partition
+                except Exception as e:
+                    print(f"Error parsing partition file {file_entry['FileName']}: {e}")
+    
+    def _extract_measure_group_metadata(self):
+        det_pattern = re.compile(r'(.+)\.(\d+)\.det\.xml')
+        for file_entry in self.data_model.file_log:
+            match = det_pattern.match(file_entry['FileName'])
+            if match:
+                dimension_id = match.group(1)
+                try:
+                    det_content = get_data_slice(self.data_model, file_entry['FileName'])
+                    det_xml = MeasureGroupXmlLoad.from_xml_string(det_content.decode('utf-8'))
+                    self._measure_groups[dimension_id] = det_xml.MeasureGroup
+                except Exception as e:
+                    print(f"Error parsing measure group file {file_entry['FileName']}: {e}")
+    
+    def _extract_mdx_script(self):
+        scr_pattern = re.compile(r'MdxScript\.\d+\.scr\.xml')
+        for file_entry in self.data_model.file_log:
+            if scr_pattern.match(file_entry['FileName']):
+                try:
+                    scr_content = get_data_slice(self.data_model, file_entry['FileName'])
+                    scr_xml = MdxScriptXmlLoad.from_xml_string(scr_content.decode('utf-8'))
+                    self._mdx_script = scr_xml.MdxScript
+                    return
+                except Exception as e:
+                    print(f"Error parsing MDX script file {file_entry['FileName']}: {e}")
+    
+    def _extract_data_sources(self):
+        ds_pattern = re.compile(r'([a-f0-9\-]+)\.\d+\.ds\.xml')
+        for file_entry in self.data_model.file_log:
+            match = ds_pattern.match(file_entry['FileName'])
+            if match:
+                ds_id = match.group(1)
+                try:
+                    ds_content = get_data_slice(self.data_model, file_entry['FileName'])
+                    ds_xml = DataSourceXmlLoad.from_xml_string(ds_content.decode('utf-8'))
+                    self._data_sources[ds_id] = ds_xml.DataSource
+                except Exception as e:
+                    print(f"Error parsing data source file {file_entry['FileName']}: {e}")
+    
+    def _extract_data_source_view(self):
+        dsv_pattern = re.compile(r'.+\.\d+\.dsv\.xml')
+        for file_entry in self.data_model.file_log:
+            if dsv_pattern.match(file_entry['FileName']):
+                try:
+                    dsv_content = get_data_slice(self.data_model, file_entry['FileName'])
+                    dsv_xml = DataSourceViewXmlLoad.from_xml_string(dsv_content.decode('utf-8'))
+                    self._data_source_view = dsv_xml.DataSourceView
+                    return
+                except Exception as e:
+                    print(f"Error parsing data source view file {file_entry['FileName']}: {e}")
+    
+    def _extract_tbl_metadata(self):
+        tbl_pattern = re.compile(r'^([^H$R$][^$]*?)\.(\d+)\.tbl\.xml$')
+        for file_entry in self.data_model.file_log:
+            match = tbl_pattern.match(file_entry['FileName'])
+            if match:
+                dimension_id = match.group(1)
                 try:
                     tbl_content = get_data_slice(self.data_model, file_entry['FileName'])
-                    root = ET.fromstring(tbl_content.decode('utf-8'))
-                    
-                    # Define namespaces for tbl.xml
-                    tbl_namespaces = {
-                        'xm': 'http://schemas.microsoft.com/analysisservices/imbi'
-                    }
-                    
-                    # Find all columns
-                    columns = root.findall('.//xm:XMObject[@class="XMRawColumn"]', tbl_namespaces)
-                    
-                    for column in columns:
-                        column_name = column.get('name')
-                        if not column_name:
-                            continue
-                        
-                        # Extract column statistics
-                        stats = self._extract_column_stats(column)
-                        
-                        # Find corresponding files for this column
+                    tbl_doc = XMObjectDocument.from_xml_string(tbl_content.decode('utf-8'))
+                    self._tbl_objects[dimension_id] = tbl_doc.root_object
+                except Exception as e:
+                    print(f"Error parsing table file {file_entry['FileName']}: {e}")
+    
+    def _build_schema(self):
+        schema_data = []
+        if self._cube and self._cube.Dimensions:
+            for cube_dim in self._cube.Dimensions:
+                dimension_id = cube_dim.DimensionID
+                table_name = cube_dim.Name
+                is_visible = cube_dim.Visible
+                dimension = self._dimensions.get(dimension_id)
+                tbl_obj = self._tbl_objects.get(dimension_id)
+                
+                if dimension and dimension.Attributes:
+                    for attr in dimension.Attributes:
+                        column_name = attr.Name
+                        stats = self._get_column_stats_from_tbl(tbl_obj, column_name)
                         file_info = self._find_column_files(dimension_id, column_name)
+                        data_type = self._map_attribute_type_to_pandas(attr)
                         
                         column_data = {
-                            'TableName': self._dimension_data[dimension_id]['name'],
+                            'TableName': table_name,
                             'ColumnName': column_name,
                             'Dictionary': file_info.get('dictionary', ''),
                             'HIDX': file_info.get('hidx', ''),
                             'IDF': file_info.get('idf', ''),
                             'Cardinality': stats.get('cardinality', 0),
-                            'DataType': stats.get('data_type', 'object'),
+                            'DataType': data_type,
                             'BaseId': stats.get('base_id', 0),
                             'Magnitude': stats.get('magnitude', 0),
                             'IsNullable': stats.get('is_nullable', True),
-                            'ModifiedTime': stats.get('modified_time', 0),
-                            'StructureModifiedTime': stats.get('structure_modified_time', 0),
+                            'ModifiedTime': self._get_timestamp(dimension.LastSchemaUpdate) if dimension.LastSchemaUpdate else None,
+                            'StructureModifiedTime': self._get_timestamp(dimension.LastSchemaUpdate) if dimension.LastSchemaUpdate else None,
                             'DimensionID': dimension_id,
-                            'Visible': self._dimension_data[dimension_id]['visible'],
+                            'Visible': is_visible,
                             'RLERuns': stats.get('rle_runs', 0),
                             'MinDataID': stats.get('min_data_id', 0),
                             'MaxDataID': stats.get('max_data_id', 0),
                             'CompressionType': stats.get('compression_type', 0),
                             'HasNulls': stats.get('has_nulls', False)
                         }
-                        
-                        columns_data.append(column_data)
-                        
-                except Exception as e:
-                    print(f"Error parsing {file_entry['FileName']}: {e}")
-                    continue
-                    
-                break  # Found the main table file
-        
-        return columns_data
+                        schema_data.append(column_data)
+        self.schema_df = pd.DataFrame(schema_data)
     
-    def _extract_column_stats(self, column_element):
-        """Extract statistics from XMRawColumn element."""
-        stats = {}
+    def _get_column_stats_from_tbl(self, tbl_obj, column_name):
+        stats = {
+            'cardinality': 0,
+            'base_id': 0,
+            'magnitude': 0,
+            'is_nullable': True,
+            'rle_runs': 0,
+            'min_data_id': 0,
+            'max_data_id': 0,
+            'compression_type': 0,
+            'has_nulls': False
+        }
         
-        # Find ColumnStats element
-        column_stats = column_element.find('.//xm:XMObject[@class="XMColumnStats"]', 
-                                         {'xm': 'http://schemas.microsoft.com/analysisservices/imbi'})
+        if not tbl_obj or not tbl_obj.collections:
+            return stats
         
-        if column_stats is not None:
-            properties = column_stats.find('xm:Properties', 
-                                         {'xm': 'http://schemas.microsoft.com/analysisservices/imbi'})
-            
-            if properties is not None:
-                # Extract various statistics
-                for prop in properties:
-                    if prop.tag.endswith('DistinctStates'):
-                        stats['cardinality'] = int(prop.text) if prop.text else 0
-                    elif prop.tag.endswith('MinDataID'):
-                        stats['min_data_id'] = int(prop.text) if prop.text else 0
-                    elif prop.tag.endswith('MaxDataID'):
-                        stats['max_data_id'] = int(prop.text) if prop.text else 0
-                    elif prop.tag.endswith('HasNulls'):
-                        stats['has_nulls'] = prop.text.lower() == 'true' if prop.text else False
-                    elif prop.tag.endswith('RLERuns'):
-                        stats['rle_runs'] = int(prop.text) if prop.text else 0
-                    elif prop.tag.endswith('CompressionType'):
-                        stats['compression_type'] = int(prop.text) if prop.text else 0
-                    elif prop.tag.endswith('DBType'):
-                        # Map DBType to pandas-compatible types
-                        db_type = int(prop.text) if prop.text else 0
-                        stats['data_type'] = self._map_dbtype_to_pandas(db_type)
-        
-        # Set defaults
-        stats.setdefault('cardinality', 0)
-        stats.setdefault('data_type', 'object')
-        stats.setdefault('base_id', 0)
-        stats.setdefault('magnitude', 0)
-        stats.setdefault('is_nullable', True)
-        stats.setdefault('modified_time', 0)
-        stats.setdefault('structure_modified_time', 0)
-        stats.setdefault('rle_runs', 0)
-        stats.setdefault('min_data_id', 0)
-        stats.setdefault('max_data_id', 0)
-        stats.setdefault('compression_type', 0)
-        stats.setdefault('has_nulls', False)
-        
+        for collection in tbl_obj.collections:
+            if collection.Name == "Columns":
+                for xm_obj in collection.XMObjects:
+                    if xm_obj.name == column_name and xm_obj.class_name == "XMRawColumn":
+                        for member in xm_obj.members:
+                            if member.Name == "Statistics" and member.XMObject:
+                                stats_obj = member.XMObject
+                                if stats_obj.properties and hasattr(stats_obj.properties, 'DistinctStates'):
+                                    stats['cardinality'] = stats_obj.properties.DistinctStates
+                                    stats['min_data_id'] = stats_obj.properties.MinDataID
+                                    stats['max_data_id'] = stats_obj.properties.MaxDataID
+                                    stats['has_nulls'] = stats_obj.properties.HasNulls
+                                    stats['rle_runs'] = stats_obj.properties.RLERuns
+                                    stats['compression_type'] = stats_obj.properties.CompressionType
+                        break
         return stats
     
-    def _map_dbtype_to_pandas(self, db_type):
-        """Map Analysis Services DBType to pandas-compatible type."""
-        # Common DBType mappings
+    def _map_attribute_type_to_pandas(self, attr):
+        if attr.KeyColumns:
+            for key_col in attr.KeyColumns:
+                if key_col.DataType:
+                    return self._map_ssas_type_to_pandas(key_col.DataType)
+        return 'object'
+    
+    def _map_ssas_type_to_pandas(self, ssas_type):
         type_map = {
-            3: 'int64',      # DBTYPE_I4
-            5: 'float64',    # DBTYPE_R8
-            6: 'object',     # DBTYPE_CY
-            7: 'datetime64[ns]',  # DBTYPE_DATE
-            8: 'object',     # DBTYPE_BSTR / string
-            11: 'bool',      # DBTYPE_BOOL
-            128: 'object',   # DBTYPE_BYTES
-            129: 'object',   # DBTYPE_STR
-            130: 'object'    # DBTYPE_WSTR
+            'WChar': 'object',
+            'Integer': 'int64',
+            'Double': 'float64',
+            'Date': 'datetime64[ns]',
+            'Boolean': 'bool',
+            'Currency': 'float64',
+            'Variant': 'object'
         }
-        return type_map.get(db_type, 'object')
+        return type_map.get(ssas_type, 'object')
+    
+    def _get_timestamp(self, timestamp_str):
+        """Convert ISO timestamp string to datetime object."""
+        if not timestamp_str:
+            return None
+        try:
+            # Parse ISO format timestamp and return as datetime
+            dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            return dt
+        except:
+            return None
     
     def _find_column_files(self, dimension_id, column_name):
-        """Find dictionary, hidx, and idf files for a specific column."""
         files = {'dictionary': '', 'hidx': '', 'idf': ''}
-        
-        # More precise pattern matching using dimension ID
         for file_entry in self.data_model.file_log:
             file_name = file_entry['FileName']
-            
-            # Check if this file belongs to this dimension and column
-            if dimension_id in file_name and column_name in file_name:
-                if '.dictionary' in file_name:
-                    files['dictionary'] = file_name
+            if (dimension_id in file_name or f"H${dimension_id}" in file_name) and column_name in file_name:
+                if '.dictionary' in file_name and not '.ID_TO_POS.' in file_name and not '.POS_TO_ID.' in file_name:
+                    if f".{column_name}.0.idf.dictionary" in file_name or f".{column_name}.dictionary" in file_name:
+                        files['dictionary'] = file_name
                 elif '.hidx' in file_name:
-                    files['hidx'] = file_name
-                elif '.idf' in file_name and '.ID_TO_POS.' not in file_name and '.POS_TO_ID.' not in file_name:
-                    files['idf'] = file_name
-        
+                    if f"${column_name}.hidx" in file_name or f"${column_name}.POS_TO_ID.0.idf.hidx" in file_name:
+                        files['hidx'] = file_name
+                elif '.idf' in file_name and '.ID_TO_POS.' not in file_name and '.POS_TO_ID.' not in file_name and '.hidx' not in file_name:
+                    if f".{column_name}.0.idf" in file_name:
+                        files['idf'] = file_name
         return files
     
-    def _extract_dimension_metadata(self):
-        """Extract additional metadata from .dim.xml files."""
-        dimension_metadata = []
-        
-        # Find all .dim.xml files
-        dim_pattern = re.compile(r'(.+)\.(\d+)\.dim\.xml')
-        
-        for file_entry in self.data_model.file_log:
-            match = dim_pattern.match(file_entry['FileName'])
-            if match:
-                dimension_id = match.group(1)
-                
-                try:
-                    dim_content = get_data_slice(self.data_model, file_entry['FileName'])
-                    root = ET.fromstring(dim_content.decode('utf-8'))
-                    
-                    # Analysis Services namespaces
-                    namespaces = {
-                        'as': 'http://schemas.microsoft.com/analysisservices/2003/engine'
-                    }
-                    
-                    # Extract dimension information
-                    dimension = root.find('.//as:ObjectDefinition/as:Dimension', namespaces)
-                    if dimension is not None:
-                        name = dimension.find('as:Name', namespaces)
-                        last_processed = dimension.find('as:LastProcessed', namespaces)
-                        estimated_size = dimension.find('as:EstimatedSize', namespaces)
-                        created_timestamp = dimension.find('as:CreatedTimestamp', namespaces)
-                        last_schema_update = dimension.find('as:LastSchemaUpdate', namespaces)
-                        
-                        metadata = {
-                            'DimensionID': dimension_id,
-                            'Name': name.text if name is not None else '',
-                            'LastProcessed': last_processed.text if last_processed is not None else '',
-                            'EstimatedSize': int(estimated_size.text) if estimated_size is not None and estimated_size.text else 0,
-                            'CreatedTimestamp': created_timestamp.text if created_timestamp is not None else '',
-                            'LastSchemaUpdate': last_schema_update.text if last_schema_update is not None else ''
-                        }
-                        
-                        dimension_metadata.append(metadata)
-                        
-                except Exception as e:
-                    print(f"Error parsing dimension file {file_entry['FileName']}: {e}")
-                    continue
-        
-        # Store as DataFrame for later use
-        self.dimension_metadata_df = pd.DataFrame(dimension_metadata)
+    def _build_dax_tables(self):
+        dax_tables_data = []
+        for dimension_id, partition in self._partitions.items():
+            if partition and partition.Source:
+                dimension = self._dimensions.get(dimension_id)
+                table_name = dimension.Name if dimension else dimension_id
+                query_definition = self._extract_query_from_source(partition.Source)
+                if query_definition:
+                    dax_tables_data.append({
+                        'TableName': table_name,
+                        'Expression': query_definition
+                    })
+        self.dax_tables_df = pd.DataFrame(dax_tables_data)
     
-    def _extract_partition_metadata(self):
-        """Extract query definitions from .prt.xml files."""
-        partition_data = []
-        
-        # Find all .prt.xml files
-        prt_pattern = re.compile(r'(.+)\.(\d+)\.prt\.xml')
-        
-        for file_entry in self.data_model.file_log:
-            match = prt_pattern.match(file_entry['FileName'])
-            if match:
-                dimension_id = match.group(1)
-                
-                try:
-                    prt_content = get_data_slice(self.data_model, file_entry['FileName'])
-                    root = ET.fromstring(prt_content.decode('utf-8'))
-                    
-                    # Analysis Services namespaces
-                    namespaces = {
-                        'as': 'http://schemas.microsoft.com/analysisservices/2003/engine'
-                    }
-                    
-                    # Extract partition information
-                    partition = root.find('.//as:ObjectDefinition/as:Partition', namespaces)
-                    if partition is not None:
-                        name = partition.find('as:Name', namespaces)
-                        query_def = partition.find('.//as:QueryDefinition', namespaces)
-                        last_processed = partition.find('as:LastProcessed', namespaces)
-                        
-                        partition_info = {
-                            'DimensionID': dimension_id,
-                            'TableName': name.text if name is not None else '',
-                            'QueryDefinition': query_def.text if query_def is not None else '',
-                            'LastProcessed': last_processed.text if last_processed is not None else ''
-                        }
-                        
-                        partition_data.append(partition_info)
-                        
-                except Exception as e:
-                    print(f"Error parsing partition file {file_entry['FileName']}: {e}")
-                    continue
-        
-        # Store as DataFrame - this can be used for M query equivalents
-        self.dax_tables_df = pd.DataFrame(partition_data)
+    def _extract_query_from_source(self, source):
+        if not source:
+            return None
+        if hasattr(source, 'QueryDefinition'):
+            return source.QueryDefinition
+        if hasattr(source, 'Source') and source.Source:
+            if hasattr(source.Source, 'ColumnID'):
+                return f"[{source.Source.ColumnID}]"
+        return None
     
-    def _extract_measure_metadata(self):
-        """Extract measures and relationships from .det.xml files."""
+    def _build_dax_measures(self):
         measures_data = []
-        relationships_data = []
-        
-        # Find all .det.xml files
-        det_pattern = re.compile(r'(.+)\.(\d+)\.det\.xml')
-        
-        for file_entry in self.data_model.file_log:
-            match = det_pattern.match(file_entry['FileName'])
-            if match:
-                dimension_id = match.group(1)
-                
-                try:
-                    det_content = get_data_slice(self.data_model, file_entry['FileName'])
-                    root = ET.fromstring(det_content.decode('utf-8'))
-                    
-                    # Analysis Services namespaces
-                    namespaces = {
-                        'as': 'http://schemas.microsoft.com/analysisservices/2003/engine'
-                    }
-                    
-                    # Extract measures
-                    measure_group = root.find('.//as:ObjectDefinition/as:MeasureGroup', namespaces)
-                    if measure_group is not None:
-                        table_name = measure_group.find('as:Name', namespaces)
-                        table_name_text = table_name.text if table_name is not None else ''
-                        
-                        measures = measure_group.findall('.//as:Measure', namespaces)
-                        for measure in measures:
-                            measure_name = measure.find('as:Name', namespaces)
-                            measure_id = measure.find('as:ID', namespaces)
-                            aggregate_function = measure.find('as:AggregateFunction', namespaces)
-                            data_type = measure.find('as:DataType', namespaces)
-                            visible = measure.find('as:Visible', namespaces)
-                            
-                            measure_info = {
-                                'TableName': table_name_text,
-                                'Name': measure_name.text if measure_name is not None else '',
-                                'ID': measure_id.text if measure_id is not None else '',
-                                'AggregateFunction': aggregate_function.text if aggregate_function is not None else '',
-                                'DataType': data_type.text if data_type is not None else '',
-                                'Visible': visible.text.lower() == 'true' if visible is not None else True,
-                                'Expression': '',  # Measures in XLSX typically don't have DAX expressions
-                                'DisplayFolder': '',
-                                'Description': ''
-                            }
-                            
-                            measures_data.append(measure_info)
-                        
-                        # Extract relationship information from dimensions
-                        dimensions = measure_group.findall('.//as:Dimension', namespaces)
-                        for dimension in dimensions:
-                            cube_dimension_id = dimension.find('as:CubeDimensionID', namespaces)
-                            if cube_dimension_id is not None and cube_dimension_id.text != dimension_id:
-                                # This indicates a relationship
-                                relationship_info = {
-                                    'FromTableName': table_name_text,
-                                    'FromColumnName': '',  # Would need more analysis to determine
-                                    'ToTableName': self._dimension_data.get(cube_dimension_id.text, {}).get('name', ''),
-                                    'ToColumnName': '',    # Would need more analysis to determine
-                                    'IsActive': True,      # Default assumption
-                                    'Cardinality': 'M:1',  # Default assumption for fact to dimension
-                                    'CrossFilteringBehavior': 'Single',
-                                    'FromKeyCount': 0,
-                                    'ToKeyCount': 0,
-                                    'RelyOnReferentialIntegrity': False
-                                }
-                                
-                                relationships_data.append(relationship_info)
-                        
-                except Exception as e:
-                    print(f"Error parsing measure group file {file_entry['FileName']}: {e}")
-                    continue
-        
-        # Store as DataFrames
+        for dimension_id, measure_group in self._measure_groups.items():
+            if measure_group and measure_group.Measures:
+                dimension = self._dimensions.get(dimension_id)
+                table_name = dimension.Name if dimension else dimension_id
+                for measure in measure_group.Measures:
+                    measures_data.append({
+                        'TableName': table_name,
+                        'Name': measure.Name,
+                        'Expression': measure.MeasureExpression if measure.MeasureExpression else '',
+                        'DisplayFolder': measure.DisplayFolder if measure.DisplayFolder else '',
+                        'Description': measure.Description if measure.Description else ''
+                    })
         self.dax_measures_df = pd.DataFrame(measures_data)
-        self.dax_columns_df = pd.DataFrame()  # Would need additional analysis for calculated columns
+    
+    def _build_dax_columns(self):
+        self.dax_columns_df = pd.DataFrame()
+    
+    def _build_relationships(self):
+        relationships_data = []
+        for dimension_id, tbl_obj in self._tbl_objects.items():
+            if not tbl_obj or not tbl_obj.collections:
+                continue
+            table_name = self._dimensions.get(dimension_id).Name if dimension_id in self._dimensions else dimension_id
+            for collection in tbl_obj.collections:
+                if collection.Name == "Relationships":
+                    for rel_obj in collection.XMObjects:
+                        if rel_obj.class_name == "XMRelationship" and rel_obj.properties:
+                            from_table = table_name
+                            from_column = rel_obj.properties.ForeignColumn if hasattr(rel_obj.properties, 'ForeignColumn') else ''
+                            
+                            # Map PrimaryTable DimensionID to table name
+                            primary_table_id = rel_obj.properties.PrimaryTable if hasattr(rel_obj.properties, 'PrimaryTable') else ''
+                            to_table = self._dimensions.get(primary_table_id).Name if primary_table_id and primary_table_id in self._dimensions else primary_table_id
+                            
+                            to_column = rel_obj.properties.PrimaryColumn if hasattr(rel_obj.properties, 'PrimaryColumn') else ''
+                            relationships_data.append({
+                                'FromTableName': from_table,
+                                'FromColumnName': from_column,
+                                'ToTableName': to_table,
+                                'ToColumnName': to_column,
+                                'IsActive': True,
+                                'Cardinality': 'M:1',
+                                'CrossFilteringBehavior': 'Single',
+                                'FromKeyCount': 0,
+                                'ToKeyCount': 0,
+                                'RelyOnReferentialIntegrity': False
+                            })
         self.relationships_df = pd.DataFrame(relationships_data)
