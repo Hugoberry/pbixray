@@ -311,32 +311,79 @@ class XmlMetadataQuery:
     
     def _build_relationships(self):
         relationships_data = []
-        for dimension_id, tbl_obj in self._tbl_objects.items():
-            if not tbl_obj or not tbl_obj.collections:
+        
+        # Iterate through dimensions and their relationships
+        for dimension_id, dimension in self._dimensions.items():
+            if not dimension or not dimension.Relationships:
                 continue
-            table_name = self._dimensions.get(dimension_id).Name if dimension_id in self._dimensions else dimension_id
-            for collection in tbl_obj.collections:
-                if collection.Name == "Relationships":
-                    for rel_obj in collection.XMObjects:
-                        if rel_obj.class_name == "XMRelationship" and rel_obj.properties:
-                            from_table = table_name
-                            from_column = rel_obj.properties.ForeignColumn if hasattr(rel_obj.properties, 'ForeignColumn') else ''
-                            
-                            # Map PrimaryTable DimensionID to table name
-                            primary_table_id = rel_obj.properties.PrimaryTable if hasattr(rel_obj.properties, 'PrimaryTable') else ''
-                            to_table = self._dimensions.get(primary_table_id).Name if primary_table_id and primary_table_id in self._dimensions else primary_table_id
-                            
-                            to_column = rel_obj.properties.PrimaryColumn if hasattr(rel_obj.properties, 'PrimaryColumn') else ''
-                            relationships_data.append({
-                                'FromTableName': from_table,
-                                'FromColumnName': from_column,
-                                'ToTableName': to_table,
-                                'ToColumnName': to_column,
-                                'IsActive': True,
-                                'Cardinality': 'M:1',
-                                'CrossFilteringBehavior': 'Single',
-                                'FromKeyCount': 0,
-                                'ToKeyCount': 0,
-                                'RelyOnReferentialIntegrity': False
-                            })
+            
+            # Get the table name for the current dimension (from relationship end)
+            from_table_name = dimension.Name if dimension.Name else dimension_id
+            
+            for relationship in dimension.Relationships:
+                if not relationship.FromRelationshipEnd or not relationship.ToRelationshipEnd:
+                    continue
+                
+                # Get From (foreign key) information
+                from_dimension_id = relationship.FromRelationshipEnd.DimensionID
+                from_attributes = relationship.FromRelationshipEnd.Attributes
+                from_multiplicity = relationship.FromRelationshipEnd.Multiplicity
+                
+                # Get To (primary key) information
+                to_dimension_id = relationship.ToRelationshipEnd.DimensionID
+                to_attributes = relationship.ToRelationshipEnd.Attributes
+                to_multiplicity = relationship.ToRelationshipEnd.Multiplicity
+                
+                # Map dimension IDs to table names
+                from_table = self._dimensions.get(from_dimension_id).Name if from_dimension_id in self._dimensions else from_dimension_id
+                to_table = self._dimensions.get(to_dimension_id).Name if to_dimension_id in self._dimensions else to_dimension_id
+                
+                # Get column names from attributes
+                from_column = from_attributes[0].AttributeID if from_attributes else ''
+                to_column = to_attributes[0].AttributeID if to_attributes else ''
+                
+                # Map attribute IDs to actual column names
+                if from_dimension_id in self._dimensions:
+                    from_dim = self._dimensions[from_dimension_id]
+                    for attr in from_dim.Attributes:
+                        if attr.ID == from_column:
+                            from_column = attr.Name
+                            break
+                
+                if to_dimension_id in self._dimensions:
+                    to_dim = self._dimensions[to_dimension_id]
+                    for attr in to_dim.Attributes:
+                        if attr.ID == to_column:
+                            to_column = attr.Name
+                            break
+                
+                # Determine cardinality from multiplicities
+                cardinality = self._map_multiplicity_to_cardinality(from_multiplicity, to_multiplicity)
+                
+                relationships_data.append({
+                    'FromTableName': from_table,
+                    'FromColumnName': from_column,
+                    'ToTableName': to_table,
+                    'ToColumnName': to_column,
+                    'IsActive': relationship.Visible,
+                    'Cardinality': cardinality,
+                    'CrossFilteringBehavior': 'Single',
+                    'FromKeyCount': 0,
+                    'ToKeyCount': 0,
+                    'RelyOnReferentialIntegrity': False
+                })
+        
         self.relationships_df = pd.DataFrame(relationships_data)
+    
+    def _map_multiplicity_to_cardinality(self, from_multiplicity, to_multiplicity):
+        """Map relationship multiplicities to Power BI cardinality notation."""
+        if from_multiplicity == 'Many' and to_multiplicity == 'One':
+            return 'M:1'
+        elif from_multiplicity == 'One' and to_multiplicity == 'Many':
+            return '1:M'
+        elif from_multiplicity == 'One' and to_multiplicity == 'One':
+            return '1:1'
+        elif from_multiplicity == 'Many' and to_multiplicity == 'Many':
+            return 'M:M'
+        else:
+            return 'M:1'  # Default fallback

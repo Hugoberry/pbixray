@@ -39,6 +39,54 @@ class AttributeRelationship:
         self.Optionality = element.findtext("Optionality", namespaces=namespaces)
         self.OverrideBehavior = element.findtext("OverrideBehavior", namespaces=namespaces)
 
+class RelationshipAttribute:
+    """Represents an Attribute within a RelationshipEnd"""
+    def __init__(self, element, namespaces):
+        self.AttributeID = element.findtext("AttributeID", namespaces=namespaces)
+
+class RelationshipEnd:
+    """Represents FromRelationshipEnd or ToRelationshipEnd"""
+    def __init__(self, element, namespaces):
+        self.Role = element.findtext("Role", namespaces=namespaces)
+        
+        # Multiplicity is in ddl300_300 namespace
+        multiplicity_elem = element.find("{http://schemas.microsoft.com/analysisservices/2011/engine/300/300}Multiplicity")
+        self.Multiplicity = multiplicity_elem.text if multiplicity_elem is not None else None
+        
+        self.DimensionID = element.findtext("DimensionID", namespaces=namespaces)
+        
+        # Parse Attributes
+        attributes_elem = element.find("Attributes", namespaces=namespaces)
+        self.Attributes = []
+        if attributes_elem is not None:
+            self.Attributes = [
+                RelationshipAttribute(attr, namespaces) 
+                for attr in attributes_elem.findall("Attribute", namespaces=namespaces)
+            ]
+
+class Relationship:
+    """Represents a Relationship in ddl300_300"""
+    def __init__(self, element, namespaces):
+        self.ID = element.findtext("ID", namespaces=namespaces)
+        self.Visible = element.findtext("Visible", namespaces=namespaces) == "true"
+        
+        # ProcessingState is in ddl300 namespace
+        self.ProcessingState = element.findtext(
+            "{http://schemas.microsoft.com/analysisservices/2011/engine/300}ProcessingState"
+        )
+        
+        # FromRelationshipEnd is in ddl300_300 namespace
+        from_elem = element.find(
+            "{http://schemas.microsoft.com/analysisservices/2011/engine/300/300}FromRelationshipEnd"
+        )
+        self.FromRelationshipEnd = RelationshipEnd(from_elem, namespaces) if from_elem is not None else None
+        
+        # ToRelationshipEnd is in ddl300_300 namespace
+        to_elem = element.find(
+            "{http://schemas.microsoft.com/analysisservices/2011/engine/300/300}ToRelationshipEnd"
+        )
+        self.ToRelationshipEnd = RelationshipEnd(to_elem, namespaces) if to_elem is not None else None
+
 class DimensionAttribute:
     def __init__(self, element, namespaces):
         self.Name = element.findtext("Name", namespaces=namespaces)
@@ -99,6 +147,9 @@ class DimensionAttribute:
         self.AttributeRelationships = []
         if attr_rels_elem is not None:
             self.AttributeRelationships = [AttributeRelationship(ar, namespaces) for ar in attr_rels_elem.findall("AttributeRelationship", namespaces=namespaces)]
+        
+        # FormatString with namespace (ddl300_300)
+        self.FormatString = element.findtext("{http://schemas.microsoft.com/analysisservices/2011/engine/300/300}FormatString")
 
 class ErrorConfiguration:
     def __init__(self, element, namespaces):
@@ -216,6 +267,19 @@ class Dimension:
         self.Attributes = []
         if attributes_elem is not None:
             self.Attributes = [DimensionAttribute(attr, namespaces) for attr in attributes_elem.findall("Attribute", namespaces=namespaces)]
+        
+        # Parse Relationships (ddl300_300 namespace)
+        relationships_elem = element.find(
+            "{http://schemas.microsoft.com/analysisservices/2011/engine/300/300}Relationships"
+        )
+        self.Relationships = []
+        if relationships_elem is not None:
+            self.Relationships = [
+                Relationship(rel, namespaces) 
+                for rel in relationships_elem.findall(
+                    "{http://schemas.microsoft.com/analysisservices/2011/engine/300/300}Relationship"
+                )
+            ]
         
         # Version fields
         structure_version = element.findtext("StructureVersion", namespaces=namespaces)
