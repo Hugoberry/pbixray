@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pbixray',
-    version='0.4.0',
+    version='0.5.0',
     packages=find_packages(),
     install_requires=[
         'xpress9',
@@ -12,7 +12,7 @@ setup(
     ],
     include_package_data=True,
     author="Igor Cotruta",
-    description="A Python library to parse and analyze PBIX files used with Microsoft Power BI.",
+    description="A Python library to parse and analyze PBIX files used with Microsoft Power BI and Excel PowerPivot.",
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url="https://github.com/Hugoberry/pbixray",

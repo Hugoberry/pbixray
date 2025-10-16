@@ -6,6 +6,8 @@ PBIXRay is a Python library designed to parse and analyze PBIX files, which are 
 
 This library is the Python implementation of the logic embedded in the DuckDB extension [duckdb-pbix-extension](https://github.com/Hugoberry/duckdb-pbix-extension/).
 
+> **Note:** PBIXRay also supports Excel (XLSX) files with embedded PowerPivot models. You can use the same API to extract and analyze data models from XLSX files that contain PowerPivot data.
+
 ## Installation
 
 Before using PBIXRay, ensure you have the following Python modules installed: `apsw`, `kaitaistruct`, and `pbixray`. You can install them using pip:
