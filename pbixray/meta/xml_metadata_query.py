@@ -174,8 +174,8 @@ class XmlMetadataQuery:
                             'BaseId': stats.get('base_id', 0),
                             'Magnitude': stats.get('magnitude', 0),
                             'IsNullable': stats.get('is_nullable', True),
-                            'ModifiedTime': self._get_timestamp(dimension.LastSchemaUpdate) if dimension.LastSchemaUpdate else None,
-                            'StructureModifiedTime': self._get_timestamp(dimension.LastSchemaUpdate) if dimension.LastSchemaUpdate else None,
+                            'ModifiedTime': dimension.LastProcessed,
+                            'StructureModifiedTime': dimension.LastSchemaUpdate,
                             'DimensionID': dimension_id,
                             'Visible': is_visible,
                             'RLERuns': stats.get('rle_runs', 0),
@@ -229,26 +229,17 @@ class XmlMetadataQuery:
     
     def _map_ssas_type_to_pandas(self, ssas_type):
         type_map = {
-            'WChar': 'object',
+            'WChar': 'string',
             'Integer': 'int64',
+            'BigInt': 'int64',
             'Double': 'float64',
             'Date': 'datetime64[ns]',
             'Boolean': 'bool',
             'Currency': 'float64',
-            'Variant': 'object'
+            'Variant': 'object',
+            'Empty': 'object'  # Empty/null data type
         }
         return type_map.get(ssas_type, 'object')
-    
-    def _get_timestamp(self, timestamp_str):
-        """Convert ISO timestamp string to datetime object."""
-        if not timestamp_str:
-            return None
-        try:
-            # Parse ISO format timestamp and return as datetime
-            dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-            return dt
-        except:
-            return None
     
     def _find_column_files(self, dimension_id, column_name):
         files = {'dictionary': '', 'hidx': '', 'idf': ''}

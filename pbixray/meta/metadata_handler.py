@@ -69,11 +69,20 @@ class MetadataHandler:
     
     @property
     def schema(self):
-        return  pd.DataFrame({
-            'TableName': self._meta.schema_df['TableName'],
-            'ColumnName': self._meta.schema_df['ColumnName'],
-            'PandasDataType': self._meta.schema_df['DataType'].map(AMO_PANDAS_TYPE_MAPPING).fillna('object'),
-        })
+        # For XLSX files, DataType is already a pandas type string from _map_ssas_type_to_pandas
+        # For PBIX files, DataType is a numeric code that needs mapping through AMO_PANDAS_TYPE_MAPPING
+        if self._data_model.file_type == "xlsx":
+            return pd.DataFrame({
+                'TableName': self._meta.schema_df['TableName'],
+                'ColumnName': self._meta.schema_df['ColumnName'],
+                'PandasDataType': self._meta.schema_df['DataType'],
+            })
+        else:
+            return pd.DataFrame({
+                'TableName': self._meta.schema_df['TableName'],
+                'ColumnName': self._meta.schema_df['ColumnName'],
+                'PandasDataType': self._meta.schema_df['DataType'].map(AMO_PANDAS_TYPE_MAPPING).fillna('object'),
+            })
 
     @property   
     def tables(self):
