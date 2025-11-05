@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PBIXRay - PBIX Analyzer{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">PBIXRay Analyzer</h1>
+            <div class="nav-links">
+                <a href="{{ url_for('index') }}">Upload New File</a>
+                <a href="{{ url_for('clear') }}">Clear Session</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>PBIXRay - Secure Local Analysis Tool | Running on localhost for enhanced security</p>
+        </div>
+    </footer>
+</body>
+</html>

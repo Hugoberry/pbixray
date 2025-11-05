@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Table Preview - {{ table_name }}{% endblock %}
+
+{% block content %}
+<div class="results-section">
+    <h2>Table Preview: {{ table_name }}</h2>
+
+    <div class="section">
+        {% if table_data and columns %}
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% for column in columns %}
+                        <th>{{ column }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in table_data %}
+                    <tr>
+                        {% for column in columns %}
+                        <td>{{ row[column] }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="info">Showing {{ table_data|length }} rows</p>
+        {% else %}
+        <p>No data available for this table.</p>
+        {% endif %}
+    </div>
+
+    <div class="actions">
+        <button onclick="history.back()" class="btn-secondary">Back to Results</button>
+        <a href="{{ url_for('index') }}" class="btn-secondary">Analyze Another File</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Error - PBIXRay{% endblock %}
+
+{% block content %}
+<div class="error-section">
+    <h2>❌ Error</h2>
+    <div class="error-message">
+        <p>{{ error }}</p>
+    </div>
+
+    <div class="actions">
+        <a href="{{ url_for('index') }}" class="btn-primary">Try Again</a>
+    </div>
+</div>
+{% endblock %}

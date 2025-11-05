@@ -3,3 +3,4 @@ apsw
 icecream
 pandas
 xpress9
+flask

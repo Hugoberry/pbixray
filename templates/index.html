@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Upload File - PBIXRay{% endblock %}
+
+{% block content %}
+<div class="upload-section">
+    <h2>Upload PBIX or XLSX File for Analysis</h2>
+    <p class="subtitle">Analyze Power BI files and Excel files with PowerPivot models securely on your local machine</p>
+
+    <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data" class="upload-form">
+        <div class="file-input-wrapper">
+            <input type="file" name="file" id="file" accept=".pbix,.xlsx" required>
+            <label for="file" class="file-input-label">
+                <span class="file-icon">📁</span>
+                <span class="file-text">Choose a file...</span>
+            </label>
+        </div>
+        <button type="submit" class="btn-primary">Analyze File</button>
+    </form>
+
+    <div class="features">
+        <h3>What You Can Analyze:</h3>
+        <ul>
+            <li>📊 Model metadata and configuration</li>
+            <li>📏 Model size and table statistics</li>
+            <li>🔗 Table relationships and schema</li>
+            <li>⚡ Power Query (M) code</li>
+            <li>🧮 DAX measures, calculated tables, and columns</li>
+            <li>👁️ Preview table data with Un-VertiPaq</li>
+        </ul>
+    </div>
+
+    <div class="security-note">
+        <h4>🔒 Security Notice</h4>
+        <p>This application runs entirely on your localhost (127.0.0.1:5000). Your files are processed locally and are not sent to any external servers.</p>
+    </div>
+</div>
+
+<script>
+    // Update label when file is selected
+    document.getElementById('file').addEventListener('change', function(e) {
+        const fileName = e.target.files[0]?.name || 'Choose a file...';
+        document.querySelector('.file-text').textContent = fileName;
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Results - {{ results.filename }}{% endblock %}
+
+{% block content %}
+<div class="results-section">
+    <h2>Analysis Results: {{ results.filename }}</h2>
+
+    <!-- Metadata Section -->
+    <div class="section">
+        <h3>Metadata</h3>
+        <pre class="metadata">{{ results.metadata }}</pre>
+    </div>
+
+    <!-- Metrics Section -->
+    <div class="metrics">
+        <div class="metric-card">
+            <h4>Model Size</h4>
+            <p class="metric-value">{{ results.size }}</p>
+        </div>
+        <div class="metric-card">
+            <h4>Number of Tables</h4>
+            <p class="metric-value">{{ results.table_count }}</p>
+        </div>
+    </div>
+
+    <!-- Schema Section -->
+    <div class="section">
+        <h3>Schema</h3>
+        {% if results.schema %}
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% for key in results.schema[0].keys() %}
+                        <th>{{ key }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results.schema %}
+                    <tr>
+                        {% for value in row.values() %}
+                        <td>{{ value }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No schema information available.</p>
+        {% endif %}
+    </div>
+
+    <!-- Statistics Section -->
+    <div class="section">
+        <h3>Statistics</h3>
+        {% if results.statistics %}
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% for key in results.statistics[0].keys() %}
+                        <th>{{ key }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results.statistics %}
+                    <tr>
+                        {% for value in row.values() %}
+                        <td>{{ value }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No statistics available.</p>
+        {% endif %}
+    </div>
+
+    <!-- Relationships Section -->
+    {% if results.relationships %}
+    <div class="section">
+        <h3>Relationships</h3>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% for key in results.relationships[0].keys() %}
+                        <th>{{ key }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results.relationships %}
+                    <tr>
+                        {% for value in row.values() %}
+                        <td>{{ value }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Power Query Section -->
+    {% if results.power_query %}
+    <div class="section">
+        <h3>Power Query Code</h3>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% for key in results.power_query[0].keys() %}
+                        <th>{{ key }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results.power_query %}
+                    <tr>
+                        {% for value in row.values() %}
+                        <td><pre class="code-cell">{{ value }}</pre></td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- M Parameters Section -->
+    {% if results.m_parameters %}
+    <div class="section">
+        <h3>M Parameters</h3>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% for key in results.m_parameters[0].keys() %}
+                        <th>{{ key }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results.m_parameters %}
+                    <tr>
+                        {% for value in row.values() %}
+                        <td>{{ value }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- DAX Tables Section -->
+    {% if results.dax_tables %}
+    <div class="section">
+        <h3>DAX Tables</h3>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% for key in results.dax_tables[0].keys() %}
+                        <th>{{ key }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results.dax_tables %}
+                    <tr>
+                        {% for value in row.values() %}
+                        <td><pre class="code-cell">{{ value }}</pre></td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- DAX Measures Section -->
+    {% if results.dax_measures %}
+    <div class="section">
+        <h3>DAX Measures</h3>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% for key in results.dax_measures[0].keys() %}
+                        <th>{{ key }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results.dax_measures %}
+                    <tr>
+                        {% for value in row.values() %}
+                        <td><pre class="code-cell">{{ value }}</pre></td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Calculated Columns Section -->
+    {% if results.dax_columns %}
+    <div class="section">
+        <h3>Calculated Columns</h3>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% for key in results.dax_columns[0].keys() %}
+                        <th>{{ key }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results.dax_columns %}
+                    <tr>
+                        {% for value in row.values() %}
+                        <td><pre class="code-cell">{{ value }}</pre></td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Table Preview Section -->
+    <div class="section">
+        <h3>Un-VertiPaq: Preview Table Data</h3>
+        <form action="{{ url_for('preview_table') }}" method="post" class="table-preview-form">
+            <div class="form-group">
+                <label for="table_name">Select a table:</label>
+                <select name="table_name" id="table_name" required>
+                    {% for table in results.tables %}
+                    <option value="{{ table }}">{{ table }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn-primary">Preview Table</button>
+        </form>
+    </div>
+
+    <div class="actions">
+        <a href="{{ url_for('index') }}" class="btn-secondary">Analyze Another File</a>
+    </div>
+</div>
+{% endblock %}
