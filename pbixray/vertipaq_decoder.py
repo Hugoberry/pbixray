@@ -147,6 +147,8 @@ class VertiPaqDecoder:
                             start_bit = offsets[i]
                             end_bit = offsets[i + 1] if i + 1 < len(offsets) else store_total_bits
                             decompressed = decode_substring(compressed_string_buffer, huffman_tree, start_bit, end_bit)
+                            if compressed_store.character_set_type_identifier == 0x000aba91:
+                                decompressed = decompressed.encode('latin-1').decode('utf-16-le')
                             hashtable[index] = decompressed
                             index += 1
                     del huffman_tree
