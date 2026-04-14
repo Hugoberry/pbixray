@@ -16,12 +16,12 @@ from .huffman import decompress_encode_array,build_huffman_tree, decode_substrin
 from collections import defaultdict
 
 # Compression class IDs from the dictionary format (character_set_type_identifier):
-#   0x000aba91 = charset-based Huffman — strings are UTF-16LE;
-#                includes a one-byte character_set_used field in the page header.
-#   0x000aba92 = general Huffman — strings are single-byte (latin-1 direct);
-#                no character_set_used field.
-_HUFFMAN_CHARSET_BASED = 0x000aba91  # UTF-16LE via charset-based Huffman
-_HUFFMAN_GENERAL       = 0x000aba92  # single-byte general Huffman
+#   0x000aba91 = charset-based Huffman — strings are single-byte (encoded per the
+#                character_set_used byte, commonly ANSI/latin-1 for Latin scripts).
+#   0x000aba92 = general Huffman — Huffman tree operates on raw bytes whose sequence
+#                is UTF-16LE; no character_set_used field.
+_HUFFMAN_CHARSET_BASED = 0x000aba91  # single-byte charset Huffman (latin-1 output)
+_HUFFMAN_GENERAL       = 0x000aba92  # UTF-16LE bytes via general Huffman
 
 # ---------- VertiPaq CLASS ----------
 
@@ -155,11 +155,11 @@ class VertiPaqDecoder:
                             start_bit = offsets[i]
                             end_bit = offsets[i + 1] if i + 1 < len(offsets) else store_total_bits
                             decompressed = decode_substring(compressed_string_buffer, huffman_tree, start_bit, end_bit)
-                            if compressed_store.character_set_type_identifier == _HUFFMAN_CHARSET_BASED:
-                                # character_set_used (parsed from page header) confirms UTF-16LE encoding.
-                                # The Huffman bitstream operates on raw bytes, so re-encode to latin-1
-                                # then decode as UTF-16LE. Strip any trailing odd byte caused by
-                                # Huffman padding before decoding (& ~1 rounds byte length down to even).
+                            if compressed_store.character_set_type_identifier == _HUFFMAN_GENERAL:
+                                # General Huffman (0xaba92): the Huffman tree operates on raw bytes
+                                # whose sequence is UTF-16LE.  Re-encode to bytes via the lossless
+                                # latin-1 identity map, then decode as UTF-16LE.  Strip any trailing
+                                # odd byte from Huffman padding before decoding.
                                 b = decompressed.encode('latin-1')
                                 decompressed = b[:len(b) & ~1].decode('utf-16-le', errors='ignore')
                             hashtable[index] = decompressed
