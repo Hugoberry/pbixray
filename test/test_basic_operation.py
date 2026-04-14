@@ -5,8 +5,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 
 from pbixray import PBIXRay
 
+DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
+
 PBIX_FILE_PATH = r"C:\git\hub\pbixray\data\Sales & Returns Sample v201912.pbix"
 # C:\git\hub\pbixray\data\Excalidraw.pbix
+
+ADVENTURE_WORKS_PATH = os.path.join(DATA_DIR, "Adventure Works, Internet Sales.pbix")
 
 def test_initialization():
     """Test initialization of the library with the test PBIX file."""
@@ -29,3 +33,16 @@ def test_data_retrieval():
     
     table = model.get_table("Age")
     assert table.size, "Failed to retrieve the 'Age' table."
+
+
+@pytest.fixture(scope="module")
+def adventure_works_model():
+    return PBIXRay(ADVENTURE_WORKS_PATH)
+
+
+def test_adventure_works_product_table_unvertipaq(adventure_works_model):
+    """Test that the Product table can be unvertipaqed from Adventure Works, Internet Sales.pbix."""
+    table = adventure_works_model.get_table("Product")
+    assert table is not None, "get_table('Product') returned None."
+    assert not table.empty, "Product table is empty after unvertipaqing."
+    assert len(table) > 0, "Product table has no rows."
