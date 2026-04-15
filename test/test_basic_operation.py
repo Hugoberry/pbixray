@@ -7,7 +7,7 @@ from pbixray import PBIXRay
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
 
-PBIX_FILE_PATH = r"C:\git\hub\pbixray\data\Sales & Returns Sample v201912.pbix"
+PBIX_FILE_PATH = os.path.join(DATA_DIR, "Sales & Returns Sample v201912.pbix")
 # C:\git\hub\pbixray\data\Excalidraw.pbix
 
 ADVENTURE_WORKS_PATH = os.path.join(DATA_DIR, "Adventure Works, Internet Sales.pbix")
@@ -46,3 +46,15 @@ def test_adventure_works_product_table_unvertipaq(adventure_works_model):
     assert table is not None, "get_table('Product') returned None."
     assert not table.empty, "Product table is empty after unvertipaqing."
     assert len(table) > 0, "Product table has no rows."
+
+
+def test_adventure_works_internet_sales_null_columns(adventure_works_model):
+    """Test that CarrierTrackingNumber and CustomerPONumber in Internet Sales are all NULL."""
+    table = adventure_works_model.get_table("Internet Sales")
+    assert table is not None, "get_table('Internet Sales') returned None."
+    assert not table.empty, "Internet Sales table is empty."
+    assert "CarrierTrackingNumber" in table.columns, "'CarrierTrackingNumber' column not found."
+    assert "CustomerPONumber" in table.columns, "'CustomerPONumber' column not found."
+    assert table["CarrierTrackingNumber"].isna().all(), "CarrierTrackingNumber contains non-NULL values."
+    assert table["CustomerPONumber"].isna().all(), "CustomerPONumber contains non-NULL values."
+
