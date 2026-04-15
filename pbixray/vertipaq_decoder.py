@@ -194,7 +194,9 @@ class VertiPaqDecoder:
             data_slice = get_data_slice(self._data_model,column_metadata["IDF"])
             return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, meta['count_bit_packed'], meta['min_data_id'], meta['bit_width'])).add(column_metadata["BaseId"]) / column_metadata["Magnitude"]
         else:
-            raise ValueError(f"Neither dictionary nor hidx found for column {column_metadata['ColumnName']} in table.")
+            # Column has no dictionary or HIDX (e.g. empty column, all-null column,
+            # or calculated column without independently stored data).
+            return pd.Series([None] * meta['count_bit_packed'])
         
     def _handle_special_cases(self, column_data, data_type):
         if data_type == 9:
@@ -223,6 +225,9 @@ class VertiPaqDecoder:
             # If it's a decimal type, keep it as object since pandas doesn't support Decimal natively
             if pandas_dtype == 'decimal.Decimal':
                 pandas_dtype = 'object'
-            dataframe_data[column_metadata["ColumnName"]] = column_data.astype(pandas_dtype)
+            try:
+                dataframe_data[column_metadata["ColumnName"]] = column_data.astype(pandas_dtype)
+            except (TypeError, ValueError):
+                dataframe_data[column_metadata["ColumnName"]] = column_data
 
         return pd.DataFrame(dataframe_data)
