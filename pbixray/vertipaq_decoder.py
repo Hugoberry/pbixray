@@ -225,6 +225,9 @@ class VertiPaqDecoder:
             # If it's a decimal type, keep it as object since pandas doesn't support Decimal natively
             if pandas_dtype == 'decimal.Decimal':
                 pandas_dtype = 'object'
-            dataframe_data[column_metadata["ColumnName"]] = column_data.astype(pandas_dtype)
+            try:
+                dataframe_data[column_metadata["ColumnName"]] = column_data.astype(pandas_dtype)
+            except (TypeError, ValueError):
+                dataframe_data[column_metadata["ColumnName"]] = column_data
 
         return pd.DataFrame(dataframe_data)
