@@ -8,9 +8,7 @@ from pbixray import PBIXRay
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
 
 PBIX_FILE_PATH = os.path.join(DATA_DIR, "Sales & Returns Sample v201912.pbix")
-# C:\git\hub\pbixray\data\Excalidraw.pbix
 
-ADVENTURE_WORKS_PATH = os.path.join(DATA_DIR, "Adventure Works, Internet Sales.pbix")
 
 def test_initialization():
     """Test initialization of the library with the test PBIX file."""
@@ -20,25 +18,20 @@ def test_initialization():
 def test_metadata_retrieval():
     """Test retrieval of metadata (tables, columns)."""
     model = PBIXRay(PBIX_FILE_PATH)
-    
+
     tables = model.tables
-    #test number of tables greater than 0
     assert tables.size, "No tables found in the PBIX file."
-    
     assert "Age" in tables, "Expected table 'Age' not found in the PBIX file."
-    
+
 def test_data_retrieval():
     """Test data retrieval from a specific table."""
     model = PBIXRay(PBIX_FILE_PATH)
-    
+
     table = model.get_table("Age")
     assert table.size, "Failed to retrieve the 'Age' table."
 
 
-@pytest.fixture(scope="module")
-def adventure_works_model():
-    return PBIXRay(ADVENTURE_WORKS_PATH)
-
+# adventure_works_model fixture is provided by conftest.py
 
 def test_adventure_works_product_table_unvertipaq(adventure_works_model):
     """Test that the Product table can be unvertipaqed from Adventure Works, Internet Sales.pbix."""
