@@ -1,0 +1,6 @@
+[submodule "samples/powerbi-desktop-samples"]
+	path = samples/powerbi-desktop-samples
+	url = https://github.com/microsoft/powerbi-desktop-samples
+[submodule "samples/Expert-Data-Modeling-with-Power-BI"]
+	path = samples/Expert-Data-Modeling-with-Power-BI
+	url = https://github.com/PacktPublishing/Expert-Data-Modeling-with-Power-BI
