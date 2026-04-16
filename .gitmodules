@@ -4,3 +4,4 @@
 [submodule "samples/Expert-Data-Modeling-with-Power-BI"]
 	path = samples/Expert-Data-Modeling-with-Power-BI
 	url = https://github.com/PacktPublishing/Expert-Data-Modeling-with-Power-BI
+	ignore = dirty
