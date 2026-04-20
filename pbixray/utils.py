@@ -20,10 +20,16 @@ WINDOWS_EPOCH_START = datetime.datetime(1601, 1, 1)
 # ---------- UTILITY FUNCTIONS ----------
 
 def _filetime_to_datetime(value) -> datetime.datetime:
-    """Convert a single Windows FILETIME integer to a Python datetime."""
+    """Convert a single Windows FILETIME integer to a Python datetime (second precision).
+
+    FILETIME counts 100-nanosecond ticks since 1601-01-01.
+    Integer division by 10_000_000 converts ticks to whole seconds, discarding
+    sub-second precision.  This matches the granularity that pbixray exposes and
+    avoids any float64 precision noise from operating on large 64-bit integers.
+    """
     if value is None or value != value or value == 0:  # None / NaN / zero
         return None
-    return WINDOWS_EPOCH_START + datetime.timedelta(seconds=int(value) / 1e7)
+    return WINDOWS_EPOCH_START + datetime.timedelta(seconds=int(value) // 10_000_000)
 
 
 def convert_time_columns(df: pd.DataFrame) -> pd.DataFrame:

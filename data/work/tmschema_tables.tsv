@@ -1,0 +1,10 @@
+ID	ModelID	Name	DataCategory	Description	IsHidden	TableStorageID	ModifiedTime	StructureModifiedTime	SystemFlags	ShowAsVariationsOnly	IsPrivate	DefaultDetailRowsDefinitionID	AlternateSourcePrecedence	RefreshPolicyID	CalculationGroupID	ExcludeFromModelRefresh	LineageTag	SourceLineageTag	SystemManaged	ExcludeFromAutomaticAggregations
+12	1	"Customer"	""	""	False	57	2022-09-22 23:02:00.843	2020-05-31 05:17:23.000	0	False	False		0			False	"3fcd3eb1-d934-48bc-962f-3a428e23a8d2"	""	False	False
+183	1	"Date"	"Time"	"Filters the Sales table using sales order date"	False	289	2022-09-22 23:02:00.843	2023-07-06 22:55:15.596	0	False	False		0			False	"e4013b6a-9ae4-4c1a-8791-5e74d37e0355"	""	False	False
+382	1	"Sales Territory"	""	""	False	428	2022-09-22 23:02:00.843	2020-06-05 03:56:46.843	0	False	False		0			False	"6e336a9d-e53c-4232-9abd-3f789457b2cb"	""	False	False
+458	1	"Product"	""	""	False	511	2022-09-22 23:02:00.843	2023-07-06 22:34:50.770	0	False	False		0			False	"b2307e18-a530-4cca-8c47-be8c50163d35"	""	False	False
+561	1	"Sales Order"	""	""	False	606	2022-09-22 23:02:00.843	2020-06-05 03:32:01.103	0	False	False		0			False	"5aeda109-c86e-4856-baec-6873133306c5"	""	False	False
+4380	1	"Sales"	""	""	False	4445	2022-09-22 23:02:00.843	2023-07-06 23:23:18.776	0	False	False		0			False	"a8c377ce-4d50-438f-8719-83999a5c58af"	""	False	False
+5597	1	"Reseller"	""	""	False	5630	2022-09-22 23:02:00.843	2020-06-05 03:40:43.186	0	False	False		0			False	"c0ecb6bb-6f56-418b-8685-0fb488680d2a"	""	False	False
+12588	1	"Currency Rate"	""	""	False	12626	2023-07-06 23:12:05.990	2023-07-06 23:09:27.223	0	False	False		0			False	"7fc38d3f-e3f8-4bb3-90f7-8a5f796c3b3c"	""	False	False
+12591	1	"Currency"	""	""	False	12628	2023-07-06 23:12:06.036	2023-07-06 23:09:27.223	0	False	False		0			False	"7acb6371-354b-478a-93f2-74ad196772ac"	""	False	False
