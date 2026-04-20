@@ -36,7 +36,7 @@ def tables_df(work_model):
 def tsv_ref():
     """Load the TSV reference, stripping surrounding quotes from string cells."""
     df = pd.read_csv(TSV_PATH, sep="\t", keep_default_na=False, na_values=[""])
-    for col in df.select_dtypes("object").columns:
+    for col in df.columns[df.dtypes == object]:
         df[col] = df[col].str.strip('"')
     return df
 
