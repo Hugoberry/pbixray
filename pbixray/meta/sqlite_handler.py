@@ -1,6 +1,9 @@
 import apsw
+import logging
 import pandas as pd
 import warnings
+
+logger = logging.getLogger(__name__)
 
 class SQLiteHandler:
     def __init__(self, sqlite_buffer):
@@ -21,7 +24,11 @@ class SQLiteHandler:
                 return pd.read_sql_query(sql, self.conn)
             except apsw.ExecutionCompleteError:
                 return pd.DataFrame()
-            except (apsw.Error, pd.errors.DatabaseError):
+            except apsw.SQLError as e:
+                logger.debug("SQL error executing query: %s — %s", sql, e)
+                return pd.DataFrame()
+            except (apsw.Error, pd.errors.DatabaseError) as e:
+                logger.debug("Database error executing query: %s — %s", sql, e)
                 return pd.DataFrame()
 
     def close_connection(self):
