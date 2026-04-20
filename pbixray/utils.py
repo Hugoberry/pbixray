@@ -1,5 +1,6 @@
 from .abf.data_model import DataModel
 import datetime
+import pandas as pd
 from .xpress8 import Xpress8
 
 # ---------- CONSTANTS ----------
@@ -17,6 +18,32 @@ AMO_PANDAS_TYPE_MAPPING = {
 WINDOWS_EPOCH_START = datetime.datetime(1601, 1, 1)
 
 # ---------- UTILITY FUNCTIONS ----------
+
+def _filetime_to_datetime(value) -> datetime.datetime:
+    """Convert a single Windows FILETIME integer to a Python datetime."""
+    if value is None or value != value or value == 0:  # None / NaN / zero
+        return None
+    return WINDOWS_EPOCH_START + datetime.timedelta(seconds=int(value) / 1e7)
+
+
+def convert_time_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert Windows FILETIME integer columns to Python datetime.
+
+    Applies to any column whose name ends with ModifiedTime, RefreshedTime,
+    or CreatedTime.  Zero / null values become None.
+    """
+    if df.empty:
+        return df
+    time_cols = [
+        c for c in df.columns
+        if c.endswith(('ModifiedTime', 'RefreshedTime', 'CreatedTime'))
+    ]
+    if not time_cols:
+        return df
+    df = df.copy()
+    for col in time_cols:
+        df[col] = df[col].apply(_filetime_to_datetime)
+    return df
 def get_data_slice(data_model:DataModel, file_name:str) -> bytes:
     """Gets a data slice based on a file name from the file log."""
     file_ref = next((x for x in data_model.file_log if x['FileName'] == file_name), None)
