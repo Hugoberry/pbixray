@@ -104,3 +104,60 @@ To get statistics about the model, including column cardinality and byte sizes o
 statistics = model.statistics
 print(statistics)
 ```
+
+## Tabular Model Schema (TMSCHEMA) Endpoints
+
+Full equivalents of the Analysis Services `$System.TMSCHEMA_*` DMVs, read directly from the embedded SQLite metadata database. All `*ModifiedTime`, `*RefreshedTime`, and `*CreatedTime` columns are returned as Python `datetime` objects.
+
+| Property | DMV equivalent |
+|---|---|
+| `model.model` | `TMSCHEMA_MODEL` |
+| `model.tmschema_tables` | `TMSCHEMA_TABLES` |
+| `model.columns` | `TMSCHEMA_COLUMNS` |
+| `model.partitions` | `TMSCHEMA_PARTITIONS` |
+| `model.hierarchies` | `TMSCHEMA_HIERARCHIES` |
+| `model.levels` | `TMSCHEMA_LEVELS` |
+| `model.datasources` | `TMSCHEMA_DATASOURCES` |
+| `model.perspectives` | `TMSCHEMA_PERSPECTIVES` |
+| `model.perspective_tables` | `TMSCHEMA_PERSPECTIVE_TABLES` |
+| `model.perspective_columns` | `TMSCHEMA_PERSPECTIVE_COLUMNS` |
+| `model.perspective_hierarchies` | `TMSCHEMA_PERSPECTIVE_HIERARCHIES` |
+| `model.perspective_measures` | `TMSCHEMA_PERSPECTIVE_MEASURES` |
+| `model.kpis` | `TMSCHEMA_KPIS` |
+| `model.annotations` | `TMSCHEMA_ANNOTATIONS` |
+| `model.extended_properties` | `TMSCHEMA_EXTENDED_PROPERTIES` |
+| `model.cultures` | `TMSCHEMA_CULTURES` |
+| `model.translations` | `TMSCHEMA_OBJECT_TRANSLATIONS` |
+| `model.linguistic_metadata` | `TMSCHEMA_LINGUISTIC_METADATA` |
+| `model.query_groups` | `TMSCHEMA_QUERY_GROUPS` |
+| `model.calculation_groups` | `TMSCHEMA_CALCULATION_GROUPS` |
+| `model.calculation_items` | `TMSCHEMA_CALCULATION_ITEMS` |
+| `model.calculation_expressions` | `TMSCHEMA_CALCULATION_EXPRESSIONS` |
+| `model.variations` | `TMSCHEMA_VARIATIONS` |
+| `model.attribute_hierarchies` | `TMSCHEMA_ATTRIBUTE_HIERARCHIES` |
+| `model.sets` | `TMSCHEMA_SETS` |
+| `model.refresh_policies` | `TMSCHEMA_REFRESH_POLICIES` |
+| `model.detail_rows_definitions` | `TMSCHEMA_DETAIL_ROWS_DEFINITIONS` |
+| `model.format_string_definitions` | `TMSCHEMA_FORMAT_STRING_DEFINITIONS` |
+| `model.functions` | `TMSCHEMA_FUNCTIONS` |
+| `model.calendars` | `TMSCHEMA_CALENDARS` |
+| `model.calendar_column_groups` | `TMSCHEMA_CALENDAR_COLUMN_GROUPS` |
+| `model.calendar_column_refs` | `TMSCHEMA_CALENDAR_COLUMN_REFERENCES` |
+| `model.alternate_of` | `TMSCHEMA_ALTERNATE_OF` |
+| `model.related_column_details` | `TMSCHEMA_RELATED_COLUMN_DETAILS` |
+| `model.group_by_columns` | `TMSCHEMA_GROUP_BY_COLUMNS` |
+| `model.binding_info` | `TMSCHEMA_BINDING_INFO` |
+| `model.analytics_ai_metadata` | `TMSCHEMA_ANALYTICS_AI_METADATA` |
+| `model.data_coverage_definitions` | `TMSCHEMA_DATA_COVERAGE_DEFINITIONS` |
+| `model.role_memberships` | `TMSCHEMA_ROLE_MEMBERSHIPS` |
+
+```python
+# Example — list all measures with their tables
+print(model.columns[["TableName", "Name", "DataType", "IsHidden"]])
+
+# Example — inspect incremental refresh policies
+print(model.refresh_policies)
+
+# Example — list all security roles and their members
+print(model.role_memberships)
+```
