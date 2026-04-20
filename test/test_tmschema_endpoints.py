@@ -1,212 +1,265 @@
-import pytest
-import os
+"""
+Tests for the TMSCHEMA_* DMV-equivalent endpoints added in v0.6.0.
+
+All 39 properties are exercised against the rls-sample-report.pbix fixture
+(defined in conftest.py).  Each test asserts:
+  - the property returns a DataFrame
+  - any *ModifiedTime / *RefreshedTime / *CreatedTime column contains
+    datetime objects rather than raw integers
+"""
+import datetime
 import pandas as pd
-
-from pbixray import PBIXRay
-
-DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
-PBIX_FILE_PATH = os.path.join(DATA_DIR, "rls-sample-report.pbix")
-
-
-@pytest.fixture(scope="module")
-def model():
-    return PBIXRay(PBIX_FILE_PATH)
+import pytest
 
 
 # ---------------------------------------------------------------------------
-# Each test checks that the property returns a DataFrame (possibly empty) and
-# that any *ModifiedTime / *RefreshedTime / *CreatedTime column contains
-# datetime objects rather than raw integers.
+# Helpers (same conventions as test_metadata.py)
 # ---------------------------------------------------------------------------
 
-def _assert_df(df, name):
-    assert isinstance(df, pd.DataFrame), f"{name} is not a DataFrame"
+def _is_df(obj):
+    return isinstance(obj, pd.DataFrame)
 
 
-def _assert_time_cols_converted(df, name):
+def _is_nonempty_df(obj):
+    return _is_df(obj) and not obj.empty
+
+
+def _time_cols_are_datetimes(df):
+    """Assert every populated time column holds datetime values, not ints."""
     time_suffixes = ("ModifiedTime", "RefreshedTime", "CreatedTime")
     for col in df.columns:
-        if col.endswith(time_suffixes) and not df[col].dropna().empty:
-            sample = df[col].dropna().iloc[0]
-            assert isinstance(sample, (pd.Timestamp, type(None)).__class__.__bases__[0]) or \
-                   hasattr(sample, 'year'), \
-                f"{name}['{col}'] contains raw integers instead of datetimes: {sample!r}"
+        if col.endswith(time_suffixes):
+            for val in df[col].dropna():
+                assert isinstance(val, datetime.datetime), (
+                    f"Column '{col}' contains {type(val).__name__} instead of datetime: {val!r}"
+                )
 
 
-def _check(df, name):
-    _assert_df(df, name)
+def _check(df, *, nonempty=False):
+    assert _is_df(df)
+    if nonempty:
+        assert not df.empty
     if not df.empty:
-        _assert_time_cols_converted(df, name)
+        _time_cols_are_datetimes(df)
 
 
-def test_model(model):
-    df = model.model
-    _check(df, "model")
-    assert not df.empty, "model should have at least one row"
+# ---------------------------------------------------------------------------
+# Model & sources
+# ---------------------------------------------------------------------------
+
+def test_model(rls_model):
+    _check(rls_model.model, nonempty=True)
 
 
-def test_tmschema_tables(model):
-    df = model.tmschema_tables
-    _check(df, "tmschema_tables")
-    assert not df.empty, "tmschema_tables should have rows"
+def test_tmschema_tables(rls_model):
+    df = rls_model.tmschema_tables
+    _check(df, nonempty=True)
     assert "Name" in df.columns
 
 
-def test_columns(model):
-    df = model.columns
-    _check(df, "columns")
-    assert not df.empty
+def test_columns(rls_model):
+    df = rls_model.columns
+    _check(df, nonempty=True)
+    assert "TableName" in df.columns
+    assert "Name" in df.columns
+
+
+def test_partitions(rls_model):
+    df = rls_model.partitions
+    _check(df, nonempty=True)
+    assert "TableName" in df.columns
+    assert "QueryDefinition" in df.columns
+
+
+def test_datasources(rls_model):
+    _check(rls_model.datasources)
+
+
+# ---------------------------------------------------------------------------
+# Hierarchies & levels
+# ---------------------------------------------------------------------------
+
+def test_hierarchies(rls_model):
+    df = rls_model.hierarchies
+    _check(df, nonempty=True)
     assert "TableName" in df.columns
 
 
-def test_partitions(model):
-    df = model.partitions
-    _check(df, "partitions")
-    assert not df.empty
-    assert "TableName" in df.columns
+def test_levels(rls_model):
+    df = rls_model.levels
+    _check(df, nonempty=True)
+    assert "HierarchyName" in df.columns
+    assert "ColumnName" in df.columns
 
 
-def test_hierarchies(model):
-    _check(model.hierarchies, "hierarchies")
+def test_attribute_hierarchies(rls_model):
+    df = rls_model.attribute_hierarchies
+    _check(df, nonempty=True)
+    assert "ColumnName" in df.columns
 
 
-def test_levels(model):
-    _check(model.levels, "levels")
+def test_variations(rls_model):
+    _check(rls_model.variations)
 
 
-def test_datasources(model):
-    _check(model.datasources, "datasources")
+# ---------------------------------------------------------------------------
+# Measures, calculations, KPIs
+# ---------------------------------------------------------------------------
 
+def test_kpis(rls_model):
+    _check(rls_model.kpis)
 
-def test_perspectives(model):
-    _check(model.perspectives, "perspectives")
 
+def test_calculation_groups(rls_model):
+    _check(rls_model.calculation_groups)
 
-def test_perspective_tables(model):
-    _check(model.perspective_tables, "perspective_tables")
 
+def test_calculation_items(rls_model):
+    _check(rls_model.calculation_items)
 
-def test_perspective_columns(model):
-    _check(model.perspective_columns, "perspective_columns")
 
+def test_calculation_expressions(rls_model):
+    _check(rls_model.calculation_expressions)
 
-def test_perspective_hierarchies(model):
-    _check(model.perspective_hierarchies, "perspective_hierarchies")
 
+def test_sets(rls_model):
+    _check(rls_model.sets)
 
-def test_perspective_measures(model):
-    _check(model.perspective_measures, "perspective_measures")
 
+def test_functions(rls_model):
+    _check(rls_model.functions)
 
-def test_kpis(model):
-    _check(model.kpis, "kpis")
 
+# ---------------------------------------------------------------------------
+# Partitions & refresh
+# ---------------------------------------------------------------------------
 
-def test_annotations(model):
-    df = model.annotations
-    _check(df, "annotations")
-    assert not df.empty
+def test_refresh_policies(rls_model):
+    _check(rls_model.refresh_policies)
 
 
-def test_extended_properties(model):
-    _check(model.extended_properties, "extended_properties")
+def test_data_coverage_definitions(rls_model):
+    _check(rls_model.data_coverage_definitions)
 
 
-def test_cultures(model):
-    df = model.cultures
-    _check(df, "cultures")
-    assert not df.empty
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
 
+def test_role_memberships(rls_model):
+    _check(rls_model.role_memberships)
 
-def test_translations(model):
-    _check(model.translations, "translations")
 
+# ---------------------------------------------------------------------------
+# Perspectives
+# ---------------------------------------------------------------------------
 
-def test_linguistic_metadata(model):
-    _check(model.linguistic_metadata, "linguistic_metadata")
+def test_perspectives(rls_model):
+    _check(rls_model.perspectives)
 
 
-def test_query_groups(model):
-    _check(model.query_groups, "query_groups")
+def test_perspective_tables(rls_model):
+    _check(rls_model.perspective_tables)
 
 
-def test_calculation_groups(model):
-    _check(model.calculation_groups, "calculation_groups")
+def test_perspective_columns(rls_model):
+    _check(rls_model.perspective_columns)
 
 
-def test_calculation_items(model):
-    _check(model.calculation_items, "calculation_items")
+def test_perspective_hierarchies(rls_model):
+    _check(rls_model.perspective_hierarchies)
 
 
-def test_calculation_expressions(model):
-    _check(model.calculation_expressions, "calculation_expressions")
+def test_perspective_measures(rls_model):
+    _check(rls_model.perspective_measures)
 
 
-def test_variations(model):
-    _check(model.variations, "variations")
+# ---------------------------------------------------------------------------
+# Annotations & metadata properties
+# ---------------------------------------------------------------------------
 
+def test_annotations(rls_model):
+    df = rls_model.annotations
+    _check(df, nonempty=True)
+    assert "ObjectType" in df.columns
+    assert "Name" in df.columns
 
-def test_attribute_hierarchies(model):
-    df = model.attribute_hierarchies
-    _check(df, "attribute_hierarchies")
-    assert not df.empty
 
+def test_extended_properties(rls_model):
+    _check(rls_model.extended_properties)
 
-def test_sets(model):
-    _check(model.sets, "sets")
 
+def test_detail_rows_definitions(rls_model):
+    _check(rls_model.detail_rows_definitions)
 
-def test_refresh_policies(model):
-    _check(model.refresh_policies, "refresh_policies")
 
+def test_format_string_definitions(rls_model):
+    _check(rls_model.format_string_definitions)
 
-def test_detail_rows_definitions(model):
-    _check(model.detail_rows_definitions, "detail_rows_definitions")
 
+# ---------------------------------------------------------------------------
+# Internationalisation
+# ---------------------------------------------------------------------------
 
-def test_format_string_definitions(model):
-    _check(model.format_string_definitions, "format_string_definitions")
+def test_cultures(rls_model):
+    df = rls_model.cultures
+    _check(df, nonempty=True)
+    assert "Name" in df.columns
 
 
-def test_functions(model):
-    _check(model.functions, "functions")
+def test_translations(rls_model):
+    _check(rls_model.translations)
 
 
-def test_calendars(model):
-    _check(model.calendars, "calendars")
+def test_linguistic_metadata(rls_model):
+    _check(rls_model.linguistic_metadata)
 
 
-def test_calendar_column_groups(model):
-    _check(model.calendar_column_groups, "calendar_column_groups")
+# ---------------------------------------------------------------------------
+# Calendars & AI
+# ---------------------------------------------------------------------------
 
+def test_calendars(rls_model):
+    _check(rls_model.calendars)
 
-def test_calendar_column_refs(model):
-    _check(model.calendar_column_refs, "calendar_column_refs")
 
+def test_calendar_column_groups(rls_model):
+    _check(rls_model.calendar_column_groups)
 
-def test_alternate_of(model):
-    _check(model.alternate_of, "alternate_of")
 
+def test_calendar_column_refs(rls_model):
+    _check(rls_model.calendar_column_refs)
 
-def test_related_column_details(model):
-    _check(model.related_column_details, "related_column_details")
 
+def test_analytics_ai_metadata(rls_model):
+    _check(rls_model.analytics_ai_metadata)
 
-def test_group_by_columns(model):
-    _check(model.group_by_columns, "group_by_columns")
 
+# ---------------------------------------------------------------------------
+# Aggregations
+# ---------------------------------------------------------------------------
 
-def test_binding_info(model):
-    _check(model.binding_info, "binding_info")
+def test_alternate_of(rls_model):
+    _check(rls_model.alternate_of)
 
 
-def test_analytics_ai_metadata(model):
-    _check(model.analytics_ai_metadata, "analytics_ai_metadata")
+def test_related_column_details(rls_model):
+    df = rls_model.related_column_details
+    _check(df, nonempty=True)
+    assert "ColumnName" in df.columns
 
 
-def test_data_coverage_definitions(model):
-    _check(model.data_coverage_definitions, "data_coverage_definitions")
+def test_group_by_columns(rls_model):
+    _check(rls_model.group_by_columns)
 
 
-def test_role_memberships(model):
-    _check(model.role_memberships, "role_memberships")
+# ---------------------------------------------------------------------------
+# Binding
+# ---------------------------------------------------------------------------
+
+def test_query_groups(rls_model):
+    _check(rls_model.query_groups)
+
+
+def test_binding_info(rls_model):
+    _check(rls_model.binding_info)
