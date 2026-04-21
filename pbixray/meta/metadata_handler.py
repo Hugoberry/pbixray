@@ -1,10 +1,9 @@
 from .metadata_query import MetadataQuery
 from .xml_metadata_query import XmlMetadataQuery
 from .sqlite_handler import SQLiteHandler
-from ..utils import AMO_PANDAS_TYPE_MAPPING, WINDOWS_EPOCH_START, get_data_slice
+from ..utils import AMO_PANDAS_TYPE_MAPPING, get_data_slice
 import pandas as pd
 from ..abf.data_model import DataModel
-import datetime
 
 # ---------- METADATA HANDLER ----------
 
@@ -28,27 +27,13 @@ class MetadataHandler:
     def _compute_statistics(self):
         """Computes statistics from the metadata schema."""
         self._stats = self._meta.schema_df[['TableName', 'ColumnName', 'Cardinality']].copy()
-        
-        # For XLSX files, timestamps are already converted in xml_metadata_query
-        # For PBIX files, they need conversion from Windows ticks
-        if self._data_model.file_type == "xlsx":
-            self._stats = self._stats.assign(
-                Dictionary=self._meta.schema_df['Dictionary'].map(self._get_file_size_from_log),
-                HashIndex=self._meta.schema_df['HIDX'].map(self._get_file_size_from_log),
-                DataSize=self._meta.schema_df['IDF'].map(self._get_file_size_from_log),
-                ModifiedTime=self._meta.schema_df['ModifiedTime'],
-                StructureModifiedTime=self._meta.schema_df['StructureModifiedTime']
-            )
-        else:
-            self._stats = self._stats.assign(
-                Dictionary=self._meta.schema_df['Dictionary'].map(self._get_file_size_from_log),
-                HashIndex=self._meta.schema_df['HIDX'].map(self._get_file_size_from_log),
-                DataSize=self._meta.schema_df['IDF'].map(self._get_file_size_from_log),
-                ModifiedTime=self._meta.schema_df['ModifiedTime'].apply(
-                    lambda x: WINDOWS_EPOCH_START + datetime.timedelta(seconds=x / 1e7)),
-                StructureModifiedTime=self._meta.schema_df['StructureModifiedTime'].apply(
-                    lambda x: WINDOWS_EPOCH_START + datetime.timedelta(seconds=x / 1e7))
-            )
+        self._stats = self._stats.assign(
+            Dictionary=self._meta.schema_df['Dictionary'].map(self._get_file_size_from_log),
+            HashIndex=self._meta.schema_df['HIDX'].map(self._get_file_size_from_log),
+            DataSize=self._meta.schema_df['IDF'].map(self._get_file_size_from_log),
+            ModifiedTime=self._meta.schema_df['ModifiedTime'],
+            StructureModifiedTime=self._meta.schema_df['StructureModifiedTime'],
+        )
 
     def _get_file_size_from_log(self, file_name):
         """Utility to get the size of a file from the log using 'FileName'."""
