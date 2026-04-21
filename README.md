@@ -107,7 +107,7 @@ print(statistics)
 
 ## Tabular Model Schema (TMSCHEMA) Endpoints
 
-Full equivalents of the Analysis Services `$System.TMSCHEMA_*` DMVs, read directly from the embedded SQLite metadata database. All `*ModifiedTime`, `*RefreshedTime`, and `*CreatedTime` columns are returned as Python `datetime` objects.
+Full equivalents of the Analysis Services `$System.TMSCHEMA_*` DMVs, read directly from the embedded SQLite metadata database.
 
 | Property | DMV equivalent |
 |---|---|
