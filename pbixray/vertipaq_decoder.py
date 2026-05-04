@@ -81,20 +81,56 @@ class VertiPaqDecoder:
 
             return vector
 
-    def _read_idfmeta(self,buffer):
-        """Reads idfmeta from a buffer."""
-        # Use io.BytesIO to wrap the bytearray
-        with io.BytesIO(buffer) as f:
-            metadata = IdfmetaParser.from_io(f)
-            
-            # Extract the necessary data from the Kaitai Struct
-            row_data = {
-                'min_data_id': metadata.blocks.cp.cs.ss.min_data_id,
-                'count_bit_packed': metadata.blocks.cp.cs.cs.count_bit_packed,
-                'bit_width': metadata.bit_width,
-            }
-            
-            return row_data
+    def _read_idfmeta(self, buffer):
+        """Reads idfmeta from a buffer. Handles multi-segment columns.
+
+        Previously used the Kaitai-generated IdfmetaParser which crashed with a
+        ValidationNotEqualError on files that contain more than one VertiPaq
+        segment (i.e. tables with more than ~1 M rows).  Replaced with a
+        manual parser that loops over all CP blocks.  Returns only the first
+        segment's dict for backwards-compatibility; get_table() calls
+        _parse_idfmeta_all() directly.
+        """
+        segs = self._parse_idfmeta_all(buffer)
+        if not segs:
+            raise ValueError("No CS segments found in idfmeta buffer")
+        return segs[0]
+
+    def _parse_idfmeta_all(self, buffer):
+        """Return a list of metadata dicts, one per VertiPaq segment.
+
+        Each dict contains:
+            min_data_id      – minimum encoded value in this segment
+            count_bit_packed – number of bit-packed values
+            bit_width        – bits used per encoded value
+        """
+        import struct
+        f = io.BytesIO(buffer)
+        def rb(n): return f.read(n)
+        def ru4(): return struct.unpack('<I', f.read(4))[0]
+        def ru8(): return struct.unpack('<Q', f.read(8))[0]
+        def rs8(): return struct.unpack('<q', f.read(8))[0]
+
+        rb(6); ru8()   # outer CP tag + version
+        segs = []
+        while True:
+            peek = rb(6)
+            if not peek or peek == b'CP:1>\x00':
+                break
+            elif peek == b'<1:CS\x00':
+                f.seek(f.tell() - 6)
+                rb(6); ru8(); ru8()              # cs_tag, records, one
+                aba5a = ru4(); iterator = ru4()  # a_b_a_5_a, iterator
+                ru8(); ru8(); ru8(); rb(1); ru4()                       # bookmark, alloc, used, resize, compress
+                rb(6); ru8(); min_id = ru4()                            # SS tag, distinct_states, min_data_id
+                ru4(); ru4(); rs8(); ru8(); rb(1); ru8(); ru8(); rb(6)  # rest of SS element
+                rb(1); rb(6); cnt_bp = ru8(); rb(9); rb(6); rb(6)      # hbp, CS1, CS0 end tag
+                segs.append({
+                    'min_data_id':      min_id,
+                    'count_bit_packed': cnt_bp,
+                    'bit_width':        (36 - aba5a) + iterator,
+                })
+        return segs
 
     def _read_hash_table(self,buffer):
         """Reads a hash table from a buffer."""
@@ -208,26 +244,100 @@ class VertiPaqDecoder:
         return column_data
         
     def get_table(self, table_name):
-        """Generates a DataFrame representation of the specified table."""
+        """Generates a DataFrame representation of the specified table.
+
+        Fixed to read ALL VertiPaq segments instead of only the first one.
+        The original implementation hardcoded segments[0] in
+        _read_rle_bit_packed_hybrid and used _read_idfmeta (which crashed on
+        multi-segment files).  For tables larger than ~1 M rows the data is
+        split across multiple segments; the old code silently returned only
+        the first ~1 M rows, making every aggregation incorrect.
+
+        Also fixes a secondary bug in the HIDX branch where the original code
+        called .add() on a pandas IntegerArray, which is not supported;
+        replaced with numpy arithmetic.
+        """
+        import numpy as np
+
         table_metadata_df = self._meta.schema_df[self._meta.schema_df['TableName'] == table_name]
         dataframe_data = {}
 
         for _, column_metadata in table_metadata_df.iterrows():
-            idfmeta_buffer = get_data_slice(self._data_model,column_metadata["IDF"] + 'meta')
-            meta = self._read_idfmeta(idfmeta_buffer)
-            
-            column_data = self._get_column_data(column_metadata, meta)
-            # Handle special cases for certain data types
-            column_data = self._handle_special_cases(column_data, column_metadata["DataType"])
-            
-            pandas_dtype = AMO_PANDAS_TYPE_MAPPING.get(column_metadata["DataType"], "object")  # default to object if no mapping is found
-            
-            # If it's a decimal type, keep it as object since pandas doesn't support Decimal natively
+
+            # One metadata dict per segment (was: single dict, crashed on >1 segment)
+            meta_buf     = get_data_slice(self._data_model, column_metadata['IDF'] + 'meta')
+            all_seg_meta = self._parse_idfmeta_all(meta_buf)
+
+            # The dictionary is shared across all segments
+            dictionary = None
+            if pd.notnull(column_metadata['Dictionary']):
+                dict_buf   = get_data_slice(self._data_model, column_metadata['Dictionary'])
+                dictionary = self._read_dictionary(dict_buf, min_data_id=all_seg_meta[0]['min_data_id'])
+
+            # All segments are stored in the single .idf file
+            idf_data = get_data_slice(self._data_model, column_metadata['IDF'])
+            col_idf  = ColumnDataIdf(KaitaiStream(io.BytesIO(idf_data)))
+
+            all_values = []
+            for i, seg_meta in enumerate(all_seg_meta):
+                seg        = col_idf.segments[i]
+                cnt_bp     = seg_meta['count_bit_packed']
+                min_id     = seg_meta['min_data_id']
+                bw         = seg_meta['bit_width']
+                null_adj   = 1 if column_metadata['IsNullable'] else 0
+                min_id_adj = min_id - null_adj
+
+                if pd.notnull(column_metadata['Dictionary']):
+                    if cnt_bp > 0:
+                        empty   = (seg.sub_segment[-1].bit_length() == 0
+                                   and seg.sub_segment_size == 1)
+                        bp_vals = ([min_id_adj] * cnt_bp if empty
+                                   else self._read_bitpacked(seg.sub_segment, bw, min_id_adj))
+                    else:
+                        bp_vals = []
+
+                    bp_offset = 0
+                    vector    = []
+                    for entry in seg.primary_segment:
+                        if entry.data_value + bp_offset == 0xFFFFFFFF:
+                            n          = entry.repeat_value
+                            vector    += bp_vals[bp_offset:bp_offset + n]
+                            bp_offset += n
+                        else:
+                            vector += [entry.data_value] * entry.repeat_value
+
+                    all_values += list(pd.Series(vector).map(dictionary))
+
+                elif pd.notnull(column_metadata['HIDX']):
+                    bp_vals = (self._read_bitpacked(seg.sub_segment, bw, min_id)
+                               if cnt_bp > 0 else [])
+                    bp_offset = 0
+                    vector    = []
+                    for entry in seg.primary_segment:
+                        if entry.data_value + bp_offset == 0xFFFFFFFF:
+                            n          = entry.repeat_value
+                            vector    += bp_vals[bp_offset:bp_offset + n]
+                            bp_offset += n
+                        else:
+                            vector += [entry.data_value] * entry.repeat_value
+
+                    # Original used pd.Series.add() on IntegerArray — not supported.
+                    arr         = np.array(vector, dtype='float64')
+                    all_values += list(
+                        (arr + column_metadata['BaseId']) / column_metadata['Magnitude']
+                    )
+
+                else:
+                    all_values += [None] * cnt_bp
+
+            pandas_dtype = AMO_PANDAS_TYPE_MAPPING.get(column_metadata['DataType'], 'object')
             if pandas_dtype == 'decimal.Decimal':
                 pandas_dtype = 'object'
             try:
-                dataframe_data[column_metadata["ColumnName"]] = column_data.astype(pandas_dtype)
+                dataframe_data[column_metadata['ColumnName']] = pd.array(
+                    all_values, dtype=pandas_dtype
+                )
             except (TypeError, ValueError):
-                dataframe_data[column_metadata["ColumnName"]] = column_data
+                dataframe_data[column_metadata['ColumnName']] = all_values
 
         return pd.DataFrame(dataframe_data)
