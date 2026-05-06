@@ -56,3 +56,8 @@ def blog_demo_model():
 @pytest.fixture(scope="module")
 def xlsx_model():
     return PBIXRay(os.path.join(DATA_DIR, "Supplier Quality Analysis Sample-no-PV.xlsx"))
+
+
+@pytest.fixture(scope="module")
+def five_m_model():
+    return PBIXRay(os.path.join(DATA_DIR, "5M.pbix"))
