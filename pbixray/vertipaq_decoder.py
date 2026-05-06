@@ -89,9 +89,9 @@ class VertiPaqDecoder:
             
             # Extract the necessary data from the Kaitai Struct
             row_data = {
-                'min_data_id': metadata.blocks.cp.cs.ss.min_data_id,
-                'count_bit_packed': metadata.blocks.cp.cs.cs.count_bit_packed,
-                'bit_width': metadata.bit_width,
+                'min_data_id': metadata.column_partition.segments[0].ss.min_data_id,
+                'count_bit_packed': metadata.column_partition.segments[0].subsegment.records,
+                'bit_width': metadata.column_partition.segments[0].bit_width,
             }
             
             return row_data

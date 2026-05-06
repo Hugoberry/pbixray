@@ -142,6 +142,20 @@ class IdfmetaParser(KaitaiStruct):
                 self.subsegment._fetch_instances()
 
 
+        @property
+        def bit_width(self):
+            """Convenience: bit width of this segment's encoding.
+            For HybridRLE (0xaba5a) this is derived from sub_compression_class
+            using the same NoSplit mapping.
+            Returns 0 for subsegments, non-bit-packed types (General/0xaba57,
+            123/0xaba5b), and unrecognised class IDs.
+            """
+            if hasattr(self, '_m_bit_width'):
+                return self._m_bit_width
+
+            self._m_bit_width = (0 if self.is_subsegment else (self.compression_class - 703030 if  ((self.compression_class >= 703031) and (self.compression_class <= 703040))  else (12 if self.compression_class == 703042 else (16 if self.compression_class == 703046 else (21 if self.compression_class == 703051 else (32 if self.compression_class == 703062 else ((self.sub_compression_class - 703030 if  ((self.sub_compression_class >= 703031) and (self.sub_compression_class <= 703040))  else (12 if self.sub_compression_class == 703042 else (16 if self.sub_compression_class == 703046 else (21 if self.sub_compression_class == 703051 else (32 if self.sub_compression_class == 703062 else 0))))) if self.compression_class == 703066 else 0)))))))
+            return getattr(self, '_m_bit_width', None)
+
 
     class CsdosElement(KaitaiStruct):
         """Offset/size pair pointing into the companion .idf file.
@@ -260,17 +274,5 @@ class IdfmetaParser(KaitaiStruct):
         def _fetch_instances(self):
             pass
 
-
-    @property
-    def bit_width(self):
-        """Convenience: bit width of the first segment's encoding.
-        For HybridRLE (0xaba5a) this is derived from sub_compression_class
-        using the same NoSplit mapping.
-        Returns 0 for non-bit-packed types (General/0xaba57, 123/0xaba5b)."""
-        if hasattr(self, '_m_bit_width'):
-            return self._m_bit_width
-
-        self._m_bit_width = (self.column_partition.segments[0].compression_class - 703030 if  ((self.column_partition.segments[0].compression_class >= 703031) and (self.column_partition.segments[0].compression_class <= 703040))  else (12 if self.column_partition.segments[0].compression_class == 703042 else (16 if self.column_partition.segments[0].compression_class == 703046 else (21 if self.column_partition.segments[0].compression_class == 703051 else (32 if self.column_partition.segments[0].compression_class == 703062 else ((self.column_partition.segments[0].sub_compression_class - 703030 if  ((self.column_partition.segments[0].sub_compression_class >= 703031) and (self.column_partition.segments[0].sub_compression_class <= 703040))  else (12 if self.column_partition.segments[0].sub_compression_class == 703042 else (16 if self.column_partition.segments[0].sub_compression_class == 703046 else (21 if self.column_partition.segments[0].sub_compression_class == 703051 else (32 if self.column_partition.segments[0].sub_compression_class == 703062 else 0))))) if self.column_partition.segments[0].compression_class == 703066 else 0))))))
-        return getattr(self, '_m_bit_width', None)
 
 

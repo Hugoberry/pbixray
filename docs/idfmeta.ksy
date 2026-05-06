@@ -145,6 +145,32 @@ types:
       - id: close_tag
         contents: ['CS:1>', 0x00]
 
+    instances:
+      bit_width:
+        value: >-
+          is_subsegment ? 0
+          : (compression_class >= 0xaba37 and compression_class <= 0xaba40
+             ? compression_class - 0xaba36
+             : (compression_class == 0xaba42 ? 12
+             : (compression_class == 0xaba46 ? 16
+             : (compression_class == 0xaba4b ? 21
+             : (compression_class == 0xaba56 ? 32
+             : (compression_class == 0xaba5a
+                ? (sub_compression_class >= 0xaba37 and sub_compression_class <= 0xaba40
+                   ? sub_compression_class - 0xaba36
+                   : (sub_compression_class == 0xaba42 ? 12
+                   : (sub_compression_class == 0xaba46 ? 16
+                   : (sub_compression_class == 0xaba4b ? 21
+                   : (sub_compression_class == 0xaba56 ? 32
+                   : 0)))))
+                : 0))))))
+        doc: |
+          Convenience: bit width of this segment's encoding.
+          For HybridRLE (0xaba5a) this is derived from sub_compression_class
+          using the same NoSplit mapping.
+          Returns 0 for subsegments, non-bit-packed types (General/0xaba57,
+          123/0xaba5b), and unrecognised class IDs.
+
   # ===================================================================
   #  RLE facet data (XMRLECompressionInfo::RleFacet fields)
   # ===================================================================
@@ -278,29 +304,3 @@ types:
 
       - id: close_tag
         contents: ['CSDOs:1>', 0x00]
-
-instances:
-  bit_width:
-    value: >-
-      column_partition.segments[0].compression_class >= 0xaba37
-      and column_partition.segments[0].compression_class <= 0xaba40
-      ? column_partition.segments[0].compression_class - 0xaba36
-      : (column_partition.segments[0].compression_class == 0xaba42 ? 12
-      : (column_partition.segments[0].compression_class == 0xaba46 ? 16
-      : (column_partition.segments[0].compression_class == 0xaba4b ? 21
-      : (column_partition.segments[0].compression_class == 0xaba56 ? 32
-      : (column_partition.segments[0].compression_class == 0xaba5a
-         ? (column_partition.segments[0].sub_compression_class >= 0xaba37
-            and column_partition.segments[0].sub_compression_class <= 0xaba40
-            ? column_partition.segments[0].sub_compression_class - 0xaba36
-            : (column_partition.segments[0].sub_compression_class == 0xaba42 ? 12
-            : (column_partition.segments[0].sub_compression_class == 0xaba46 ? 16
-            : (column_partition.segments[0].sub_compression_class == 0xaba4b ? 21
-            : (column_partition.segments[0].sub_compression_class == 0xaba56 ? 32
-            : 0)))))
-         : 0)))))
-    doc: |
-      Convenience: bit width of the first segment's encoding.
-      For HybridRLE (0xaba5a) this is derived from sub_compression_class
-      using the same NoSplit mapping.
-      Returns 0 for non-bit-packed types (General/0xaba57, 123/0xaba5b).
