@@ -1,5 +1,5 @@
 meta:
-  id: idfmeta
+  id: idfmeta_parser
   file-extension: idfmeta
   endian: le
   license: CC0-1.0
@@ -48,7 +48,7 @@ types:
       - id: open_tag
         contents: ['<1:CP', 0x00]
 
-      - id: segment_count
+      - id: num_segments
         type: u8
         doc: |
           Number of column segments in this partition.
@@ -57,7 +57,7 @@ types:
       - id: segments
         type: cs_element(false)
         repeat: expr
-        repeat-expr: segment_count
+        repeat-expr: num_segments
 
       - id: close_tag
         contents: ['CP:1>', 0x00]
@@ -238,9 +238,9 @@ types:
         contents: ['<1:SDOs', 0x00]
 
       - id: entries
-        type: 'csdos_element(_parent.segment_count > 0 ? _parent.segments[_index].has_subsegment != 0 : false)'
+        type: 'csdos_element(_parent.num_segments > 0 ? _parent.segments[_index].has_subsegment != 0 : false)'
         repeat: expr
-        repeat-expr: _parent.segment_count
+        repeat-expr: _parent.num_segments
 
       - id: close_tag
         contents: ['SDOs:1>', 0x00]
