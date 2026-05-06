@@ -119,21 +119,9 @@ types:
       - id: element_size
         contents: [ 8, 0, 0, 0]
         size: 4
-      - id: vector_of_record_handle_structures 
-        type: string_record_handle
-        repeat: expr
-        repeat-expr: num_vector_of_record_handle_structures
-        
-  string_record_handle:
-    seq:
-      - id: bit_or_byte_offset
-        type: u4
-      - id: page_id
-        type: u4
-  other_record_handle:
-    seq:
-      - id: bit_or_byte_offset
-        type: u4
+      - id: vector_of_record_handle_structures
+        doc: Raw bytes for record handles (each 8 bytes = u4 offset + u4 page_id). Parsed with numpy in consumer for performance.
+        size: num_vector_of_record_handle_structures * 8
 
   number_data:
     seq:

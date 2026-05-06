@@ -7,6 +7,7 @@ setup(
     install_requires=[
         'xpress9',
         'kaitaistruct',
+        'numpy',
         'pandas',
         'apsw'
     ],
