@@ -46,38 +46,41 @@ class VertiPaqDecoder:
         strings = buffer.split('\0')
         return strings[:-1]  # remove the last empty string
 
-    def _read_rle_bit_packed_hybrid(self,buffer, entries, min_data_id, bit_width ):
+    def _read_rle_bit_packed_hybrid(self, buffer, segments_meta):
         """Reads RLE bit packed hybrid values from a buffer."""
         with io.BytesIO(buffer) as f:
             # Parse the binary data
             column_data = ColumnDataIdf(KaitaiStream(f))
-            
-            bitpacked_values = []
-            vector = []
-            bit_packed_entries = None
-            bit_packed_offset = 0
-            
-            if entries > 0:
-                # Get bit width
-                size = column_data.segments[0].sub_segment_size
-                # case if it's a column with empty strings
-                if column_data.segments[0].sub_segment[-1].bit_length() == 0 and size == 1:
-                    bitpacked_values = [min_data_id] * entries
-                else:
-                    # read the bitpacked values from the sub_segment
-                    bitpacked_values = self._read_bitpacked(column_data.segments[0].sub_segment,bit_width, min_data_id)
 
-            # consider only the first primary segment + sub segment combination
-            # for segment in column_data.segments: 
-            for entry in column_data.segments[0].primary_segment:
-                if entry.data_value+bit_packed_offset== 0xFFFFFFFF: # bit pack marker
-                    bit_packed_entries = entry.repeat_value
-                    bitpacked_values_slice = bitpacked_values[bit_packed_offset:bit_packed_offset+bit_packed_entries]
-                    bit_packed_offset += bit_packed_entries
-                    vector+=bitpacked_values_slice
-                else:
-                    rle = [entry.data_value] * entry.repeat_value
-                    vector+=rle
+            vector = []
+
+            for seg_idx, seg_meta in enumerate(segments_meta):
+                segment = column_data.segments[seg_idx]
+                entries = seg_meta['count_bit_packed']
+                min_data_id = seg_meta['min_data_id']
+                bit_width = seg_meta['bit_width']
+
+                bitpacked_values = []
+                bit_packed_offset = 0
+
+                if entries > 0:
+                    size = segment.sub_segment_size
+                    # case if it's a column with empty strings
+                    if segment.sub_segment[-1].bit_length() == 0 and size == 1:
+                        bitpacked_values = [min_data_id] * entries
+                    else:
+                        # read the bitpacked values from the sub_segment
+                        bitpacked_values = self._read_bitpacked(segment.sub_segment, bit_width, min_data_id)
+
+                for entry in segment.primary_segment:
+                    if entry.data_value + bit_packed_offset == 0xFFFFFFFF: # bit pack marker
+                        bit_packed_entries = entry.repeat_value
+                        bitpacked_values_slice = bitpacked_values[bit_packed_offset:bit_packed_offset + bit_packed_entries]
+                        bit_packed_offset += bit_packed_entries
+                        vector += bitpacked_values_slice
+                    else:
+                        rle = [entry.data_value] * entry.repeat_value
+                        vector += rle
 
             return vector
 
@@ -86,15 +89,16 @@ class VertiPaqDecoder:
         # Use io.BytesIO to wrap the bytearray
         with io.BytesIO(buffer) as f:
             metadata = IdfmetaParser.from_io(f)
-            
-            # Extract the necessary data from the Kaitai Struct
-            row_data = {
-                'min_data_id': metadata.column_partition.segments[0].ss.min_data_id,
-                'count_bit_packed': metadata.column_partition.segments[0].subsegment.records,
-                'bit_width': metadata.column_partition.segments[0].bit_width,
-            }
-            
-            return row_data
+
+            segments_meta = []
+            for segment in metadata.column_partition.segments:
+                segments_meta.append({
+                    'min_data_id': segment.ss.min_data_id,
+                    'count_bit_packed': segment.subsegment.records if segment.has_subsegment != 0 else 0,
+                    'bit_width': segment.bit_width,
+                })
+
+            return segments_meta
 
     def _read_hash_table(self,buffer):
         """Reads a hash table from a buffer."""
@@ -112,16 +116,15 @@ class VertiPaqDecoder:
                     # If the m_hash is non-zero, add it to the result hash table
                     if local_entry.m_hash != 0:
                         result_hash_table[local_entry.m_hash] =  local_entry.m_key
-            
+
             # Iterate over the overflow_hash_entries
             for overflow_entry in parsed_hidx.overflow_hash_entries:
                 # If the m_hash is non-zero, add it to the result hash table
                 if overflow_entry.m_hash != 0:
-                    result_hash_table[overflow_entry.m_hash] = overflow_entry.m_key 
+                    result_hash_table[overflow_entry.m_hash] = overflow_entry.m_key
 
             return result_hash_table
 
- 
     def _read_dictionary(self, buffer, min_data_id):
         """Reads a dictionary from a buffer."""
         with io.BytesIO(buffer) as f:
@@ -178,25 +181,30 @@ class VertiPaqDecoder:
             vector_values = dictionary.data.vector_of_vectors_info.values
             return {i: val for i, val in enumerate(vector_values, start=min_data_id)}
 
-        return None    
-        
-    def _get_column_data(self, column_metadata, meta):
+        return None
+
+    def _get_column_data(self, column_metadata, segments_meta):
         """Extracts column data based on the given column metadata and meta information."""
         if pd.notnull(column_metadata["Dictionary"]):
             dictionary_buffer = get_data_slice(self._data_model,column_metadata["Dictionary"])
             null_adjustment = 1 if column_metadata["IsNullable"] else 0
             # Read and construct the dictionary with appropriate minimum data ID
-            min_data_id_adj = meta['min_data_id'] - null_adjustment
-            dictionary = self._read_dictionary(dictionary_buffer, min_data_id=meta['min_data_id'])
+            segments_meta_adj = [
+                {**segment, 'min_data_id': segment['min_data_id'] - null_adjustment}
+                for segment in segments_meta
+            ]
+            dictionary = self._read_dictionary(dictionary_buffer, min_data_id=segments_meta[0]['min_data_id'])
             data_slice = get_data_slice(self._data_model,column_metadata["IDF"])
-            return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, meta['count_bit_packed'], min_data_id_adj , meta['bit_width'])).map(dictionary)
+            return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, segments_meta_adj)).map(dictionary)
         elif pd.notnull(column_metadata["HIDX"]):
             data_slice = get_data_slice(self._data_model,column_metadata["IDF"])
-            return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, meta['count_bit_packed'], meta['min_data_id'], meta['bit_width'])).add(column_metadata["BaseId"]) / column_metadata["Magnitude"]
+            return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, segments_meta)).add(column_metadata["BaseId"]) / column_metadata["Magnitude"]
         else:
             # Column has no dictionary or HIDX (e.g. empty column, all-null column,
             # or calculated column without independently stored data).
-            return pd.Series([None] * meta['count_bit_packed'])
+            total_rows = sum(segment['count_bit_packed'] for segment in segments_meta)
+            return pd.Series([None] * total_rows)
+
         
     def _handle_special_cases(self, column_data, data_type):
         if data_type == 9:
