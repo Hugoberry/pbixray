@@ -1,11 +1,11 @@
 meta:
   id: abf_xpress9
-  file-extension: idf
+  file-extension: abf
   endian: le
   license: CC0-1.0
   title: ABF XPress9 Compressed Backup
 doc: |
-    Container format for SQL Server backup files (.idf) compressed with
+    Container format for SQL Server Analysis Services backup files (.abf) compressed with
     XPress9 (LZ77 + Huffman). The file begins with a UTF-16LE signature
     followed by a sequence of independently-sized chunks. Each chunk
     carries an 8-byte outer envelope (uncompressed/compressed sizes)
