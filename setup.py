@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pbixray',
-    version='0.7.0',
+    version='0.8.0',
     packages=find_packages(),
     install_requires=[
         'xpress9',
