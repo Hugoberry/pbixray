@@ -1,9 +1,12 @@
 import apsw
+import io
 import logging
 import pandas as pd
 import warnings
 
-from ..utils import AMO_PANDAS_TYPE_MAPPING, convert_time_columns
+from ..abf.data_model import DataModel
+from ..column_data.idfmeta import IdfmetaParser
+from ..utils import AMO_PANDAS_TYPE_MAPPING, convert_time_columns, get_data_slice
 
 
 # AMO numeric DataType codes that need post-decode special handling.
@@ -38,8 +41,9 @@ class _SqliteReader:
 
 
 class SqliteMetadataSource:
-    def __init__(self, sqlite_buffer):
-        self._db = _SqliteReader(sqlite_buffer)
+    def __init__(self, data_model: DataModel):
+        self._data_model = data_model
+        self._db = _SqliteReader(get_data_slice(data_model, 'metadata.sqlitedb'))
 
         # Populate dataframes upon instantiation
         self.schema_df = self.__populate_schema()
@@ -110,6 +114,21 @@ class SqliteMetadataSource:
             PandasDataType=dt.map(AMO_PANDAS_TYPE_MAPPING).fillna('object'),
             SemanticType=dt.map(_AMO_SEMANTIC_TYPES).fillna('Other'),
         )
+
+    def get_segment_meta(self, column_row):
+        """Parse the ``.idfmeta`` blob for a column into a list of per-segment dicts."""
+        buffer = get_data_slice(self._data_model, column_row["IDF"] + 'meta')
+        with io.BytesIO(buffer) as f:
+            parsed = IdfmetaParser.from_io(f)
+            return [
+                {
+                    'min_data_id': seg.ss.min_data_id,
+                    'count_bit_packed': seg.subsegment.records if seg.has_subsegment != 0 else 0,
+                    'bit_width': seg.bit_width,
+                    'records': seg.records,
+                }
+                for seg in parsed.column_partition.segments
+            ]
 
     # -------------------------------------------------------------------------
     # Original endpoints

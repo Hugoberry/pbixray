@@ -326,12 +326,14 @@ class XmlMetadataSource:
                     return key_col.DataType
         return ''
 
-    def get_segment_meta(self, dimension_id, column_name):
+    def get_segment_meta(self, column_row):
         """Build segments_meta for a column from the parsed .tbl.xml tree.
 
         Returns a list of dicts matching the shape produced by
-        VertiPaqDecoder._read_idfmeta: {min_data_id, count_bit_packed, bit_width}.
+        SqliteMetadataSource.get_segment_meta: {min_data_id, count_bit_packed, bit_width}.
         """
+        dimension_id = column_row["DimensionID"]
+        column_name = column_row.get("StorageName") or column_row["ColumnName"]
         tbl_obj = self._tbl_objects.get(dimension_id)
         segments_meta = []
         if not tbl_obj or not tbl_obj.collections:

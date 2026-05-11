@@ -1,6 +1,5 @@
 from .sqlite_source import SqliteMetadataSource
 from .xml_source import XmlMetadataSource
-from ..utils import get_data_slice
 from ..abf.data_model import DataModel, Container
 
 
@@ -17,8 +16,7 @@ class Metadata:
         if self._data_model.container == Container.XLSX:
             self._meta = XmlMetadataSource(self._data_model)
         else:
-            sqlite_buffer = get_data_slice(self._data_model, 'metadata.sqlitedb')
-            self._meta = SqliteMetadataSource(sqlite_buffer)
+            self._meta = SqliteMetadataSource(self._data_model)
 
     def _compute_statistics(self):
         """Computes statistics from the metadata schema."""

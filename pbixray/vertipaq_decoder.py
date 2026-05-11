@@ -1,17 +1,16 @@
 # ---------- IMPORTS ----------
 from .column_data.idf import ColumnDataIdf
-from .column_data.idfmeta import IdfmetaParser
 from .column_data.hidx import ColumnDataHidx
 from .column_data.dictionary import ColumnDataDictionary
 from .abf.backup_log import BackupLog
 from .abf.virtual_directory import VirtualDirectory
 from kaitaistruct import KaitaiStream
-from .utils import AMO_PANDAS_TYPE_MAPPING, get_data_slice
+from .utils import get_data_slice
 import io
 import numpy as np
 import pandas as pd
 from decimal import Decimal
-from .abf.data_model import DataModel, Container
+from .abf.data_model import DataModel
 
 from .huffman import decompress_encode_array, build_huffman_table, decode_substrings, _swap_bitstream
 from collections import defaultdict
@@ -114,23 +113,6 @@ class VertiPaqDecoder:
                         pos += count
 
             return vector
-
-    def _read_idfmeta(self,buffer):
-        """Reads idfmeta from a buffer."""
-        # Use io.BytesIO to wrap the bytearray
-        with io.BytesIO(buffer) as f:
-            metadata = IdfmetaParser.from_io(f)
-
-            segments_meta = []
-            for segment in metadata.column_partition.segments:
-                segments_meta.append({
-                    'min_data_id': segment.ss.min_data_id,
-                    'count_bit_packed': segment.subsegment.records if segment.has_subsegment != 0 else 0,
-                    'bit_width': segment.bit_width,
-                    'records': segment.records,
-                })
-
-            return segments_meta
 
     def _read_hash_table(self,buffer):
         """Reads a hash table from a buffer."""
@@ -239,42 +221,26 @@ class VertiPaqDecoder:
             return pd.Series([None] * total_rows)
 
         
-    def _handle_special_cases(self, column_data, data_type):
-        if data_type == 9 or data_type == 'Date':
-            # Convert to datetime
+    def _handle_special_cases(self, column_data, semantic_type):
+        if semantic_type == 'Date':
             return pd.to_datetime(column_data, unit='D', origin='1899-12-30')
-        elif data_type == 10 or data_type == 'Currency':
-            # Handle decimal.Decimal type
+        if semantic_type == 'Currency':
             return column_data.apply(lambda x: Decimal(x)/10000 if pd.notnull(x) else None)
         return column_data
-        
+
     def get_table(self, table_name):
         """Generates a DataFrame representation of the specified table."""
         table_metadata_df = self._meta.schema_df[self._meta.schema_df['TableName'] == table_name]
         dataframe_data = {}
-        is_xlsx = self._data_model.container == Container.XLSX
 
         for _, column_metadata in table_metadata_df.iterrows():
-            if is_xlsx:
-                meta = self._meta.get_segment_meta(
-                    column_metadata["DimensionID"],
-                    column_metadata.get("StorageName") or column_metadata["ColumnName"],
-                )
-            else:
-                idfmeta_buffer = get_data_slice(self._data_model,column_metadata["IDF"] + 'meta')
-                meta = self._read_idfmeta(idfmeta_buffer)
+            meta = self._meta.get_segment_meta(column_metadata)
 
             column_data = self._get_column_data(column_metadata, meta)
-            # Handle special cases for certain data types
-            type_key = column_metadata["SSASType"] if is_xlsx and "SSASType" in column_metadata else column_metadata["DataType"]
-            column_data = self._handle_special_cases(column_data, type_key)
+            column_data = self._handle_special_cases(column_data, column_metadata["SemanticType"])
 
-            if is_xlsx:
-                pandas_dtype = column_metadata["DataType"] or "object"
-            else:
-                pandas_dtype = AMO_PANDAS_TYPE_MAPPING.get(column_metadata["DataType"], "object")  # default to object if no mapping is found
-
-            # If it's a decimal type, keep it as object since pandas doesn't support Decimal natively
+            pandas_dtype = column_metadata["PandasDataType"] or "object"
+            # pandas doesn't support Decimal natively; keep as object
             if pandas_dtype == 'decimal.Decimal':
                 pandas_dtype = 'object'
             try:
