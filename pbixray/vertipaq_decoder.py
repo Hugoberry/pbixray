@@ -51,10 +51,17 @@ class VertiPaqDecoder:
             column_data = ColumnDataIdf(KaitaiStream(f))
 
             # First pass: compute total output length, capping each segment at
-            # its declared 'records'. The primary_segment array on disk is
-            # over-allocated and trailing entries can contain stale garbage with
-            # arbitrary repeat_values (this is harmless when capped properly,
-            # but produces multi-GB allocations if summed blindly).
+            # its declared 'records' (from the column's XML metadata —
+            # idfmeta SS.row_count for PBIX, XMColumnSegment.Records for XLSX).
+            #
+            # Trailing primary_segment slots SHOULD be zero-padded per
+            # MS-XLDM §2.3.1.1 ("Any unused trailing bytes within a segment
+            # are padded with zeros"), in which case summing every repeat_value
+            # would be harmless. Some XLSX Power Pivot writers leave stale
+            # memory there instead — observed e.g. on Metrics.Sub Category ID,
+            # where a single garbage slot held repeat_value=4_294_967_295 and
+            # blindly summing produced a 32 GB allocation. The cap keeps us
+            # correct under both spec-compliant and spec-deviant padding.
             total_len = 0
             seg_real_repeats = []
             for seg_idx, seg_meta in enumerate(segments_meta):
