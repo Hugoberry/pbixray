@@ -1,29 +1,26 @@
-from .metadata_query import MetadataQuery
-from .xml_metadata_query import XmlMetadataQuery
-from .sqlite_handler import SQLiteHandler
+from .sqlite_source import SqliteMetadataSource
+from .xml_source import XmlMetadataSource
 from ..utils import AMO_PANDAS_TYPE_MAPPING, get_data_slice
 import pandas as pd
-from ..abf.data_model import DataModel
+from ..abf.data_model import DataModel, Container
 
-# ---------- METADATA HANDLER ----------
 
-class MetadataHandler:
-    def __init__(self, data_model:DataModel):
-        self._data_model=data_model
+class Metadata:
+    """Facade that loads the appropriate metadata source for a data model and
+    exposes derived views (schema, statistics, size)."""
+
+    def __init__(self, data_model: DataModel):
+        self._data_model = data_model
         self._load_metadata()
         self._compute_statistics()
-        
+
     def _load_metadata(self):
-        """Loads metadata for the given PBIX or XLSX file."""
-        if self._data_model.file_type == "xlsx":
-            # Use XML metadata query for Excel files
-            self._meta = XmlMetadataQuery(self._data_model)
+        if self._data_model.container == Container.XLSX:
+            self._meta = XmlMetadataSource(self._data_model)
         else:
-            # Use SQLite metadata query for PBIX files
-            sqliteBuffer = get_data_slice(self._data_model,'metadata.sqlitedb')
-            sqliteHandler = SQLiteHandler(sqliteBuffer)
-            self._meta = MetadataQuery(sqliteHandler)
-    
+            sqlite_buffer = get_data_slice(self._data_model, 'metadata.sqlitedb')
+            self._meta = SqliteMetadataSource(sqlite_buffer)
+
     def _compute_statistics(self):
         """Computes statistics from the metadata schema."""
         self._stats = self._meta.schema_df[['TableName', 'ColumnName', 'Cardinality']].copy()
@@ -36,27 +33,26 @@ class MetadataHandler:
         )
 
     def _get_file_size_from_log(self, file_name):
-        """Utility to get the size of a file from the log using 'FileName'."""
         file_ref = next((x for x in self._data_model.file_log if x['FileName'] == file_name), None)
-        return file_ref['Size'] if file_ref else 0 
-    
+        return file_ref['Size'] if file_ref else 0
+
     @property
-    def metadata(self):
+    def source(self):
         return self._meta
-    
+
     @property
     def stats(self):
         return self._stats
-    
+
     @property
     def size(self):
-        return sum([x['Size'] for x in self._data_model.file_log])
-    
+        return sum(x['Size'] for x in self._data_model.file_log)
+
     @property
     def schema(self):
         # For XLSX files, DataType is already a pandas type string from _map_ssas_type_to_pandas
         # For PBIX files, DataType is a numeric code that needs mapping through AMO_PANDAS_TYPE_MAPPING
-        if self._data_model.file_type == "xlsx":
+        if self._data_model.container == Container.XLSX:
             return pd.DataFrame({
                 'TableName': self._meta.schema_df['TableName'],
                 'ColumnName': self._meta.schema_df['ColumnName'],
@@ -69,26 +65,22 @@ class MetadataHandler:
                 'PandasDataType': self._meta.schema_df['DataType'].map(AMO_PANDAS_TYPE_MAPPING).fillna('object'),
             })
 
-    @property   
+    @property
     def tables(self):
         return self._meta.schema_df['TableName'].unique()
-    
+
     @property
     def dax_measures(self):
-        """Get DAX measures from metadata."""
         return self._meta.dax_measures_df
-    
+
     @property
     def dax_tables(self):
-        """Get DAX tables from metadata."""
         return self._meta.dax_tables_df
-    
+
     @property
     def dax_columns(self):
-        """Get DAX calculated columns from metadata."""
         return self._meta.dax_columns_df
-    
+
     @property
     def relationships(self):
-        """Get relationships from metadata."""
         return self._meta.relationships_df

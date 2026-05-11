@@ -13,7 +13,7 @@ from ..xldm import (
 )
 from ..xldm.xmobject import XMObjectDocument
 
-class XmlMetadataQuery:
+class XmlMetadataSource:
     """Handles metadata extraction from XML files in XLSX Power Pivot models."""
     
     def __init__(self, data_model):
@@ -309,7 +309,7 @@ class XmlMetadataQuery:
                     return key_col.DataType
         return ''
 
-    def get_segments_meta(self, dimension_id, column_name):
+    def get_segment_meta(self, dimension_id, column_name):
         """Build segments_meta for a column from the parsed .tbl.xml tree.
 
         Returns a list of dicts matching the shape produced by

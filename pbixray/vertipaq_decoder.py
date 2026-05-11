@@ -11,7 +11,7 @@ import io
 import numpy as np
 import pandas as pd
 from decimal import Decimal
-from .abf.data_model import DataModel
+from .abf.data_model import DataModel, Container
 
 from .huffman import decompress_encode_array, build_huffman_table, decode_substrings, _swap_bitstream
 from collections import defaultdict
@@ -252,11 +252,11 @@ class VertiPaqDecoder:
         """Generates a DataFrame representation of the specified table."""
         table_metadata_df = self._meta.schema_df[self._meta.schema_df['TableName'] == table_name]
         dataframe_data = {}
-        is_xlsx = self._data_model.file_type == "xlsx"
+        is_xlsx = self._data_model.container == Container.XLSX
 
         for _, column_metadata in table_metadata_df.iterrows():
             if is_xlsx:
-                meta = self._meta.get_segments_meta(
+                meta = self._meta.get_segment_meta(
                     column_metadata["DimensionID"],
                     column_metadata.get("StorageName") or column_metadata["ColumnName"],
                 )
