@@ -3,7 +3,11 @@ import logging
 import pandas as pd
 import warnings
 
-from ..utils import convert_time_columns
+from ..utils import AMO_PANDAS_TYPE_MAPPING, convert_time_columns
+
+
+# AMO numeric DataType codes that need post-decode special handling.
+_AMO_SEMANTIC_TYPES = {9: "Date", 10: "Currency"}
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +43,7 @@ class SqliteMetadataSource:
 
         # Populate dataframes upon instantiation
         self.schema_df = self.__populate_schema()
+        self.__normalize_schema()
         self.m_df = self.__populate_m()
         self.m_parameters_df = self.__populate_m_parameters()
         self.dax_tables_df = self.__populate_dax_tables()
@@ -96,6 +101,15 @@ class SqliteMetadataSource:
         for attr, df in vars(self).items():
             if attr.endswith('_df') and hasattr(df, 'columns'):
                 setattr(self, attr, convert_time_columns(df))
+
+    def __normalize_schema(self):
+        """Add format-agnostic ``PandasDataType`` and ``SemanticType`` columns
+        so downstream code never has to know this came from a pbix."""
+        dt = self.schema_df['DataType']
+        self.schema_df = self.schema_df.assign(
+            PandasDataType=dt.map(AMO_PANDAS_TYPE_MAPPING).fillna('object'),
+            SemanticType=dt.map(_AMO_SEMANTIC_TYPES).fillna('Other'),
+        )
 
     # -------------------------------------------------------------------------
     # Original endpoints

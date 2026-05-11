@@ -37,6 +37,7 @@ class XmlMetadataSource:
         self._extract_tbl_metadata()
         
         self._build_schema()
+        self._normalize_schema()
         self._build_dax_tables()
         self._build_dax_measures()
         self._build_dax_columns()
@@ -238,7 +239,23 @@ class XmlMetadataSource:
                         }
                         schema_data.append(column_data)
         self.schema_df = pd.DataFrame(schema_data)
-    
+
+    def _normalize_schema(self):
+        """Add format-agnostic ``PandasDataType`` and ``SemanticType`` columns.
+        XLSX ``DataType`` is already a pandas dtype string; ``SSASType`` carries
+        the semantic hint (Date / Currency / ...)."""
+        if self.schema_df.empty:
+            self.schema_df = self.schema_df.assign(PandasDataType=pd.Series(dtype='object'),
+                                                   SemanticType=pd.Series(dtype='object'))
+            return
+        self.schema_df = self.schema_df.assign(
+            PandasDataType=self.schema_df['DataType'].fillna('object'),
+            SemanticType=self.schema_df['SSASType'].where(
+                self.schema_df['SSASType'].isin(['Date', 'Currency']),
+                'Other',
+            ),
+        )
+
     def _get_column_stats_from_tbl(self, tbl_obj, column_name):
         stats = {
             'cardinality': 0,

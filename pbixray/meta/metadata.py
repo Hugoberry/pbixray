@@ -1,7 +1,6 @@
 from .sqlite_source import SqliteMetadataSource
 from .xml_source import XmlMetadataSource
-from ..utils import AMO_PANDAS_TYPE_MAPPING, get_data_slice
-import pandas as pd
+from ..utils import get_data_slice
 from ..abf.data_model import DataModel, Container
 
 
@@ -50,20 +49,7 @@ class Metadata:
 
     @property
     def schema(self):
-        # For XLSX files, DataType is already a pandas type string from _map_ssas_type_to_pandas
-        # For PBIX files, DataType is a numeric code that needs mapping through AMO_PANDAS_TYPE_MAPPING
-        if self._data_model.container == Container.XLSX:
-            return pd.DataFrame({
-                'TableName': self._meta.schema_df['TableName'],
-                'ColumnName': self._meta.schema_df['ColumnName'],
-                'PandasDataType': self._meta.schema_df['DataType'],
-            })
-        else:
-            return pd.DataFrame({
-                'TableName': self._meta.schema_df['TableName'],
-                'ColumnName': self._meta.schema_df['ColumnName'],
-                'PandasDataType': self._meta.schema_df['DataType'].map(AMO_PANDAS_TYPE_MAPPING).fillna('object'),
-            })
+        return self._meta.schema_df[['TableName', 'ColumnName', 'PandasDataType']].copy()
 
     @property
     def tables(self):
