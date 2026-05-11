@@ -199,19 +199,30 @@ class XmlMetadataQuery:
                 
                 if dimension and dimension.Attributes:
                     for attr in dimension.Attributes:
+                        # Skip VertiPaq's implicit RowNumber column — it's the
+                        # storage position, not insertion order, and the
+                        # DataFrame's own index already provides 0..n-1.
+                        if attr.Name == "RowNumber" or attr.ID == "RowNumber":
+                            continue
                         column_name = attr.Name
-                        stats = self._get_column_stats_from_tbl(tbl_obj, column_name)
-                        file_info = self._find_column_files(dimension_id, column_name)
+                        # Storage uses the attribute ID (e.g. "CalculatedColumn1"),
+                        # which differs from the display Name for renamed/calculated columns.
+                        storage_name = attr.ID or attr.Name
+                        stats = self._get_column_stats_from_tbl(tbl_obj, storage_name)
+                        file_info = self._find_column_files(dimension_id, storage_name)
                         data_type = self._map_attribute_type_to_pandas(attr)
-                        
+                        ssas_type = self._get_attribute_ssas_type(attr)
+
                         column_data = {
                             'TableName': table_name,
                             'ColumnName': column_name,
-                            'Dictionary': file_info.get('dictionary', ''),
-                            'HIDX': file_info.get('hidx', ''),
-                            'IDF': file_info.get('idf', ''),
+                            'StorageName': storage_name,
+                            'Dictionary': file_info.get('dictionary') or None,
+                            'HIDX': file_info.get('hidx') or None,
+                            'IDF': file_info.get('idf') or None,
                             'Cardinality': stats.get('cardinality', 0),
                             'DataType': data_type,
+                            'SSASType': ssas_type,
                             'BaseId': stats.get('base_id', 0),
                             'Magnitude': stats.get('magnitude', 0),
                             'IsNullable': stats.get('is_nullable', True),
@@ -232,7 +243,7 @@ class XmlMetadataQuery:
         stats = {
             'cardinality': 0,
             'base_id': 0,
-            'magnitude': 0,
+            'magnitude': 1,
             'is_nullable': True,
             'rle_runs': 0,
             'min_data_id': 0,
@@ -248,6 +259,20 @@ class XmlMetadataQuery:
             if collection.Name == "Columns":
                 for xm_obj in collection.XMObjects:
                     if xm_obj.name == column_name and xm_obj.class_name == "XMRawColumn":
+                        # BaseId/Magnitude live on the XMRawColumn's own data objects
+                        # (XMValueDataDictionary). For dictionary-encoded columns the
+                        # data object is XMHashDataDictionary and BaseId/Magnitude
+                        # are absent — keep the defaults.
+                        for data_object in xm_obj.data_objects:
+                            inner = data_object.XMObject
+                            if inner is None or inner.properties is None:
+                                continue
+                            if hasattr(inner.properties, 'BaseId'):
+                                stats['base_id'] = inner.properties.BaseId
+                            if hasattr(inner.properties, 'Magnitude'):
+                                stats['magnitude'] = inner.properties.Magnitude
+                            if hasattr(inner.properties, 'Nullable'):
+                                stats['is_nullable'] = inner.properties.Nullable
                         # Get cardinality from Hierarchy member (DistinctDataIDs)
                         for member in xm_obj.members:
                             if member.Name == "IntrinsicHierarchy" and member.XMObject:
@@ -276,6 +301,87 @@ class XmlMetadataQuery:
                 if key_col.DataType:
                     return self._map_ssas_type_to_pandas(key_col.DataType)
         return 'object'
+
+    def _get_attribute_ssas_type(self, attr):
+        if attr.KeyColumns:
+            for key_col in attr.KeyColumns:
+                if key_col.DataType:
+                    return key_col.DataType
+        return ''
+
+    def get_segments_meta(self, dimension_id, column_name):
+        """Build segments_meta for a column from the parsed .tbl.xml tree.
+
+        Returns a list of dicts matching the shape produced by
+        VertiPaqDecoder._read_idfmeta: {min_data_id, count_bit_packed, bit_width}.
+        """
+        tbl_obj = self._tbl_objects.get(dimension_id)
+        segments_meta = []
+        if not tbl_obj or not tbl_obj.collections:
+            return segments_meta
+
+        columns_collection = next(
+            (c for c in tbl_obj.collections if c.Name == "Columns"), None
+        )
+        if columns_collection is None:
+            return segments_meta
+
+        column_obj = next(
+            (
+                x for x in columns_collection.XMObjects
+                if x.name == column_name and x.class_name == "XMRawColumn"
+            ),
+            None,
+        )
+        if column_obj is None:
+            return segments_meta
+
+        segments_collection = next(
+            (c for c in column_obj.collections if c.Name == "Segments"), None
+        )
+        if segments_collection is None:
+            return segments_meta
+
+        for seg in segments_collection.XMObjects:
+            sub_member = next(
+                (m for m in seg.members if m.Name == "SubSegment"), None
+            )
+            min_data_id = 0
+            count_bit_packed = 0
+            bit_width = 0
+            records = seg.properties.Records if (seg.properties is not None and hasattr(seg.properties, 'Records')) else 0
+            if sub_member is not None and sub_member.XMObject is not None:
+                sub = sub_member.XMObject
+                if sub.properties is not None and hasattr(sub.properties, 'Records'):
+                    count_bit_packed = sub.properties.Records
+                ci_member = next(
+                    (m for m in sub.members if m.Name == "CompressionInfo"), None
+                )
+                if ci_member is not None and ci_member.XMObject is not None:
+                    ci = ci_member.XMObject
+                    bit_width = self._bit_width_from_class(ci.class_name)
+                    if ci.properties is not None and hasattr(ci.properties, 'Min'):
+                        min_data_id = ci.properties.Min
+            segments_meta.append({
+                'min_data_id': min_data_id,
+                'count_bit_packed': count_bit_packed,
+                'bit_width': bit_width,
+                'records': records,
+            })
+        return segments_meta
+
+    @staticmethod
+    def _bit_width_from_class(class_name):
+        """Extract the bit-width N from a CompressionInfo class name like
+        'XMRENoSplitCompressionInfo<12>' or
+        'XMHybridRLECompressionInfo<class XMRENoSplitCompressionInfo<12>>'."""
+        if not class_name:
+            return 0
+        # Innermost <N> takes precedence
+        match = re.findall(r'<(\d+)>', class_name)
+        if match:
+            return int(match[-1])
+        return 0
     
     def _map_ssas_type_to_pandas(self, ssas_type):
         type_map = {

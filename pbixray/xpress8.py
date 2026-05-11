@@ -152,8 +152,12 @@ class Xpress8:
             compressed_chunk = input_buffer[input_buffer_index:input_buffer_index + compressed_size]
             input_buffer_index += compressed_size
             
-            # Decompress the chunk and append to the output buffer
-            decompressed_chunk = Xpress8.decompress(compressed_chunk, uncompressed_size)
-            output_buffer.extend(decompressed_chunk)
+            if uncompressed_size == compressed_size:
+                # Chunk stored as-is (no compression applied to this chunk).
+                output_buffer.extend(compressed_chunk)
+            else:
+                # Decompress the chunk and append to the output buffer
+                decompressed_chunk = Xpress8.decompress(compressed_chunk, uncompressed_size)
+                output_buffer.extend(decompressed_chunk)
         
         return output_buffer
