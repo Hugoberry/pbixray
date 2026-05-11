@@ -1,7 +1,9 @@
 from .abf.data_model import DataModel
 import datetime
 import pandas as pd
-from .xpress8 import Xpress8
+from xpress8 import Xpress8
+
+_xpress8 = Xpress8()
 
 # ---------- CONSTANTS ----------
 AMO_PANDAS_TYPE_MAPPING = {
@@ -62,7 +64,7 @@ def get_data_slice(data_model:DataModel, file_name:str) -> bytes:
         raw_slice =  data_model.decompressed_data[file_ref['m_cbOffsetHeader']:file_ref['m_cbOffsetHeader'] + file_ref['Size']]
 
     if data_model.apply_compression:
-        decompressed_data = Xpress8.decompress_chunked(raw_slice)
+        decompressed_data = _xpress8.decompress_chunked(raw_slice)
         
         # Validate the size of the decompressed data against the expected size from log
         if len(decompressed_data) != file_ref['SizeFromLog']:
