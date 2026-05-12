@@ -140,18 +140,11 @@ class ColumnDataDictionary(KaitaiStruct):
             self.element_size = self._io.read_bytes(4)
             if not self.element_size == b"\x08\x00\x00\x00":
                 raise kaitaistruct.ValidationNotEqualError(b"\x08\x00\x00\x00", self.element_size, self._io, u"/types/dictionary_record_handles_vector/seq/1")
-            self.vector_of_record_handle_structures = []
-            for i in range(self.num_vector_of_record_handle_structures):
-                self.vector_of_record_handle_structures.append(ColumnDataDictionary.StringRecordHandle(self._io, self, self._root))
-
+            self.vector_of_record_handle_structures = self._io.read_bytes(self.num_vector_of_record_handle_structures * 8)
 
 
         def _fetch_instances(self):
             pass
-            for i in range(len(self.vector_of_record_handle_structures)):
-                pass
-                self.vector_of_record_handle_structures[i]._fetch_instances()
-
 
 
     class HashInfo(KaitaiStruct):
@@ -189,21 +182,6 @@ class ColumnDataDictionary(KaitaiStruct):
         def _fetch_instances(self):
             pass
             self.vector_of_vectors_info._fetch_instances()
-
-
-    class OtherRecordHandle(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            super(ColumnDataDictionary.OtherRecordHandle, self).__init__(_io)
-            self._parent = _parent
-            self._root = _root
-            self._read()
-
-        def _read(self):
-            self.bit_or_byte_offset = self._io.read_u4le()
-
-
-        def _fetch_instances(self):
-            pass
 
 
     class PageLayout(KaitaiStruct):
@@ -248,22 +226,6 @@ class ColumnDataDictionary(KaitaiStruct):
                 self.dictionary_pages[i]._fetch_instances()
 
             self.dictionary_record_handles_vector_info._fetch_instances()
-
-
-    class StringRecordHandle(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            super(ColumnDataDictionary.StringRecordHandle, self).__init__(_io)
-            self._parent = _parent
-            self._root = _root
-            self._read()
-
-        def _read(self):
-            self.bit_or_byte_offset = self._io.read_u4le()
-            self.page_id = self._io.read_u4le()
-
-
-        def _fetch_instances(self):
-            pass
 
 
     class UncompressedStrings(KaitaiStruct):

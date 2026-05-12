@@ -1,25 +1,16 @@
-class HuffmanTree:
-    def __init__(self, c=0):
-        self.c = c
-        self.left = None
-        self.right = None
+import numpy as np
 
-# Helper function to convert ISO-8859-1 code to UTF-8 string
-def iso88591_to_utf8(code):
-    if code >= 0x80:
-        return bytes([0xC2 + (code > 0xBF), (code & 0x3F) + 0x80]).decode('utf-8')
-    else:
-        return chr(code)
+_CHR_TABLE = [chr(i) for i in range(256)]
 
-# Function to generate the full 256-byte Huffman array from the compact 128-byte encode_array
+
 def decompress_encode_array(compressed):
-    full_array = [0] * 256
-    for i, byte in enumerate(compressed):
-        full_array[2 * i] = byte & 0x0F         # Lower nibble
-        full_array[2 * i + 1] = (byte >> 4) & 0x0F  # Upper nibble
-    return full_array
+    arr = np.frombuffer(bytes(compressed), dtype=np.uint8)
+    full_array = np.empty(256, dtype=np.int64)
+    full_array[0::2] = arr & 0x0F
+    full_array[1::2] = (arr >> 4) & 0x0F
+    return full_array.tolist()
 
-# Function to generate Huffman codes based on codeword lengths
+
 def generate_codes(lengths):
     codes = {}
     sorted_lengths = [(lengths[i], i) for i in range(256) if lengths[i] != 0]
@@ -31,49 +22,89 @@ def generate_codes(lengths):
         if last_length != length:
             code <<= (length - last_length)
             last_length = length
-        codes[character] = bin(code)[2:].zfill(length)
+        codes[character] = (code, length)
         code += 1
     return codes
 
-# Function to build Huffman tree based on generated codes
-def build_huffman_tree(encode_array):
+
+def build_huffman_table(encode_array):
     codes = generate_codes(encode_array)
-    root = HuffmanTree()
-    for character, code in codes.items():
-        node = root
-        for bit in code:
-            if bit == '0':
-                if not node.left:
-                    node.left = HuffmanTree()
-                node = node.left
-            else:
-                if not node.right:
-                    node.right = HuffmanTree()
-                node = node.right
-        node.c = character
-    return root
+    max_len = max(length for _, length in codes.values()) if codes else 0
+    if max_len == 0:
+        return [], 0
+    table_size = 1 << max_len
+    table = [None] * table_size
+    for symbol, (code_val, code_len) in codes.items():
+        padding_bits = max_len - code_len
+        for suffix in range(1 << padding_bits):
+            idx = (code_val << padding_bits) | suffix
+            table[idx] = (symbol, code_len)
+    return table, max_len
 
-# Function to decode a bitstream from start to end bit positions using the Huffman tree
-def decode_substring(bitstream, tree, start_bit, end_bit):
-    result = ""
-    node = tree
-    total_bits = end_bit - start_bit
-    for i in range(total_bits):
-        bit_pos = start_bit + i
-        byte_pos = bit_pos // 8
-        bit_offset = bit_pos % 8
-        byte_pos = (byte_pos & ~0x01) + (1 - (byte_pos & 0x01))
 
-        if not node.left and not node.right:
-            result += iso88591_to_utf8(node.c)
-            node = tree
+def _swap_bitstream(bitstream):
+    raw = bytes(bitstream)
+    n = len(raw)
+    arr = np.frombuffer(raw, dtype=np.uint8)
+    result = np.empty(n, dtype=np.uint8)
+    even = n & ~1
+    if even > 0:
+        pairs = arr[:even].reshape(-1, 2)
+        swapped = pairs[:, ::-1].reshape(-1)
+        result[:even] = swapped
+    if n & 1:
+        result[-1] = arr[-1]
+    return bytes(result)
 
-        if bitstream[byte_pos] & (1 << (7 - bit_offset)):
-            node = node.right
-        else:
-            node = node.left
 
-    if not node.left and not node.right:
-        result += iso88591_to_utf8(node.c)
+def decode_substrings(swapped, table, max_len, offsets, store_total_bits):
+    table_mask = (1 << max_len) - 1
+    chr_table = _CHR_TABLE
+    n_strings = len(offsets)
+    results = [None] * n_strings
+    swapped_bytes = swapped
 
-    return result
+    for s in range(n_strings):
+        start_bit = offsets[s]
+        end_bit = offsets[s + 1] if s + 1 < n_strings else store_total_bits
+        chars = []
+        bit_pos = start_bit
+
+        while bit_pos < end_bit:
+            byte_pos = bit_pos >> 3
+            bit_offset = bit_pos & 7
+            needed_bytes = (bit_offset + max_len + 7) >> 3
+
+            val = int.from_bytes(swapped_bytes[byte_pos:byte_pos + needed_bytes], 'big')
+            val >>= (needed_bytes * 8 - bit_offset - max_len)
+            val &= table_mask
+
+            symbol, code_len = table[val]
+            chars.append(chr_table[symbol])
+            bit_pos += code_len
+
+        results[s] = ''.join(chars)
+
+    return results
+
+
+def decode_substring(swapped, table, max_len, start_bit, end_bit):
+    table_mask = (1 << max_len) - 1
+    chr_table = _CHR_TABLE
+    result = []
+    bit_pos = start_bit
+
+    while bit_pos < end_bit:
+        byte_pos = bit_pos >> 3
+        bit_offset = bit_pos & 7
+        needed_bytes = (bit_offset + max_len + 7) >> 3
+
+        val = int.from_bytes(swapped[byte_pos:byte_pos + needed_bytes], 'big')
+        val >>= (needed_bytes * 8 - bit_offset - max_len)
+        val &= table_mask
+
+        symbol, code_len = table[val]
+        result.append(chr_table[symbol])
+        bit_pos += code_len
+
+    return ''.join(result)

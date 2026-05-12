@@ -8,11 +8,12 @@ from .abf.virtual_directory import VirtualDirectory
 from kaitaistruct import KaitaiStream
 from .utils import AMO_PANDAS_TYPE_MAPPING, get_data_slice
 import io
+import numpy as np
 import pandas as pd
 from decimal import Decimal
 from .abf.data_model import DataModel
 
-from .huffman import decompress_encode_array,build_huffman_tree, decode_substring
+from .huffman import decompress_encode_array, build_huffman_table, decode_substrings, _swap_bitstream
 from collections import defaultdict
 
 # Compression class IDs from the dictionary format (character_set_type_identifier):
@@ -30,16 +31,15 @@ class VertiPaqDecoder:
         self._meta = metadata
         self._data_model = data_model
 
-    def _read_bitpacked(self,sub_segment, bit_width, min_data_id):
-        """Reads bitpacked values from a sub_segment."""
-        mask = (1 << bit_width) - 1
-        res = []
-        for u8le in sub_segment:
-            for _ in range(64 // bit_width):
-                res.append((min_data_id + (u8le & mask)))
-                u8le >>= bit_width
-
-        return res
+    def _read_bitpacked(self, sub_segment, bit_width, min_data_id):
+        if len(sub_segment) == 0:
+            return np.array([], dtype=np.int64)
+        values_per_word = 64 // bit_width
+        mask = np.uint64((1 << bit_width) - 1)
+        arr = np.asarray(sub_segment, dtype=np.uint64)
+        shifts = np.arange(values_per_word, dtype=np.uint64) * np.uint64(bit_width)
+        result = ((arr[:, None] >> shifts[None, :]) & mask).ravel()
+        return result.astype(np.int64) + min_data_id
 
     def _extract_strings(self,buffer):
         """Extract zero-terminated strings from buffer."""
@@ -47,12 +47,18 @@ class VertiPaqDecoder:
         return strings[:-1]  # remove the last empty string
 
     def _read_rle_bit_packed_hybrid(self, buffer, segments_meta):
-        """Reads RLE bit packed hybrid values from a buffer."""
         with io.BytesIO(buffer) as f:
-            # Parse the binary data
             column_data = ColumnDataIdf(KaitaiStream(f))
 
-            vector = []
+            # First pass: compute total output length
+            total_len = 0
+            for seg_idx, _ in enumerate(segments_meta):
+                segment = column_data.segments[seg_idx]
+                for entry in segment.primary_segment:
+                    total_len += entry.repeat_value
+
+            vector = np.empty(total_len, dtype=np.int64)
+            pos = 0
 
             for seg_idx, seg_meta in enumerate(segments_meta):
                 segment = column_data.segments[seg_idx]
@@ -60,27 +66,27 @@ class VertiPaqDecoder:
                 min_data_id = seg_meta['min_data_id']
                 bit_width = seg_meta['bit_width']
 
-                bitpacked_values = []
+                bitpacked_values = np.array([], dtype=np.int64)
                 bit_packed_offset = 0
 
                 if entries > 0:
                     size = segment.sub_segment_size
-                    # case if it's a column with empty strings
-                    if segment.sub_segment[-1].bit_length() == 0 and size == 1:
-                        bitpacked_values = [min_data_id] * entries
+                    sub_segment_arr = np.frombuffer(segment.sub_segment, dtype='<u8')
+                    if sub_segment_arr[-1] == 0 and size == 1:
+                        bitpacked_values = np.full(entries, min_data_id, dtype=np.int64)
                     else:
-                        # read the bitpacked values from the sub_segment
-                        bitpacked_values = self._read_bitpacked(segment.sub_segment, bit_width, min_data_id)
+                        bitpacked_values = self._read_bitpacked(sub_segment_arr, bit_width, min_data_id)
 
                 for entry in segment.primary_segment:
-                    if entry.data_value + bit_packed_offset == 0xFFFFFFFF: # bit pack marker
-                        bit_packed_entries = entry.repeat_value
-                        bitpacked_values_slice = bitpacked_values[bit_packed_offset:bit_packed_offset + bit_packed_entries]
-                        bit_packed_offset += bit_packed_entries
-                        vector += bitpacked_values_slice
+                    if entry.data_value + bit_packed_offset == 0xFFFFFFFF:
+                        count = entry.repeat_value
+                        vector[pos:pos + count] = bitpacked_values[bit_packed_offset:bit_packed_offset + count]
+                        bit_packed_offset += count
+                        pos += count
                     else:
-                        rle = [entry.data_value] * entry.repeat_value
-                        vector += rle
+                        count = entry.repeat_value
+                        vector[pos:pos + count] = entry.data_value
+                        pos += count
 
             return vector
 
@@ -135,11 +141,15 @@ class VertiPaqDecoder:
             index = min_data_id
 
             pages = dictionary.data.dictionary_pages
-            record_handles = dictionary.data.dictionary_record_handles_vector_info.vector_of_record_handle_structures
+            raw_handles = dictionary.data.dictionary_record_handles_vector_info.vector_of_record_handle_structures
             record_handles_map = defaultdict(list)
 
-            for handle in record_handles:
-                record_handles_map[handle.page_id].append(handle.bit_or_byte_offset)
+            dt = np.dtype([('bit_or_byte_offset', '<u4'), ('page_id', '<u4')])
+            handles = np.frombuffer(raw_handles, dtype=dt)
+            page_ids = handles['page_id']
+            offsets_arr = handles['bit_or_byte_offset']
+            for pid in np.unique(page_ids):
+                record_handles_map[int(pid)] = offsets_arr[page_ids == pid].tolist()
 
             for page_id, page in enumerate(pages):
                 if page.page_compressed:
@@ -147,27 +157,24 @@ class VertiPaqDecoder:
                     encode_array = compressed_store.encode_array
                     store_total_bits = compressed_store.store_total_bits
                     compressed_string_buffer = compressed_store.compressed_string_buffer
-                    ui_decode_bits = compressed_store.ui_decode_bits
 
                     full_encode_array = decompress_encode_array(encode_array)
-                    huffman_tree = build_huffman_tree(full_encode_array)
+                    table, max_len = build_huffman_table(full_encode_array)
+                    swapped = _swap_bitstream(compressed_string_buffer)
 
                     if page_id in record_handles_map:
-                        offsets = record_handles_map[page_id]
-                        for i in range(len(offsets)):
-                            start_bit = offsets[i]
-                            end_bit = offsets[i + 1] if i + 1 < len(offsets) else store_total_bits
-                            decompressed = decode_substring(compressed_string_buffer, huffman_tree, start_bit, end_bit)
-                            if compressed_store.character_set_type_identifier == _HUFFMAN_GENERAL:
-                                # General Huffman (0xaba92): the Huffman tree operates on raw bytes
-                                # whose sequence is UTF-16LE.  Re-encode to bytes via the lossless
-                                # latin-1 identity map, then decode as UTF-16LE.  Strip any trailing
-                                # odd byte from Huffman padding before decoding.
-                                b = decompressed.encode('latin-1')
-                                decompressed = b[:len(b) & ~1].decode('utf-16-le', errors='ignore')
-                            hashtable[index] = decompressed
-                            index += 1
-                    del huffman_tree
+                        page_offsets = record_handles_map[page_id]
+                        is_general = compressed_store.character_set_type_identifier == _HUFFMAN_GENERAL
+                        decoded = decode_substrings(swapped, table, max_len, page_offsets, store_total_bits)
+                        if is_general:
+                            for s in decoded:
+                                b = s.encode('latin-1')
+                                hashtable[index] = b[:len(b) & ~1].decode('utf-16-le', errors='ignore')
+                                index += 1
+                        else:
+                            for s in decoded:
+                                hashtable[index] = s
+                                index += 1
                 else:
                     uncompressed_store = page.string_store
                     uncompressed = uncompressed_store.uncompressed_character_buffer
