@@ -10,7 +10,7 @@ This library is the Python implementation of the logic embedded in the DuckDB ex
 
 ## Installation
 
-Before using PBIXRay, ensure you have the following Python modules installed: `apsw`, `kaitaistruct`, and `pbixray`. You can install them using pip:
+Install with pip:
 
 ```bash
 pip install pbixray
@@ -98,6 +98,7 @@ table_name = 'YourTableName'
 table_contents = model.get_table(table_name)
 print(table_contents)
 ```
+Dictionary decode runs on a native Huffman kernel ([xmhuffman](https://github.com/Hugoberry/xmhuffman-cython)) and fans out across cores automatically for large dictionaries.
 ### Statistics
 To get statistics about the model, including column cardinality and byte sizes of dictionary, hash index, and data components, in a dataframe with columns `TableName`, `ColumnName`, `Cardinality`, `Dictionary`, `HashIndex`, and `DataSize`:
 ```python
