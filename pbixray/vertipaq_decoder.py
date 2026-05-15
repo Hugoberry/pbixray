@@ -12,8 +12,8 @@ import pandas as pd
 from decimal import Decimal
 from .abf.data_model import DataModel
 
-from .huffman import decompress_encode_array, build_huffman_table, decode_substrings, _swap_bitstream
 from collections import defaultdict
+import xmhuffman
 
 # Compression class IDs from the dictionary format (character_set_type_identifier):
 #   0x000aba91 = charset-based Huffman — strings are single-byte (encoded per the
@@ -161,28 +161,25 @@ class VertiPaqDecoder:
 
             for page_id, page in enumerate(pages):
                 if page.page_compressed:
+                    if page_id not in record_handles_map:
+                        continue
                     compressed_store = page.string_store
-                    encode_array = compressed_store.encode_array
-                    store_total_bits = compressed_store.store_total_bits
-                    compressed_string_buffer = compressed_store.compressed_string_buffer
-
-                    full_encode_array = decompress_encode_array(encode_array)
-                    table, max_len = build_huffman_table(full_encode_array)
-                    swapped = _swap_bitstream(compressed_string_buffer)
-
-                    if page_id in record_handles_map:
-                        page_offsets = record_handles_map[page_id]
-                        is_general = compressed_store.character_set_type_identifier == _HUFFMAN_GENERAL
-                        decoded = decode_substrings(swapped, table, max_len, page_offsets, store_total_bits)
-                        if is_general:
-                            for s in decoded:
-                                b = s.encode('latin-1')
-                                hashtable[index] = b[:len(b) & ~1].decode('utf-16-le', errors='ignore')
-                                index += 1
-                        else:
-                            for s in decoded:
-                                hashtable[index] = s
-                                index += 1
+                    is_general = compressed_store.character_set_type_identifier == _HUFFMAN_GENERAL
+                    decoded = xmhuffman.decode_page(
+                        bytes(compressed_store.compressed_string_buffer),
+                        bytes(compressed_store.encode_array),
+                        record_handles_map[page_id],
+                        compressed_store.store_total_bits,
+                        swap=True,
+                    )
+                    if is_general:
+                        for b in decoded:
+                            hashtable[index] = b[:len(b) & ~1].decode('utf-16-le', errors='ignore')
+                            index += 1
+                    else:
+                        for b in decoded:
+                            hashtable[index] = b.decode('latin-1')
+                            index += 1
                 else:
                     uncompressed_store = page.string_store
                     uncompressed = uncompressed_store.uncompressed_character_buffer
