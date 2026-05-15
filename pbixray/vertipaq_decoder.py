@@ -13,7 +13,15 @@ from decimal import Decimal
 from .abf.data_model import DataModel
 
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+import os
 import xmhuffman
+
+# xmhuffman v0.3.0+ decodes a whole page inside one `with nogil:` block
+# (xmh_decode_page), so concurrent ThreadPoolExecutor calls now scale with
+# physical cores. Threshold avoids pool spin-up cost for small dictionaries.
+_PARALLEL_PAGE_THRESHOLD = 16
+_MAX_WORKERS = min(os.cpu_count() or 1, 8)
 
 # Compression class IDs from the dictionary format (character_set_type_identifier):
 #   0x000aba91 = charset-based Huffman — strings are single-byte (encoded per the
@@ -22,6 +30,32 @@ import xmhuffman
 #                is UTF-16LE; no character_set_used field.
 _HUFFMAN_CHARSET_BASED = 0x000aba91  # single-byte charset Huffman (latin-1 output)
 _HUFFMAN_GENERAL       = 0x000aba92  # UTF-16LE bytes via general Huffman
+
+
+def _decode_compressed_page(args):
+    """Run xmhuffman.decode_page + per-string charset decode for one page.
+
+    Pure function so it can be submitted to a ThreadPoolExecutor without
+    sharing any mutable state. The kernel releases the GIL, so multiple
+    instances of this run in parallel; only the trailing ``bytes.decode``
+    list-comprehension is GIL-bound.
+    """
+    bitstream, encode_array, offsets, total_bits, is_general, charset_byte = args
+    if is_general:
+        decoded = xmhuffman.decode_page(
+            bitstream, encode_array, offsets, total_bits, swap=True,
+        )
+        return [b[:len(b) & ~1].decode('utf-16-le', errors='ignore') for b in decoded]
+    if charset_byte == 0:
+        decoded = xmhuffman.decode_page(
+            bitstream, encode_array, offsets, total_bits, swap=True,
+        )
+        return [b.decode('latin-1') for b in decoded]
+    decoded = xmhuffman.decode_page(
+        bitstream, encode_array, offsets, total_bits, swap=True,
+        charset_mode='single', charset_byte=charset_byte,
+    )
+    return [b.decode('utf-16-le') for b in decoded]
 
 # ---------- VertiPaq CLASS ----------
 
@@ -159,54 +193,52 @@ class VertiPaqDecoder:
             for pid in np.unique(page_ids):
                 record_handles_map[int(pid)] = offsets_arr[page_ids == pid].tolist()
 
+            # Plan pass: assign each page a base index and collect work items.
+            # Compressed pages dominate; their decode releases the GIL inside
+            # the xmhuffman kernel, so they fan out across a thread pool.
+            # Uncompressed pages are rare and cheap; we fill them inline.
+            compressed_tasks = []  # (base_index, args_for_worker)
             for page_id, page in enumerate(pages):
                 if page.page_compressed:
                     if page_id not in record_handles_map:
                         continue
-                    compressed_store = page.string_store
-                    is_general = compressed_store.character_set_type_identifier == _HUFFMAN_GENERAL
-                    bitstream = bytes(compressed_store.compressed_string_buffer)
-                    encode_array = bytes(compressed_store.encode_array)
+                    cs = page.string_store
                     offsets = record_handles_map[page_id]
-                    total_bits = compressed_store.store_total_bits
-
-                    if is_general:
-                        # 0x000aba92: raw decoded bytes are already a UTF-16LE stream.
-                        decoded = xmhuffman.decode_page(
-                            bitstream, encode_array, offsets, total_bits, swap=True,
-                        )
-                        for b in decoded:
-                            hashtable[index] = b[:len(b) & ~1].decode('utf-16-le', errors='ignore')
-                            index += 1
-                    else:
-                        # 0x000aba91 single charset: the page stores CharacterSetUsed
-                        # as the high byte. When it's zero, latin-1 over the raw output
-                        # is byte-equivalent and the cheapest path. When non-zero, ask
-                        # xmhuffman to interleave the byte so the result is direct
-                        # UTF-16LE — required by [MS-XLDM §2.7.4.1.4].
-                        cb = compressed_store.character_set_used
-                        if cb == 0:
-                            decoded = xmhuffman.decode_page(
-                                bitstream, encode_array, offsets, total_bits, swap=True,
-                            )
-                            for b in decoded:
-                                hashtable[index] = b.decode('latin-1')
-                                index += 1
-                        else:
-                            decoded = xmhuffman.decode_page(
-                                bitstream, encode_array, offsets, total_bits, swap=True,
-                                charset_mode='single', charset_byte=cb,
-                            )
-                            for b in decoded:
-                                hashtable[index] = b.decode('utf-16-le')
-                                index += 1
+                    is_general = cs.character_set_type_identifier == _HUFFMAN_GENERAL
+                    charset_byte = 0 if is_general else cs.character_set_used
+                    args = (
+                        bytes(cs.compressed_string_buffer),
+                        bytes(cs.encode_array),
+                        offsets,
+                        cs.store_total_bits,
+                        is_general,
+                        charset_byte,
+                    )
+                    compressed_tasks.append((index, args))
+                    index += len(offsets)
                 else:
-                    uncompressed_store = page.string_store
-                    uncompressed = uncompressed_store.uncompressed_character_buffer
-                    strings = self._extract_strings(uncompressed)
-                    for i, token in enumerate(strings):
+                    strings = self._extract_strings(page.string_store.uncompressed_character_buffer)
+                    for token in strings:
                         hashtable[index] = token
                         index += 1
+
+            if not compressed_tasks:
+                return hashtable
+
+            if len(compressed_tasks) < _PARALLEL_PAGE_THRESHOLD:
+                # Serial path: avoids ThreadPoolExecutor spin-up cost on
+                # small dictionaries (few pages, e.g. XLSX, small PBIX).
+                for base, args in compressed_tasks:
+                    for off, s in enumerate(_decode_compressed_page(args)):
+                        hashtable[base + off] = s
+            else:
+                with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as ex:
+                    for base, result in zip(
+                        (t[0] for t in compressed_tasks),
+                        ex.map(_decode_compressed_page, (t[1] for t in compressed_tasks)),
+                    ):
+                        for off, s in enumerate(result):
+                            hashtable[base + off] = s
 
             return hashtable
         elif dictionary.dictionary_type in [ColumnDataDictionary.DictionaryTypes.xm_type_long, ColumnDataDictionary.DictionaryTypes.xm_type_real]:

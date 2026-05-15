@@ -7,7 +7,7 @@ setup(
     install_requires=[
         'xpress8',
         'xpress9',
-        'xmhuffman>=0.2.0',
+        'xmhuffman>=0.3.0',
         'kaitaistruct',
         'numpy',
         'pandas',
