@@ -139,25 +139,46 @@ class VertiPaqDecoder:
 
             return result_hash_table
 
-    def _read_dictionary(self, buffer, min_data_id):
-        """Reads a dictionary from a buffer."""
+    def _read_dictionary(self, buffer, min_data_id, nullable=False):
+        """Reads a dictionary from a buffer and returns it as a numpy lookup
+        array indexed by data id.
+
+        For nullable columns slot 0 (and any prefix below ``min_data_id``)
+        is the null sentinel — NaN for object/float, leaving int64 unusable
+        for nullable ints (those fall back to object dtype).
+        """
         with io.BytesIO(buffer) as f:
             dictionary = ColumnDataDictionary.from_io(f)
 
         if dictionary.dictionary_type == ColumnDataDictionary.DictionaryTypes.xm_type_string:
-            hashtable = {}
-            index = min_data_id
-
             pages = dictionary.data.dictionary_pages
             raw_handles = dictionary.data.dictionary_record_handles_vector_info.vector_of_record_handle_structures
-            record_handles_map = defaultdict(list)
-
             dt = np.dtype([('bit_or_byte_offset', '<u4'), ('page_id', '<u4')])
             handles = np.frombuffer(raw_handles, dtype=dt)
             page_ids = handles['page_id']
             offsets_arr = handles['bit_or_byte_offset']
-            for pid in np.unique(page_ids):
-                record_handles_map[int(pid)] = offsets_arr[page_ids == pid].tolist()
+
+            record_handles_map = {}
+            if len(page_ids) > 0:
+                order = np.argsort(page_ids, kind='stable')
+                sorted_pids = page_ids[order]
+                sorted_offs = offsets_arr[order]
+                boundaries = np.flatnonzero(np.diff(sorted_pids)) + 1
+                starts = np.concatenate(([0], boundaries))
+                ends = np.concatenate((boundaries, [len(sorted_pids)]))
+                for s, e in zip(starts, ends):
+                    record_handles_map[int(sorted_pids[s])] = sorted_offs[s:e].tolist()
+
+            # Build a flat Python list of dictionary values, then transfer
+                # into an object ndarray. Walking once like this avoids having
+                # to pre-size the buffer — record_handles_vector_info only
+                # covers compressed pages, so len(handles) is an under-count
+                # when uncompressed pages are present.
+            # Prefix below min_data_id is the null sentinel for nullable
+            # columns (vec=0 → NaN). For non-nullable the prefix is
+            # unreachable; an int placeholder is fine, but stick with NaN
+            # so the array is consistent.
+            items = [np.nan] * min_data_id
 
             for page_id, page in enumerate(pages):
                 if page.page_compressed:
@@ -173,25 +194,49 @@ class VertiPaqDecoder:
                         swap=True,
                     )
                     if is_general:
-                        for b in decoded:
-                            hashtable[index] = b[:len(b) & ~1].decode('utf-16-le', errors='ignore')
-                            index += 1
+                        items.extend(
+                            b[:len(b) & ~1].decode('utf-16-le', errors='ignore')
+                            for b in decoded
+                        )
                     else:
-                        for b in decoded:
-                            hashtable[index] = b.decode('latin-1')
-                            index += 1
+                        items.extend(b.decode('latin-1') for b in decoded)
                 else:
-                    uncompressed_store = page.string_store
-                    uncompressed = uncompressed_store.uncompressed_character_buffer
-                    strings = self._extract_strings(uncompressed)
-                    for i, token in enumerate(strings):
-                        hashtable[index] = token
-                        index += 1
+                    uncompressed = page.string_store.uncompressed_character_buffer
+                    items.extend(self._extract_strings(uncompressed))
 
-            return hashtable
-        elif dictionary.dictionary_type in [ColumnDataDictionary.DictionaryTypes.xm_type_long, ColumnDataDictionary.DictionaryTypes.xm_type_real]:
+            lookup = np.empty(len(items), dtype=object)
+            lookup[:] = items
+            return lookup
+
+        elif dictionary.dictionary_type in [
+            ColumnDataDictionary.DictionaryTypes.xm_type_long,
+            ColumnDataDictionary.DictionaryTypes.xm_type_real,
+        ]:
             vector_values = dictionary.data.vector_of_vectors_info.values
-            return {i: val for i, val in enumerate(vector_values, start=min_data_id)}
+            is_real = dictionary.dictionary_type == ColumnDataDictionary.DictionaryTypes.xm_type_real
+            n = len(vector_values)
+
+            if is_real:
+                # Float can natively hold NaN — use float64 in both nullable
+                # and non-nullable cases.
+                lookup = np.empty(min_data_id + n, dtype=np.float64)
+                if nullable and min_data_id > 0:
+                    lookup[:min_data_id] = np.nan
+                lookup[min_data_id:] = vector_values
+            elif not nullable:
+                # Non-nullable int: int64 lookup. Prefix slots below
+                # min_data_id are unreachable (vec never indexes there).
+                lookup = np.empty(min_data_id + n, dtype=np.int64)
+                lookup[min_data_id:] = vector_values
+            else:
+                # Nullable int: int64 can't represent null. Fall back to
+                # object dtype with NaN at the null slot to match the old
+                # .map(dict) semantics (missing key → NaN, not None).
+                lookup = np.empty(min_data_id + n, dtype=object)
+                lookup[:min_data_id] = np.nan
+                lookup[min_data_id:] = vector_values
+
+            return lookup
 
         return None
 
@@ -205,9 +250,17 @@ class VertiPaqDecoder:
                 {**segment, 'min_data_id': segment['min_data_id'] - null_adjustment}
                 for segment in segments_meta
             ]
-            dictionary = self._read_dictionary(dictionary_buffer, min_data_id=segments_meta[0]['min_data_id'])
+            lookup = self._read_dictionary(
+                dictionary_buffer,
+                min_data_id=segments_meta[0]['min_data_id'],
+                nullable=bool(column_metadata["IsNullable"]),
+            )
             data_slice = get_data_slice(self._data_model,column_metadata["IDF"])
-            return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, segments_meta_adj)).map(dictionary)
+            vec = self._read_rle_bit_packed_hybrid(data_slice, segments_meta_adj)
+            # Vec values are guaranteed in range [0, len(lookup)) by the
+            # bit-width chosen for the segment; index directly into the
+            # pre-built lookup instead of running .map(dict).
+            return pd.Series(lookup[vec])
         elif pd.notnull(column_metadata["HIDX"]):
             data_slice = get_data_slice(self._data_model,column_metadata["IDF"])
             return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, segments_meta)).add(column_metadata["BaseId"]) / column_metadata["Magnitude"]
