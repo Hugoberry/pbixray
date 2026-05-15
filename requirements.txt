@@ -4,4 +4,4 @@ icecream
 pandas
 xpress9
 xpress8
-xmhuffman
+xmhuffman>=0.2.0

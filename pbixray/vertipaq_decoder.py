@@ -165,21 +165,41 @@ class VertiPaqDecoder:
                         continue
                     compressed_store = page.string_store
                     is_general = compressed_store.character_set_type_identifier == _HUFFMAN_GENERAL
-                    decoded = xmhuffman.decode_page(
-                        bytes(compressed_store.compressed_string_buffer),
-                        bytes(compressed_store.encode_array),
-                        record_handles_map[page_id],
-                        compressed_store.store_total_bits,
-                        swap=True,
-                    )
+                    bitstream = bytes(compressed_store.compressed_string_buffer)
+                    encode_array = bytes(compressed_store.encode_array)
+                    offsets = record_handles_map[page_id]
+                    total_bits = compressed_store.store_total_bits
+
                     if is_general:
+                        # 0x000aba92: raw decoded bytes are already a UTF-16LE stream.
+                        decoded = xmhuffman.decode_page(
+                            bitstream, encode_array, offsets, total_bits, swap=True,
+                        )
                         for b in decoded:
                             hashtable[index] = b[:len(b) & ~1].decode('utf-16-le', errors='ignore')
                             index += 1
                     else:
-                        for b in decoded:
-                            hashtable[index] = b.decode('latin-1')
-                            index += 1
+                        # 0x000aba91 single charset: the page stores CharacterSetUsed
+                        # as the high byte. When it's zero, latin-1 over the raw output
+                        # is byte-equivalent and the cheapest path. When non-zero, ask
+                        # xmhuffman to interleave the byte so the result is direct
+                        # UTF-16LE — required by [MS-XLDM §2.7.4.1.4].
+                        cb = compressed_store.character_set_used
+                        if cb == 0:
+                            decoded = xmhuffman.decode_page(
+                                bitstream, encode_array, offsets, total_bits, swap=True,
+                            )
+                            for b in decoded:
+                                hashtable[index] = b.decode('latin-1')
+                                index += 1
+                        else:
+                            decoded = xmhuffman.decode_page(
+                                bitstream, encode_array, offsets, total_bits, swap=True,
+                                charset_mode='single', charset_byte=cb,
+                            )
+                            for b in decoded:
+                                hashtable[index] = b.decode('utf-16-le')
+                                index += 1
                 else:
                     uncompressed_store = page.string_store
                     uncompressed = uncompressed_store.uncompressed_character_buffer
