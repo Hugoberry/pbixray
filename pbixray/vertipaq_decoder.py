@@ -275,19 +275,19 @@ class VertiPaqDecoder:
             try:
                 return pd.to_datetime(column_data, unit='D', origin='1899-12-30')
             except pd.errors.OutOfBoundsDatetime:
-                numeric = pd.to_numeric(column_data, errors='coerce')
-                # pandas datetime64[ns] range vs origin 1899-12-30:
-                # min ~ 1677-09-21 (-81_184 days), max ~ 2262-04-11 (+132_046 days)
-                bad_mask = (numeric < -81_184) | (numeric > 132_046)
-                bad = numeric[bad_mask]
-                print(
-                    f"[pbixray] Date overflow in column {column_name!r}: "
-                    f"{len(bad)} bad / {int(numeric.notna().sum())} non-null / "
-                    f"{len(numeric)} total. "
-                    f"min={numeric.min()}, max={numeric.max()}. "
-                    f"Sample bad rows: {bad.head(10).to_dict()}"
-                )
-                raise
+                # Day-counts outside pandas' datetime64[ns] range
+                # (~1677..2262). Fall back to datetime64[s] resolution, which
+                # covers up to year 9999, so far-future dates that DAX
+                # surfaces verbatim (e.g. 8525-01-01) round-trip as real
+                # Timestamps instead of being dropped.
+                days = pd.to_numeric(column_data, errors='coerce').to_numpy(dtype='float64')
+                mask = ~np.isnan(days)
+                secs = np.zeros(len(days), dtype='int64')
+                secs[mask] = np.rint(days[mask] * 86400.0).astype('int64')
+                origin = np.datetime64('1899-12-30T00:00:00', 's')
+                out = np.full(len(days), np.datetime64('NaT', 's'), dtype='datetime64[s]')
+                out[mask] = origin + secs[mask].astype('timedelta64[s]')
+                return pd.Series(out, index=column_data.index)
         if semantic_type == 'Currency':
             return column_data.apply(lambda x: Decimal(x)/10000 if pd.notnull(x) else None)
         return column_data
