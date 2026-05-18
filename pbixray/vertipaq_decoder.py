@@ -272,15 +272,18 @@ class VertiPaqDecoder:
         
     def _handle_special_cases(self, column_data, semantic_type, column_name=None):
         if semantic_type == 'Date':
+            # Force numeric so empty / all-None / object-dtype series don't
+            # trip pd.to_datetime's origin-compatibility check.
+            numeric = pd.to_numeric(column_data, errors='coerce')
             try:
-                return pd.to_datetime(column_data, unit='D', origin='1899-12-30')
+                return pd.to_datetime(numeric, unit='D', origin='1899-12-30')
             except pd.errors.OutOfBoundsDatetime:
                 # Day-counts outside pandas' datetime64[ns] range
                 # (~1677..2262). Fall back to datetime64[s] resolution, which
                 # covers up to year 9999, so far-future dates that DAX
                 # surfaces verbatim (e.g. 8525-01-01) round-trip as real
                 # Timestamps instead of being dropped.
-                days = pd.to_numeric(column_data, errors='coerce').to_numpy(dtype='float64')
+                days = numeric.to_numpy(dtype='float64')
                 mask = ~np.isnan(days)
                 secs = np.zeros(len(days), dtype='int64')
                 secs[mask] = np.rint(days[mask] * 86400.0).astype('int64')
