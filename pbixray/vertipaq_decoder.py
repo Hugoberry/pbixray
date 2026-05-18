@@ -298,10 +298,16 @@ class VertiPaqDecoder:
         dataframe_data = {}
 
         for _, column_metadata in table_metadata_df.iterrows():
-            meta = self._meta.get_segment_meta(column_metadata)
-
-            column_data = self._get_column_data(column_metadata, meta)
-            column_data = self._handle_special_cases(column_data, column_metadata["SemanticType"], column_metadata["ColumnName"])
+            col_name = column_metadata["ColumnName"]
+            try:
+                meta = self._meta.get_segment_meta(column_metadata)
+                column_data = self._get_column_data(column_metadata, meta)
+                column_data = self._handle_special_cases(column_data, column_metadata["SemanticType"], col_name)
+            except Exception as e:
+                raise type(e)(
+                    f"[pbixray] while decoding column {table_name!r}.{col_name!r} "
+                    f"(SemanticType={column_metadata['SemanticType']!r}): {e}"
+                ) from e
 
             pandas_dtype = column_metadata["PandasDataType"] or "object"
             # pandas doesn't support Decimal natively; keep as object
