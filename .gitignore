@@ -166,3 +166,5 @@ pyvenv.cfg
 /etc
 .pypirc
 .DS_Store
+docs/MS-XLDM.md
+docs/xlsx-parsing.md

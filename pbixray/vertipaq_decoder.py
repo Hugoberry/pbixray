@@ -50,12 +50,36 @@ class VertiPaqDecoder:
         with io.BytesIO(buffer) as f:
             column_data = ColumnDataIdf(KaitaiStream(f))
 
-            # First pass: compute total output length
+            # First pass: compute total output length, capping each segment at
+            # its declared 'records' (from the column's XML metadata —
+            # idfmeta SS.row_count for PBIX, XMColumnSegment.Records for XLSX).
+            #
+            # Trailing primary_segment slots SHOULD be zero-padded per
+            # MS-XLDM §2.3.1.1 ("Any unused trailing bytes within a segment
+            # are padded with zeros"), in which case summing every repeat_value
+            # would be harmless. Some XLSX Power Pivot writers leave stale
+            # memory there instead — observed e.g. on Metrics.Sub Category ID,
+            # where a single garbage slot held repeat_value=4_294_967_295 and
+            # blindly summing produced a 32 GB allocation. The cap keeps us
+            # correct under both spec-compliant and spec-deviant padding.
             total_len = 0
-            for seg_idx, _ in enumerate(segments_meta):
+            seg_real_repeats = []
+            for seg_idx, seg_meta in enumerate(segments_meta):
                 segment = column_data.segments[seg_idx]
+                cap = seg_meta.get('records', 0) or 0
+                acc = 0
+                per_entry = []
                 for entry in segment.primary_segment:
-                    total_len += entry.repeat_value
+                    if cap and acc >= cap:
+                        per_entry.append(0)
+                        continue
+                    rv = entry.repeat_value
+                    if cap and acc + rv > cap:
+                        rv = cap - acc
+                    per_entry.append(rv)
+                    acc += rv
+                seg_real_repeats.append(per_entry)
+                total_len += acc
 
             vector = np.empty(total_len, dtype=np.int64)
             pos = 0
@@ -65,11 +89,12 @@ class VertiPaqDecoder:
                 entries = seg_meta['count_bit_packed']
                 min_data_id = seg_meta['min_data_id']
                 bit_width = seg_meta['bit_width']
+                per_entry = seg_real_repeats[seg_idx]
 
                 bitpacked_values = np.array([], dtype=np.int64)
                 bit_packed_offset = 0
 
-                if entries > 0:
+                if entries > 0 and bit_width > 0:
                     size = segment.sub_segment_size
                     sub_segment_arr = np.frombuffer(segment.sub_segment, dtype='<u8')
                     if sub_segment_arr[-1] == 0 and size == 1:
@@ -77,14 +102,14 @@ class VertiPaqDecoder:
                     else:
                         bitpacked_values = self._read_bitpacked(sub_segment_arr, bit_width, min_data_id)
 
-                for entry in segment.primary_segment:
+                for entry, count in zip(segment.primary_segment, per_entry):
+                    if count == 0:
+                        continue
                     if entry.data_value + bit_packed_offset == 0xFFFFFFFF:
-                        count = entry.repeat_value
                         vector[pos:pos + count] = bitpacked_values[bit_packed_offset:bit_packed_offset + count]
                         bit_packed_offset += count
                         pos += count
                     else:
-                        count = entry.repeat_value
                         vector[pos:pos + count] = entry.data_value
                         pos += count
 
@@ -102,6 +127,7 @@ class VertiPaqDecoder:
                     'min_data_id': segment.ss.min_data_id,
                     'count_bit_packed': segment.subsegment.records if segment.has_subsegment != 0 else 0,
                     'bit_width': segment.bit_width,
+                    'records': segment.records,
                 })
 
             return segments_meta
@@ -214,10 +240,10 @@ class VertiPaqDecoder:
 
         
     def _handle_special_cases(self, column_data, data_type):
-        if data_type == 9:
+        if data_type == 9 or data_type == 'Date':
             # Convert to datetime
             return pd.to_datetime(column_data, unit='D', origin='1899-12-30')
-        elif data_type == 10:
+        elif data_type == 10 or data_type == 'Currency':
             # Handle decimal.Decimal type
             return column_data.apply(lambda x: Decimal(x)/10000 if pd.notnull(x) else None)
         return column_data
@@ -226,17 +252,28 @@ class VertiPaqDecoder:
         """Generates a DataFrame representation of the specified table."""
         table_metadata_df = self._meta.schema_df[self._meta.schema_df['TableName'] == table_name]
         dataframe_data = {}
+        is_xlsx = self._data_model.file_type == "xlsx"
 
         for _, column_metadata in table_metadata_df.iterrows():
-            idfmeta_buffer = get_data_slice(self._data_model,column_metadata["IDF"] + 'meta')
-            meta = self._read_idfmeta(idfmeta_buffer)
-            
+            if is_xlsx:
+                meta = self._meta.get_segments_meta(
+                    column_metadata["DimensionID"],
+                    column_metadata.get("StorageName") or column_metadata["ColumnName"],
+                )
+            else:
+                idfmeta_buffer = get_data_slice(self._data_model,column_metadata["IDF"] + 'meta')
+                meta = self._read_idfmeta(idfmeta_buffer)
+
             column_data = self._get_column_data(column_metadata, meta)
             # Handle special cases for certain data types
-            column_data = self._handle_special_cases(column_data, column_metadata["DataType"])
-            
-            pandas_dtype = AMO_PANDAS_TYPE_MAPPING.get(column_metadata["DataType"], "object")  # default to object if no mapping is found
-            
+            type_key = column_metadata["SSASType"] if is_xlsx and "SSASType" in column_metadata else column_metadata["DataType"]
+            column_data = self._handle_special_cases(column_data, type_key)
+
+            if is_xlsx:
+                pandas_dtype = column_metadata["DataType"] or "object"
+            else:
+                pandas_dtype = AMO_PANDAS_TYPE_MAPPING.get(column_metadata["DataType"], "object")  # default to object if no mapping is found
+
             # If it's a decimal type, keep it as object since pandas doesn't support Decimal natively
             if pandas_dtype == 'decimal.Decimal':
                 pandas_dtype = 'object'

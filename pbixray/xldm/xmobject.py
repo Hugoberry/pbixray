@@ -149,16 +149,20 @@ class XMHashDictionaryStringProperties(XMHashDictionaryProperties):
 
 
 class XMRENoSplitCompressionInfoProperties:
-    def __init__(self, element: ET.Element):
-        self.Min = int(element.findtext("Min", "0"))
+    def __init__(self, element: ET.Element, namespaces=None):
+        if namespaces is None:
+            namespaces = XMOBJECT_NAMESPACES
+        self.Min = int(element.findtext("Min", "0", namespaces=namespaces))
 
 
 class XMRLECompressionInfoProperties:
-    def __init__(self, element: ET.Element):
-        self.BookmarkBits = int(element.findtext("BookmarkBits", "0"))
-        self.StorageAllocSize = int(element.findtext("StorageAllocSize", "0"))
-        self.StorageUsedSize = int(element.findtext("StorageUsedSize", "0"))
-        self.SegmentNeedsResizing = element.findtext("SegmentNeedsResizing", "false") == "true"
+    def __init__(self, element: ET.Element, namespaces=None):
+        if namespaces is None:
+            namespaces = XMOBJECT_NAMESPACES
+        self.BookmarkBits = int(element.findtext("BookmarkBits", "0", namespaces=namespaces))
+        self.StorageAllocSize = int(element.findtext("StorageAllocSize", "0", namespaces=namespaces))
+        self.StorageUsedSize = int(element.findtext("StorageUsedSize", "0", namespaces=namespaces))
+        self.SegmentNeedsResizing = element.findtext("SegmentNeedsResizing", "false", namespaces=namespaces) == "true"
 
 
 class XMSegmentMapProperties:
@@ -259,6 +263,9 @@ class XMValueDictionaryProperties:
             namespaces = XMOBJECT_NAMESPACES
         self.DataVersion = int(element.findtext("DataVersion", "0", namespaces=namespaces))
         self.BaseId = int(element.findtext("BaseId", "0", namespaces=namespaces))
+        self.Magnitude = float(element.findtext("Magnitude", "1", namespaces=namespaces))
+
+
 class XMRelationshipIndexSparseDIDsProperties:
     """Properties for XMRelationshipIndexSparseDIDs"""
     def __init__(self, element: ET.Element, namespaces=None):
@@ -352,9 +359,9 @@ class XMObject:
         # Handle compression info classes (they all use the same properties)
         # For now, don't pass namespaces to these until we update them
         if "XMRENoSplitCompressionInfo" in class_name or "XM123CompressionInfo" in class_name:
-            return XMRENoSplitCompressionInfoProperties(properties_elem)
+            return XMRENoSplitCompressionInfoProperties(properties_elem, namespaces)
         if "XMRLECompressionInfo" in class_name and "Hybrid" not in class_name:
-            return XMRLECompressionInfoProperties(properties_elem)
+            return XMRLECompressionInfoProperties(properties_elem, namespaces)
         if "SegmentEqualMapEx" in class_name:
             return XMSegmentMapProperties(properties_elem)
         
