@@ -1,11 +1,11 @@
 import zipfile
 import concurrent.futures
 from .abf import parser
-from .abf.data_model import DataModel
+from .abf.data_model import DataModel, Container
 from xpress9 import Xpress9
 
 
-class PbixUnpacker:
+class DataModelLoader:
     # Constants for file signatures
     SINGLE_THREAD_SIGNATURE = "This backup was created using XPress9 compression."
     MULTI_THREAD_SIGNATURE = "This backup was created using multithreaded XPrs9."
@@ -15,13 +15,13 @@ class PbixUnpacker:
         self.file_path = file_path
 
         # Attributes populated during unpacking
-        self._data_model = DataModel(file_log=[], decompressed_data=b'', file_type="pbix")
-        
-        # Detect file type and unpack accordingly
+        self._data_model = DataModel(file_log=[], decompressed_data=b'', container=Container.PBIX)
+
+        # Detect container and unpack accordingly
         self.__unpack()
 
-    def __detect_file_type(self, data_model_file):
-        """Detect the type of DataModel file based on its signature."""
+    def __detect_compression(self, data_model_file):
+        """Detect the compression scheme of the DataModel stream based on its signature."""
         # Check for uncompressed ABF backup first (by looking at first 72 bytes)
         data_model_file.seek(0)
         stream_storage_sig = data_model_file.read(72)
@@ -44,37 +44,32 @@ class PbixUnpacker:
         return "unknown"
 
     def __get_data_model_path(self, zip_ref):
-        """Determine the path to the data model file based on file type."""
-        # Check if this is a PBIX file (has DataModel file)
+        """Determine the path to the data model entry and set the container type."""
         if 'DataModel' in zip_ref.namelist():
-            self._data_model.file_type = "pbix"
+            self._data_model.container = Container.PBIX
             return 'DataModel'
-        
-        # Check if this is an XLSX file with Power Pivot (has xl/model/item.data)
+
         if 'xl/model/item.data' in zip_ref.namelist():
-            self._data_model.file_type = "xlsx"
+            self._data_model.container = Container.XLSX
             return 'xl/model/item.data'
-        
-        # If neither is found, raise an error
+
         raise RuntimeError("No supported data model file found. File must be a PBIX file with 'DataModel' or an XLSX file with 'xl/model/item.data'")
 
     def __unpack(self):
         with zipfile.ZipFile(self.file_path, 'r') as zip_ref:
-            # Determine the data model file path based on file type
             data_model_path = self.__get_data_model_path(zip_ref)
-            
-            # Open the DataModel file within the ZIP
+
             with zip_ref.open(data_model_path) as data_model_in_archive:
-                file_type = self.__detect_file_type(data_model_in_archive)
-                
-                if file_type == "uncompressed":
+                compression = self.__detect_compression(data_model_in_archive)
+
+                if compression == "uncompressed":
                     self.__process_uncompressed(data_model_in_archive)
-                elif file_type == "single_threaded":
+                elif compression == "single_threaded":
                     self.__process_single_threaded(data_model_in_archive)
-                elif file_type == "multi_threaded":
+                elif compression == "multi_threaded":
                     self.__process_multi_threaded(data_model_in_archive)
                 else:
-                    raise RuntimeError("Unknown or unsupported DataModel file format")
+                    raise RuntimeError("Unknown or unsupported DataModel compression format")
 
         # Parse the decompressed data
         parser.AbfParser(self._data_model)

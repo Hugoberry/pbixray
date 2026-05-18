@@ -1,20 +1,27 @@
 # ---------- IMPORTS ----------
 from .column_data.idf import ColumnDataIdf
-from .column_data.idfmeta import IdfmetaParser
 from .column_data.hidx import ColumnDataHidx
 from .column_data.dictionary import ColumnDataDictionary
 from .abf.backup_log import BackupLog
 from .abf.virtual_directory import VirtualDirectory
 from kaitaistruct import KaitaiStream
-from .utils import AMO_PANDAS_TYPE_MAPPING, get_data_slice
+from .utils import get_data_slice
 import io
 import numpy as np
 import pandas as pd
 from decimal import Decimal
 from .abf.data_model import DataModel
 
-from .huffman import decompress_encode_array, build_huffman_table, decode_substrings, _swap_bitstream
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+import os
+import xmhuffman
+
+# xmhuffman v0.3.0+ decodes a whole page inside one `with nogil:` block
+# (xmh_decode_page), so concurrent ThreadPoolExecutor calls now scale with
+# physical cores. Threshold avoids pool spin-up cost for small dictionaries.
+_PARALLEL_PAGE_THRESHOLD = 16
+_MAX_WORKERS = min(os.cpu_count() or 1, 8)
 
 # Compression class IDs from the dictionary format (character_set_type_identifier):
 #   0x000aba91 = charset-based Huffman — strings are single-byte (encoded per the
@@ -23,6 +30,32 @@ from collections import defaultdict
 #                is UTF-16LE; no character_set_used field.
 _HUFFMAN_CHARSET_BASED = 0x000aba91  # single-byte charset Huffman (latin-1 output)
 _HUFFMAN_GENERAL       = 0x000aba92  # UTF-16LE bytes via general Huffman
+
+
+def _decode_compressed_page(args):
+    """Run xmhuffman.decode_page + per-string charset decode for one page.
+
+    Pure function so it can be submitted to a ThreadPoolExecutor without
+    sharing any mutable state. The kernel releases the GIL, so multiple
+    instances of this run in parallel; only the trailing ``bytes.decode``
+    list-comprehension is GIL-bound.
+    """
+    bitstream, encode_array, offsets, total_bits, is_general, charset_byte = args
+    if is_general:
+        decoded = xmhuffman.decode_page(
+            bitstream, encode_array, offsets, total_bits, swap=True,
+        )
+        return [b[:len(b) & ~1].decode('utf-16-le', errors='ignore') for b in decoded]
+    if charset_byte == 0:
+        decoded = xmhuffman.decode_page(
+            bitstream, encode_array, offsets, total_bits, swap=True,
+        )
+        return [b.decode('latin-1') for b in decoded]
+    decoded = xmhuffman.decode_page(
+        bitstream, encode_array, offsets, total_bits, swap=True,
+        charset_mode='single', charset_byte=charset_byte,
+    )
+    return [b.decode('utf-16-le') for b in decoded]
 
 # ---------- VertiPaq CLASS ----------
 
@@ -115,23 +148,6 @@ class VertiPaqDecoder:
 
             return vector
 
-    def _read_idfmeta(self,buffer):
-        """Reads idfmeta from a buffer."""
-        # Use io.BytesIO to wrap the bytearray
-        with io.BytesIO(buffer) as f:
-            metadata = IdfmetaParser.from_io(f)
-
-            segments_meta = []
-            for segment in metadata.column_partition.segments:
-                segments_meta.append({
-                    'min_data_id': segment.ss.min_data_id,
-                    'count_bit_packed': segment.subsegment.records if segment.has_subsegment != 0 else 0,
-                    'bit_width': segment.bit_width,
-                    'records': segment.records,
-                })
-
-            return segments_meta
-
     def _read_hash_table(self,buffer):
         """Reads a hash table from a buffer."""
         with io.BytesIO(buffer) as f:
@@ -177,37 +193,52 @@ class VertiPaqDecoder:
             for pid in np.unique(page_ids):
                 record_handles_map[int(pid)] = offsets_arr[page_ids == pid].tolist()
 
+            # Plan pass: assign each page a base index and collect work items.
+            # Compressed pages dominate; their decode releases the GIL inside
+            # the xmhuffman kernel, so they fan out across a thread pool.
+            # Uncompressed pages are rare and cheap; we fill them inline.
+            compressed_tasks = []  # (base_index, args_for_worker)
             for page_id, page in enumerate(pages):
                 if page.page_compressed:
-                    compressed_store = page.string_store
-                    encode_array = compressed_store.encode_array
-                    store_total_bits = compressed_store.store_total_bits
-                    compressed_string_buffer = compressed_store.compressed_string_buffer
-
-                    full_encode_array = decompress_encode_array(encode_array)
-                    table, max_len = build_huffman_table(full_encode_array)
-                    swapped = _swap_bitstream(compressed_string_buffer)
-
-                    if page_id in record_handles_map:
-                        page_offsets = record_handles_map[page_id]
-                        is_general = compressed_store.character_set_type_identifier == _HUFFMAN_GENERAL
-                        decoded = decode_substrings(swapped, table, max_len, page_offsets, store_total_bits)
-                        if is_general:
-                            for s in decoded:
-                                b = s.encode('latin-1')
-                                hashtable[index] = b[:len(b) & ~1].decode('utf-16-le', errors='ignore')
-                                index += 1
-                        else:
-                            for s in decoded:
-                                hashtable[index] = s
-                                index += 1
+                    if page_id not in record_handles_map:
+                        continue
+                    cs = page.string_store
+                    offsets = record_handles_map[page_id]
+                    is_general = cs.character_set_type_identifier == _HUFFMAN_GENERAL
+                    charset_byte = 0 if is_general else cs.character_set_used
+                    args = (
+                        bytes(cs.compressed_string_buffer),
+                        bytes(cs.encode_array),
+                        offsets,
+                        cs.store_total_bits,
+                        is_general,
+                        charset_byte,
+                    )
+                    compressed_tasks.append((index, args))
+                    index += len(offsets)
                 else:
-                    uncompressed_store = page.string_store
-                    uncompressed = uncompressed_store.uncompressed_character_buffer
-                    strings = self._extract_strings(uncompressed)
-                    for i, token in enumerate(strings):
+                    strings = self._extract_strings(page.string_store.uncompressed_character_buffer)
+                    for token in strings:
                         hashtable[index] = token
                         index += 1
+
+            if not compressed_tasks:
+                return hashtable
+
+            if len(compressed_tasks) < _PARALLEL_PAGE_THRESHOLD:
+                # Serial path: avoids ThreadPoolExecutor spin-up cost on
+                # small dictionaries (few pages, e.g. XLSX, small PBIX).
+                for base, args in compressed_tasks:
+                    for off, s in enumerate(_decode_compressed_page(args)):
+                        hashtable[base + off] = s
+            else:
+                with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as ex:
+                    for base, result in zip(
+                        (t[0] for t in compressed_tasks),
+                        ex.map(_decode_compressed_page, (t[1] for t in compressed_tasks)),
+                    ):
+                        for off, s in enumerate(result):
+                            hashtable[base + off] = s
 
             return hashtable
         elif dictionary.dictionary_type in [ColumnDataDictionary.DictionaryTypes.xm_type_long, ColumnDataDictionary.DictionaryTypes.xm_type_real]:
@@ -239,42 +270,50 @@ class VertiPaqDecoder:
             return pd.Series([None] * total_rows)
 
         
-    def _handle_special_cases(self, column_data, data_type):
-        if data_type == 9 or data_type == 'Date':
-            # Convert to datetime
-            return pd.to_datetime(column_data, unit='D', origin='1899-12-30')
-        elif data_type == 10 or data_type == 'Currency':
-            # Handle decimal.Decimal type
+    def _handle_special_cases(self, column_data, semantic_type, column_name=None):
+        if semantic_type == 'Date':
+            # Force numeric so empty / all-None / object-dtype series don't
+            # trip pd.to_datetime's origin-compatibility check.
+            numeric = pd.to_numeric(column_data, errors='coerce')
+            try:
+                return pd.to_datetime(numeric, unit='D', origin='1899-12-30')
+            except pd.errors.OutOfBoundsDatetime:
+                # Day-counts outside pandas' datetime64[ns] range
+                # (~1677..2262). Fall back to datetime64[s] resolution, which
+                # covers up to year 9999, so far-future dates that DAX
+                # surfaces verbatim (e.g. 8525-01-01) round-trip as real
+                # Timestamps instead of being dropped.
+                days = numeric.to_numpy(dtype='float64')
+                mask = ~np.isnan(days)
+                secs = np.zeros(len(days), dtype='int64')
+                secs[mask] = np.rint(days[mask] * 86400.0).astype('int64')
+                origin = np.datetime64('1899-12-30T00:00:00', 's')
+                out = np.full(len(days), np.datetime64('NaT', 's'), dtype='datetime64[s]')
+                out[mask] = origin + secs[mask].astype('timedelta64[s]')
+                return pd.Series(out, index=column_data.index)
+        if semantic_type == 'Currency':
             return column_data.apply(lambda x: Decimal(x)/10000 if pd.notnull(x) else None)
         return column_data
-        
+
     def get_table(self, table_name):
         """Generates a DataFrame representation of the specified table."""
         table_metadata_df = self._meta.schema_df[self._meta.schema_df['TableName'] == table_name]
         dataframe_data = {}
-        is_xlsx = self._data_model.file_type == "xlsx"
 
         for _, column_metadata in table_metadata_df.iterrows():
-            if is_xlsx:
-                meta = self._meta.get_segments_meta(
-                    column_metadata["DimensionID"],
-                    column_metadata.get("StorageName") or column_metadata["ColumnName"],
-                )
-            else:
-                idfmeta_buffer = get_data_slice(self._data_model,column_metadata["IDF"] + 'meta')
-                meta = self._read_idfmeta(idfmeta_buffer)
+            col_name = column_metadata["ColumnName"]
+            try:
+                meta = self._meta.get_segment_meta(column_metadata)
+                column_data = self._get_column_data(column_metadata, meta)
+                column_data = self._handle_special_cases(column_data, column_metadata["SemanticType"], col_name)
+            except Exception as e:
+                raise type(e)(
+                    f"[pbixray] while decoding column {table_name!r}.{col_name!r} "
+                    f"(SemanticType={column_metadata['SemanticType']!r}): {e}"
+                ) from e
 
-            column_data = self._get_column_data(column_metadata, meta)
-            # Handle special cases for certain data types
-            type_key = column_metadata["SSASType"] if is_xlsx and "SSASType" in column_metadata else column_metadata["DataType"]
-            column_data = self._handle_special_cases(column_data, type_key)
-
-            if is_xlsx:
-                pandas_dtype = column_metadata["DataType"] or "object"
-            else:
-                pandas_dtype = AMO_PANDAS_TYPE_MAPPING.get(column_metadata["DataType"], "object")  # default to object if no mapping is found
-
-            # If it's a decimal type, keep it as object since pandas doesn't support Decimal natively
+            pandas_dtype = column_metadata["PandasDataType"] or "object"
+            # pandas doesn't support Decimal natively; keep as object
             if pandas_dtype == 'decimal.Decimal':
                 pandas_dtype = 'object'
             try:
