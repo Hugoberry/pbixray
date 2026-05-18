@@ -270,9 +270,24 @@ class VertiPaqDecoder:
             return pd.Series([None] * total_rows)
 
         
-    def _handle_special_cases(self, column_data, semantic_type):
+    def _handle_special_cases(self, column_data, semantic_type, column_name=None):
         if semantic_type == 'Date':
-            return pd.to_datetime(column_data, unit='D', origin='1899-12-30')
+            try:
+                return pd.to_datetime(column_data, unit='D', origin='1899-12-30')
+            except pd.errors.OutOfBoundsDatetime:
+                numeric = pd.to_numeric(column_data, errors='coerce')
+                # pandas datetime64[ns] range vs origin 1899-12-30:
+                # min ~ 1677-09-21 (-81_184 days), max ~ 2262-04-11 (+132_046 days)
+                bad_mask = (numeric < -81_184) | (numeric > 132_046)
+                bad = numeric[bad_mask]
+                print(
+                    f"[pbixray] Date overflow in column {column_name!r}: "
+                    f"{len(bad)} bad / {int(numeric.notna().sum())} non-null / "
+                    f"{len(numeric)} total. "
+                    f"min={numeric.min()}, max={numeric.max()}. "
+                    f"Sample bad rows: {bad.head(10).to_dict()}"
+                )
+                raise
         if semantic_type == 'Currency':
             return column_data.apply(lambda x: Decimal(x)/10000 if pd.notnull(x) else None)
         return column_data
@@ -286,7 +301,7 @@ class VertiPaqDecoder:
             meta = self._meta.get_segment_meta(column_metadata)
 
             column_data = self._get_column_data(column_metadata, meta)
-            column_data = self._handle_special_cases(column_data, column_metadata["SemanticType"])
+            column_data = self._handle_special_cases(column_data, column_metadata["SemanticType"], column_metadata["ColumnName"])
 
             pandas_dtype = column_metadata["PandasDataType"] or "object"
             # pandas doesn't support Decimal natively; keep as object
