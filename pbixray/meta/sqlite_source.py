@@ -1,12 +1,53 @@
-from ..utils import convert_time_columns
+import apsw
+import io
+import logging
+import pandas as pd
+import warnings
+
+from ..abf.data_model import DataModel
+from ..column_data.idfmeta import IdfmetaParser
+from ..utils import AMO_PANDAS_TYPE_MAPPING, convert_time_columns, get_data_slice
 
 
-class MetadataQuery:
-    def __init__(self, sqlite_handler):
-        self.handler = sqlite_handler
+# AMO numeric DataType codes that need post-decode special handling.
+_AMO_SEMANTIC_TYPES = {9: "Date", 10: "Currency"}
+
+logger = logging.getLogger(__name__)
+
+
+class _SqliteReader:
+    """In-memory APSW connection over a serialized SQLite blob."""
+
+    def __init__(self, sqlite_buffer):
+        self.conn = apsw.Connection(":memory:")
+        self.conn.deserialize("main", sqlite_buffer)
+
+    def query(self, sql):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                return pd.read_sql_query(sql, self.conn)
+            except apsw.ExecutionCompleteError:
+                return pd.DataFrame()
+            except apsw.SQLError as e:
+                logger.debug("SQL error executing query: %s — %s", sql, e)
+                return pd.DataFrame()
+            except (apsw.Error, pd.errors.DatabaseError) as e:
+                logger.debug("Database error executing query: %s — %s", sql, e)
+                return pd.DataFrame()
+
+    def close(self):
+        self.conn.close()
+
+
+class SqliteMetadataSource:
+    def __init__(self, data_model: DataModel):
+        self._data_model = data_model
+        self._db = _SqliteReader(get_data_slice(data_model, 'metadata.sqlitedb'))
 
         # Populate dataframes upon instantiation
         self.schema_df = self.__populate_schema()
+        self.__normalize_schema()
         self.m_df = self.__populate_m()
         self.m_parameters_df = self.__populate_m_parameters()
         self.dax_tables_df = self.__populate_dax_tables()
@@ -58,12 +99,36 @@ class MetadataQuery:
         self.role_memberships_df          = self.__populate_role_memberships()
 
         self.__convert_timestamps()
-        self.handler.close_connection()
+        self._db.close()
 
     def __convert_timestamps(self):
         for attr, df in vars(self).items():
             if attr.endswith('_df') and hasattr(df, 'columns'):
                 setattr(self, attr, convert_time_columns(df))
+
+    def __normalize_schema(self):
+        """Add format-agnostic ``PandasDataType`` and ``SemanticType`` columns
+        so downstream code never has to know this came from a pbix."""
+        dt = self.schema_df['DataType']
+        self.schema_df = self.schema_df.assign(
+            PandasDataType=dt.map(AMO_PANDAS_TYPE_MAPPING).fillna('object'),
+            SemanticType=dt.map(_AMO_SEMANTIC_TYPES).fillna('Other'),
+        )
+
+    def get_segment_meta(self, column_row):
+        """Parse the ``.idfmeta`` blob for a column into a list of per-segment dicts."""
+        buffer = get_data_slice(self._data_model, column_row["IDF"] + 'meta')
+        with io.BytesIO(buffer) as f:
+            parsed = IdfmetaParser.from_io(f)
+            return [
+                {
+                    'min_data_id': seg.ss.min_data_id,
+                    'count_bit_packed': seg.subsegment.records if seg.has_subsegment != 0 else 0,
+                    'bit_width': seg.bit_width,
+                    'records': seg.records,
+                }
+                for seg in parsed.column_partition.segments
+            ]
 
     # -------------------------------------------------------------------------
     # Original endpoints
@@ -101,7 +166,7 @@ class MetadataQuery:
         WHERE c.Type IN (1,2)
         ORDER BY t.Name, cs.StoragePosition
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     def __populate_m(self):
         sql = """
@@ -112,7 +177,7 @@ class MetadataQuery:
         JOIN [Table] t ON t.ID = p.TableID
         WHERE p.Type = 4;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     def __populate_m_parameters(self):
         sql = """
@@ -123,7 +188,7 @@ class MetadataQuery:
             ModifiedTime
         FROM Expression;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     def __populate_dax_tables(self):
         sql = """
@@ -134,7 +199,7 @@ class MetadataQuery:
         JOIN [Table] t ON t.ID = p.TableID
         WHERE p.Type = 2;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     def __populate_dax_measures(self):
         sql = """
@@ -147,7 +212,7 @@ class MetadataQuery:
         FROM Measure m
         JOIN [Table] t ON m.TableID = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     def __populate_dax_columns(self):
         sql = """
@@ -159,7 +224,7 @@ class MetadataQuery:
         JOIN [Table] t ON c.TableID = t.ID
         WHERE c.Type = 2;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     def __populate_metadata(self):
         sql = """
@@ -167,7 +232,7 @@ class MetadataQuery:
         FROM Annotation
         WHERE ObjectType = 1
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     def __populate_relationships(self):
         sql = """
@@ -203,7 +268,7 @@ class MetadataQuery:
             LEFT JOIN RelationshipStorage rs2 ON rs2.id = rel.RelationshipStorage2ID
             LEFT JOIN RelationshipIndexStorage rid2 ON rs2.RelationshipIndexStorageID = rid2.id
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     def __populate_rls(self):
         sql = """
@@ -218,7 +283,7 @@ class MetadataQuery:
         JOIN [Table] t on t.ID = tp.TableID
         JOIN Role r on r.ID = tp.RoleID
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_MODEL
@@ -226,7 +291,7 @@ class MetadataQuery:
 
     def __populate_model(self):
         sql = "SELECT * FROM Model;"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_TABLES
@@ -249,7 +314,7 @@ class MetadataQuery:
         FROM [Table] t
         WHERE t.SystemFlags = 0;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_COLUMNS
@@ -287,7 +352,7 @@ class MetadataQuery:
         WHERE c.Type IN (1, 2)
         ORDER BY t.Name, c.DisplayOrdinal;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_PARTITIONS
@@ -313,7 +378,7 @@ class MetadataQuery:
         FROM [Partition] p
         JOIN [Table] t ON p.TableID = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_HIERARCHIES
@@ -340,7 +405,7 @@ class MetadataQuery:
         FROM Hierarchy h
         JOIN [Table] t ON h.TableID = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_LEVELS
@@ -366,7 +431,7 @@ class MetadataQuery:
         JOIN [Table]    t ON h.TableID     = t.ID
         JOIN [Column]   c ON l.ColumnID    = c.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_DATASOURCES
@@ -374,7 +439,7 @@ class MetadataQuery:
 
     def __populate_datasources(self):
         sql = "SELECT * FROM DataSource;"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_PERSPECTIVES
@@ -382,7 +447,7 @@ class MetadataQuery:
 
     def __populate_perspectives(self):
         sql = "SELECT * FROM Perspective;"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_PERSPECTIVE_TABLES
@@ -402,7 +467,7 @@ class MetadataQuery:
         JOIN Perspective p ON pt.PerspectiveID = p.ID
         JOIN [Table]     t ON pt.TableID       = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_PERSPECTIVE_COLUMNS
@@ -424,7 +489,7 @@ class MetadataQuery:
         JOIN [Column]           c  ON pc.ColumnID           = c.ID
         JOIN [Table]            t  ON c.TableID             = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_PERSPECTIVE_HIERARCHIES
@@ -446,7 +511,7 @@ class MetadataQuery:
         JOIN Hierarchy            h  ON ph.HierarchyID        = h.ID
         JOIN [Table]              t  ON h.TableID             = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_PERSPECTIVE_MEASURES
@@ -468,7 +533,7 @@ class MetadataQuery:
         JOIN Measure            m  ON pm.MeasureID          = m.ID
         JOIN [Table]            t  ON m.TableID             = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_KPIS
@@ -496,7 +561,7 @@ class MetadataQuery:
         JOIN Measure m ON k.MeasureID = m.ID
         JOIN [Table] t ON m.TableID   = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_ANNOTATIONS
@@ -504,7 +569,7 @@ class MetadataQuery:
 
     def __populate_annotations(self):
         sql = "SELECT * FROM Annotation;"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_EXTENDED_PROPERTIES
@@ -512,7 +577,7 @@ class MetadataQuery:
 
     def __populate_extended_properties(self):
         sql = "SELECT * FROM ExtendedProperty;"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_CULTURES
@@ -520,7 +585,7 @@ class MetadataQuery:
 
     def __populate_cultures(self):
         sql = "SELECT * FROM Culture;"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_OBJECT_TRANSLATIONS
@@ -541,7 +606,7 @@ class MetadataQuery:
         FROM ObjectTranslation ot
         JOIN Culture cu ON ot.CultureID = cu.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_LINGUISTIC_METADATA
@@ -559,7 +624,7 @@ class MetadataQuery:
         FROM LinguisticMetadata lm
         JOIN Culture cu ON lm.CultureID = cu.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_QUERY_GROUPS
@@ -567,7 +632,7 @@ class MetadataQuery:
 
     def __populate_query_groups(self):
         sql = "SELECT * FROM QueryGroup;"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_CALCULATION_GROUPS
@@ -585,7 +650,7 @@ class MetadataQuery:
         FROM CalculationGroup cg
         JOIN [Table] t ON cg.TableID = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_CALCULATION_ITEMS
@@ -610,7 +675,7 @@ class MetadataQuery:
         JOIN CalculationGroup cg ON ci.CalculationGroupID = cg.ID
         JOIN [Table]          t  ON cg.TableID            = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_CALCULATION_EXPRESSIONS
@@ -634,7 +699,7 @@ class MetadataQuery:
         JOIN CalculationGroup      cg ON ce.CalculationGroupID = cg.ID
         JOIN [Table]               t  ON cg.TableID            = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_VARIATIONS
@@ -657,7 +722,7 @@ class MetadataQuery:
         JOIN [Column] c ON v.ColumnID = c.ID
         JOIN [Table]  t ON c.TableID  = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_ATTRIBUTE_HIERARCHIES
@@ -678,7 +743,7 @@ class MetadataQuery:
         JOIN [Column] c ON ah.ColumnID = c.ID
         JOIN [Table]  t ON c.TableID   = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_SETS
@@ -703,7 +768,7 @@ class MetadataQuery:
         FROM [Set] s
         JOIN [Table] t ON s.TableID = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_REFRESH_POLICIES
@@ -727,7 +792,7 @@ class MetadataQuery:
         FROM RefreshPolicy rp
         JOIN [Table] t ON rp.TableID = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_DETAIL_ROWS_DEFINITIONS
@@ -735,7 +800,7 @@ class MetadataQuery:
 
     def __populate_detail_rows_definitions(self):
         sql = "SELECT * FROM DetailRowsDefinition;"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_FORMAT_STRING_DEFINITIONS
@@ -743,7 +808,7 @@ class MetadataQuery:
 
     def __populate_format_string_definitions(self):
         sql = "SELECT * FROM FormatStringDefinition;"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_FUNCTIONS
@@ -751,7 +816,7 @@ class MetadataQuery:
 
     def __populate_functions(self):
         sql = "SELECT * FROM [Function];"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_CALENDARS
@@ -771,7 +836,7 @@ class MetadataQuery:
         FROM Calendar cal
         JOIN [Table] t ON cal.TableID = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_CALENDAR_COLUMN_GROUPS
@@ -790,7 +855,7 @@ class MetadataQuery:
         JOIN Calendar cal ON ccg.CalendarID = cal.ID
         JOIN [Table]  t   ON cal.TableID    = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_CALENDAR_COLUMN_REFERENCES
@@ -810,7 +875,7 @@ class MetadataQuery:
         JOIN [Column] c ON ccr.ColumnID = c.ID
         JOIN [Table]  t ON c.TableID    = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_ALTERNATE_OF
@@ -834,7 +899,7 @@ class MetadataQuery:
         LEFT JOIN [Column] bc ON ao.BaseColumnID = bc.ID
         LEFT JOIN [Table]  bt ON ao.BaseTableID  = bt.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_RELATED_COLUMN_DETAILS
@@ -852,7 +917,7 @@ class MetadataQuery:
         JOIN [Column] c ON rcd.ColumnID = c.ID
         JOIN [Table]  t ON c.TableID    = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_GROUP_BY_COLUMNS
@@ -875,7 +940,7 @@ class MetadataQuery:
         JOIN [Column] gc ON gbc.GroupingColumnID = gc.ID
         JOIN [Table]  t  ON oc.TableID           = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_BINDING_INFO
@@ -883,7 +948,7 @@ class MetadataQuery:
 
     def __populate_binding_info(self):
         sql = "SELECT * FROM BindingInfo;"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_ANALYTICS_AI_METADATA
@@ -891,7 +956,7 @@ class MetadataQuery:
 
     def __populate_analytics_ai_metadata(self):
         sql = "SELECT * FROM AnalyticsAIMetadata;"
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_DATA_COVERAGE_DEFINITIONS
@@ -913,7 +978,7 @@ class MetadataQuery:
         JOIN [Partition] p ON dcd.PartitionID = p.ID
         JOIN [Table]   t ON p.TableID       = t.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_ROLE_MEMBERSHIPS
@@ -933,4 +998,4 @@ class MetadataQuery:
         FROM RoleMembership rm
         JOIN Role r ON rm.RoleID = r.ID;
         """
-        return self.handler.execute_query(sql)
+        return self._db.query(sql)

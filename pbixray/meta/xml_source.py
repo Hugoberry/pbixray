@@ -13,7 +13,30 @@ from ..xldm import (
 )
 from ..xldm.xmobject import XMObjectDocument
 
-class XmlMetadataQuery:
+
+# DataFrames that come from PBIX-only sources (M / RLS / metadata.sqlitedb DMVs)
+# and have no equivalent in the XLSX XML model. Exposed as empty DataFrames so
+# callers see a uniform attribute surface across both sources.
+_EMPTY_DF_STUBS = (
+    'm_df', 'm_parameters_df', 'metadata_df', 'rls_df',
+    'model_df', 'tables_df', 'columns_df', 'partitions_df',
+    'hierarchies_df', 'levels_df', 'datasources_df',
+    'perspectives_df', 'perspective_tables_df', 'perspective_columns_df',
+    'perspective_hierarchies_df', 'perspective_measures_df',
+    'kpis_df', 'annotations_df', 'extended_properties_df',
+    'cultures_df', 'translations_df', 'linguistic_metadata_df',
+    'query_groups_df', 'calculation_groups_df', 'calculation_items_df',
+    'calculation_expressions_df', 'variations_df', 'attribute_hierarchies_df',
+    'sets_df', 'refresh_policies_df', 'detail_rows_definitions_df',
+    'format_string_definitions_df', 'functions_df', 'calendars_df',
+    'calendar_column_groups_df', 'calendar_column_refs_df', 'alternate_of_df',
+    'related_column_details_df', 'group_by_columns_df', 'binding_info_df',
+    'analytics_ai_metadata_df', 'data_coverage_definitions_df',
+    'role_memberships_df',
+)
+
+
+class XmlMetadataSource:
     """Handles metadata extraction from XML files in XLSX Power Pivot models."""
     
     def __init__(self, data_model):
@@ -37,155 +60,100 @@ class XmlMetadataQuery:
         self._extract_tbl_metadata()
         
         self._build_schema()
+        self._normalize_schema()
         self._build_dax_tables()
         self._build_dax_measures()
         self._build_dax_columns()
         self._build_relationships()
         
-        self.m_df = pd.DataFrame()
-        self.m_parameters_df = pd.DataFrame()
-        self.metadata_df = pd.DataFrame()
-        self.rls_df = pd.DataFrame()
+        # PBIX-only sources have no XML equivalent; expose empty DataFrames so
+        # the MetadataSource surface is uniform.
+        for attr in _EMPTY_DF_STUBS:
+            setattr(self, attr, pd.DataFrame())
+    
+    def _load_xml_singleton(self, pattern, parse, label):
+        """Find the first file matching ``pattern`` and parse it; return the
+        parsed object or ``None``. ``parse`` takes a decoded XML string."""
+        for entry in self.data_model.file_log:
+            if pattern.match(entry['FileName']):
+                try:
+                    content = get_data_slice(self.data_model, entry['FileName'])
+                    return parse(content.decode('utf-8'))
+                except Exception as e:
+                    print(f"Error parsing {label} file {entry['FileName']}: {e}")
+                    return None
+        return None
 
-        # TMSCHEMA_* stubs (not available from XML model format)
-        self.model_df                     = pd.DataFrame()
-        self.tables_df                    = pd.DataFrame()
-        self.columns_df                   = pd.DataFrame()
-        self.partitions_df                = pd.DataFrame()
-        self.hierarchies_df               = pd.DataFrame()
-        self.levels_df                    = pd.DataFrame()
-        self.datasources_df               = pd.DataFrame()
-        self.perspectives_df              = pd.DataFrame()
-        self.perspective_tables_df        = pd.DataFrame()
-        self.perspective_columns_df       = pd.DataFrame()
-        self.perspective_hierarchies_df   = pd.DataFrame()
-        self.perspective_measures_df      = pd.DataFrame()
-        self.kpis_df                      = pd.DataFrame()
-        self.annotations_df               = pd.DataFrame()
-        self.extended_properties_df       = pd.DataFrame()
-        self.cultures_df                  = pd.DataFrame()
-        self.translations_df              = pd.DataFrame()
-        self.linguistic_metadata_df       = pd.DataFrame()
-        self.query_groups_df              = pd.DataFrame()
-        self.calculation_groups_df        = pd.DataFrame()
-        self.calculation_items_df         = pd.DataFrame()
-        self.calculation_expressions_df   = pd.DataFrame()
-        self.variations_df                = pd.DataFrame()
-        self.attribute_hierarchies_df     = pd.DataFrame()
-        self.sets_df                      = pd.DataFrame()
-        self.refresh_policies_df          = pd.DataFrame()
-        self.detail_rows_definitions_df   = pd.DataFrame()
-        self.format_string_definitions_df = pd.DataFrame()
-        self.functions_df                 = pd.DataFrame()
-        self.calendars_df                 = pd.DataFrame()
-        self.calendar_column_groups_df    = pd.DataFrame()
-        self.calendar_column_refs_df      = pd.DataFrame()
-        self.alternate_of_df              = pd.DataFrame()
-        self.related_column_details_df    = pd.DataFrame()
-        self.group_by_columns_df          = pd.DataFrame()
-        self.binding_info_df              = pd.DataFrame()
-        self.analytics_ai_metadata_df     = pd.DataFrame()
-        self.data_coverage_definitions_df = pd.DataFrame()
-        self.role_memberships_df          = pd.DataFrame()
-    
+    def _load_xml_collection(self, pattern, parse, store, label):
+        """Parse every file matching ``pattern`` (capture group 1 is the id)
+        and insert into ``store`` keyed by that id."""
+        for entry in self.data_model.file_log:
+            match = pattern.match(entry['FileName'])
+            if not match:
+                continue
+            try:
+                content = get_data_slice(self.data_model, entry['FileName'])
+                store[match.group(1)] = parse(content.decode('utf-8'))
+            except Exception as e:
+                print(f"Error parsing {label} file {entry['FileName']}: {e}")
+
     def _parse_cube(self):
-        cube_pattern = re.compile(r'Model\.\d+\.cub\.xml')
-        for file_entry in self.data_model.file_log:
-            if cube_pattern.match(file_entry['FileName']):
-                cube_content = get_data_slice(self.data_model, file_entry['FileName'])
-                cube_xml = CubXmlLoad.from_xml_string(cube_content.decode('utf-8'))
-                self._cube = cube_xml.Cube
-                return
-        raise RuntimeError("Model .cub.xml file not found in the data model")
-    
+        self._cube = self._load_xml_singleton(
+            re.compile(r'Model\.\d+\.cub\.xml'),
+            lambda s: CubXmlLoad.from_xml_string(s).Cube,
+            'cube',
+        )
+        if self._cube is None:
+            raise RuntimeError("Model .cub.xml file not found in the data model")
+
     def _extract_dimension_metadata(self):
-        dim_pattern = re.compile(r'(.+)\.(\d+)\.dim\.xml')
-        for file_entry in self.data_model.file_log:
-            match = dim_pattern.match(file_entry['FileName'])
-            if match:
-                dimension_id = match.group(1)
-                try:
-                    dim_content = get_data_slice(self.data_model, file_entry['FileName'])
-                    dim_xml = DimensionXmlLoad.from_xml_string(dim_content.decode('utf-8'))
-                    self._dimensions[dimension_id] = dim_xml.Dimension
-                except Exception as e:
-                    print(f"Error parsing dimension file {file_entry['FileName']}: {e}")
-    
+        self._load_xml_collection(
+            re.compile(r'(.+)\.(\d+)\.dim\.xml'),
+            lambda s: DimensionXmlLoad.from_xml_string(s).Dimension,
+            self._dimensions, 'dimension',
+        )
+
     def _extract_partition_metadata(self):
-        prt_pattern = re.compile(r'(.+)\.(\d+)\.prt\.xml')
-        for file_entry in self.data_model.file_log:
-            match = prt_pattern.match(file_entry['FileName'])
-            if match:
-                dimension_id = match.group(1)
-                try:
-                    prt_content = get_data_slice(self.data_model, file_entry['FileName'])
-                    prt_xml = PartitionXmlLoad.from_xml_string(prt_content.decode('utf-8'))
-                    self._partitions[dimension_id] = prt_xml.Partition
-                except Exception as e:
-                    print(f"Error parsing partition file {file_entry['FileName']}: {e}")
-    
+        self._load_xml_collection(
+            re.compile(r'(.+)\.(\d+)\.prt\.xml'),
+            lambda s: PartitionXmlLoad.from_xml_string(s).Partition,
+            self._partitions, 'partition',
+        )
+
     def _extract_measure_group_metadata(self):
-        det_pattern = re.compile(r'(.+)\.(\d+)\.det\.xml')
-        for file_entry in self.data_model.file_log:
-            match = det_pattern.match(file_entry['FileName'])
-            if match:
-                dimension_id = match.group(1)
-                try:
-                    det_content = get_data_slice(self.data_model, file_entry['FileName'])
-                    det_xml = MeasureGroupXmlLoad.from_xml_string(det_content.decode('utf-8'))
-                    self._measure_groups[dimension_id] = det_xml.MeasureGroup
-                except Exception as e:
-                    print(f"Error parsing measure group file {file_entry['FileName']}: {e}")
-    
+        self._load_xml_collection(
+            re.compile(r'(.+)\.(\d+)\.det\.xml'),
+            lambda s: MeasureGroupXmlLoad.from_xml_string(s).MeasureGroup,
+            self._measure_groups, 'measure group',
+        )
+
     def _extract_mdx_script(self):
-        scr_pattern = re.compile(r'MdxScript\.\d+\.scr\.xml')
-        for file_entry in self.data_model.file_log:
-            if scr_pattern.match(file_entry['FileName']):
-                try:
-                    scr_content = get_data_slice(self.data_model, file_entry['FileName'])
-                    scr_xml = MdxScriptXmlLoad.from_xml_string(scr_content.decode('utf-8'))
-                    self._mdx_script = scr_xml.MdxScript
-                    return
-                except Exception as e:
-                    print(f"Error parsing MDX script file {file_entry['FileName']}: {e}")
-    
+        self._mdx_script = self._load_xml_singleton(
+            re.compile(r'MdxScript\.\d+\.scr\.xml'),
+            lambda s: MdxScriptXmlLoad.from_xml_string(s).MdxScript,
+            'MDX script',
+        )
+
     def _extract_data_sources(self):
-        ds_pattern = re.compile(r'([a-f0-9\-]+)\.\d+\.ds\.xml')
-        for file_entry in self.data_model.file_log:
-            match = ds_pattern.match(file_entry['FileName'])
-            if match:
-                ds_id = match.group(1)
-                try:
-                    ds_content = get_data_slice(self.data_model, file_entry['FileName'])
-                    ds_xml = DataSourceXmlLoad.from_xml_string(ds_content.decode('utf-8'))
-                    self._data_sources[ds_id] = ds_xml.DataSource
-                except Exception as e:
-                    print(f"Error parsing data source file {file_entry['FileName']}: {e}")
-    
+        self._load_xml_collection(
+            re.compile(r'([a-f0-9\-]+)\.\d+\.ds\.xml'),
+            lambda s: DataSourceXmlLoad.from_xml_string(s).DataSource,
+            self._data_sources, 'data source',
+        )
+
     def _extract_data_source_view(self):
-        dsv_pattern = re.compile(r'.+\.\d+\.dsv\.xml')
-        for file_entry in self.data_model.file_log:
-            if dsv_pattern.match(file_entry['FileName']):
-                try:
-                    dsv_content = get_data_slice(self.data_model, file_entry['FileName'])
-                    dsv_xml = DataSourceViewXmlLoad.from_xml_string(dsv_content.decode('utf-8'))
-                    self._data_source_view = dsv_xml.DataSourceView
-                    return
-                except Exception as e:
-                    print(f"Error parsing data source view file {file_entry['FileName']}: {e}")
-    
+        self._data_source_view = self._load_xml_singleton(
+            re.compile(r'.+\.\d+\.dsv\.xml'),
+            lambda s: DataSourceViewXmlLoad.from_xml_string(s).DataSourceView,
+            'data source view',
+        )
+
     def _extract_tbl_metadata(self):
-        tbl_pattern = re.compile(r'^([^H$R$][^$]*?)\.(\d+)\.tbl\.xml$')
-        for file_entry in self.data_model.file_log:
-            match = tbl_pattern.match(file_entry['FileName'])
-            if match:
-                dimension_id = match.group(1)
-                try:
-                    tbl_content = get_data_slice(self.data_model, file_entry['FileName'])
-                    tbl_doc = XMObjectDocument.from_xml_string(tbl_content.decode('utf-8'))
-                    self._tbl_objects[dimension_id] = tbl_doc.root_object
-                except Exception as e:
-                    print(f"Error parsing table file {file_entry['FileName']}: {e}")
+        self._load_xml_collection(
+            re.compile(r'^([^H$R$][^$]*?)\.(\d+)\.tbl\.xml$'),
+            lambda s: XMObjectDocument.from_xml_string(s).root_object,
+            self._tbl_objects, 'table',
+        )
     
     def _build_schema(self):
         schema_data = []
@@ -238,7 +206,23 @@ class XmlMetadataQuery:
                         }
                         schema_data.append(column_data)
         self.schema_df = pd.DataFrame(schema_data)
-    
+
+    def _normalize_schema(self):
+        """Add format-agnostic ``PandasDataType`` and ``SemanticType`` columns.
+        XLSX ``DataType`` is already a pandas dtype string; ``SSASType`` carries
+        the semantic hint (Date / Currency / ...)."""
+        if self.schema_df.empty:
+            self.schema_df = self.schema_df.assign(PandasDataType=pd.Series(dtype='object'),
+                                                   SemanticType=pd.Series(dtype='object'))
+            return
+        self.schema_df = self.schema_df.assign(
+            PandasDataType=self.schema_df['DataType'].fillna('object'),
+            SemanticType=self.schema_df['SSASType'].where(
+                self.schema_df['SSASType'].isin(['Date', 'Currency']),
+                'Other',
+            ),
+        )
+
     def _get_column_stats_from_tbl(self, tbl_obj, column_name):
         stats = {
             'cardinality': 0,
@@ -309,12 +293,14 @@ class XmlMetadataQuery:
                     return key_col.DataType
         return ''
 
-    def get_segments_meta(self, dimension_id, column_name):
+    def get_segment_meta(self, column_row):
         """Build segments_meta for a column from the parsed .tbl.xml tree.
 
         Returns a list of dicts matching the shape produced by
-        VertiPaqDecoder._read_idfmeta: {min_data_id, count_bit_packed, bit_width}.
+        SqliteMetadataSource.get_segment_meta: {min_data_id, count_bit_packed, bit_width}.
         """
+        dimension_id = column_row["DimensionID"]
+        column_name = column_row.get("StorageName") or column_row["ColumnName"]
         tbl_obj = self._tbl_objects.get(dimension_id)
         segments_meta = []
         if not tbl_obj or not tbl_obj.collections:
