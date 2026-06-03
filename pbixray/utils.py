@@ -72,6 +72,9 @@ def get_data_slice(data_model:DataModel, file_name:str) -> bytes:
                 f"Decompression size mismatch for file '{file_name}': "
                 f"Expected {file_ref['SizeFromLog']} bytes, got {len(decompressed_data)} bytes"
             )
-            
+
         return decompressed_data
-    return raw_slice
+    # raw_slice may be a memoryview over the mmap (lazy path); materialise just this file's
+    # bytes so downstream consumers (BytesIO, np.frombuffer, kaitai, apsw) get real bytes and
+    # only the pages for this column are faulted in.
+    return bytes(raw_slice)

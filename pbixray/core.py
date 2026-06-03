@@ -10,12 +10,27 @@ class PBIXRay:
     def __init__(self, file_path):
         loader = DataModelLoader(file_path)
 
+        self._data_model = loader.data_model
         self._metadata = Metadata(loader.data_model)
         self._vertipaq_decoder = VertiPaqDecoder(self._metadata.source, loader.data_model)
 
     def get_table(self, table_name):
         """Generates a DataFrame representation of the specified table."""
         return self._vertipaq_decoder.get_table(table_name)
+
+    def close(self):
+        """Release any memory-map and file handle held by the underlying DataModel.
+
+        Only relevant for the lazily-loaded (STORED) path; a no-op otherwise. Also enables
+        use as a context manager: ``with PBIXRay(path) as model: ...``."""
+        self._data_model.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return False
 
     # ---------- PROPERTIES ----------
 

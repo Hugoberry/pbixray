@@ -1,5 +1,7 @@
 import zipfile
 import concurrent.futures
+import mmap
+import struct
 from .abf import parser
 from .abf.data_model import DataModel, Container
 from xpress9 import Xpress9
@@ -63,7 +65,7 @@ class DataModelLoader:
                 compression = self.__detect_compression(data_model_in_archive)
 
                 if compression == "uncompressed":
-                    self.__process_uncompressed(data_model_in_archive)
+                    self.__process_uncompressed(data_model_in_archive, zip_ref.getinfo(data_model_path))
                 elif compression == "single_threaded":
                     self.__process_single_threaded(data_model_in_archive)
                 elif compression == "multi_threaded":
@@ -74,12 +76,52 @@ class DataModelLoader:
         # Parse the decompressed data
         parser.AbfParser(self._data_model)
 
-    def __process_uncompressed(self, data_model_file):
-        """Process an uncompressed DataModel file."""
-        # For uncompressed files, we can just read the entire file
+    def __process_uncompressed(self, data_model_file, zinfo):
+        """Process an uncompressed DataModel file.
+
+        When the DataModel is STORED (zip-uncompressed) the bytes in the archive are already
+        the final ABF backup bytes, so we memory-map them instead of reading the whole stream
+        into RAM. Downstream access goes through file-offset slices, so only the pages actually
+        touched (metadata + requested columns) get faulted in. Any other case falls back to an
+        eager read so behaviour never regresses.
+        """
+        if zinfo.compress_type == zipfile.ZIP_STORED:
+            try:
+                self.__mmap_stored_entry(zinfo)
+                return
+            except Exception:
+                # Fall back to eager read on any mmap failure (platform quirk, zero-length, etc.)
+                pass
+
         data_model_file.seek(0)
         all_data = data_model_file.read()
         self._data_model.decompressed_data = bytearray(all_data)
+
+    def __mmap_stored_entry(self, zinfo):
+        """Memory-map a STORED zip entry and expose it as a read-only memoryview.
+
+        The local file header's filename/extra lengths can differ from the central directory
+        entry, so the data start is computed from the local header rather than from zinfo.
+        """
+        fh = open(self.file_path, 'rb')
+        try:
+            fh.seek(zinfo.header_offset)
+            local_header = fh.read(30)  # fixed-size local file header
+            # bytes 26-27: filename length, 28-29: extra field length (little-endian uint16)
+            filename_len, extra_len = struct.unpack('<HH', local_header[26:30])
+            data_start = zinfo.header_offset + 30 + filename_len + extra_len
+
+            mm = mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ)
+            view = memoryview(mm)[data_start:data_start + zinfo.file_size]
+        except Exception:
+            fh.close()
+            raise
+
+        # Keep the file handle and mmap alive for the lifetime of the model; closing either
+        # would invalidate the memoryview that downstream slicing relies on.
+        self._data_model.decompressed_data = view
+        self._data_model.mmap_obj = mm
+        self._data_model.file_handle = fh
 
     def __process_single_threaded(self, data_model_file):
         """Process a single-threaded Xpress9 compressed DataModel file."""

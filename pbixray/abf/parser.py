@@ -25,12 +25,12 @@ class AbfParser:
     def __parse_backup_log_header(self):
         offset = 72 # STREAM_STORAGE_SIGNATURE_)!@#$%^&*(
         page = 0x1000 # header is always one page (4096 bytes) in size
-        self.__backup_log_header = BackupLogHeader(self.__buffer[offset:page])
+        self.__backup_log_header = BackupLogHeader(bytes(self.__buffer[offset:page]))
 
     def __parse_virtual_directory(self):
         offset = int(self.__backup_log_header.m_cbOffsetHeader)
         size = int(self.__backup_log_header.DataSize)
-        self.__virtual_directory = VirtualDirectory(self.__buffer[offset: offset+size])
+        self.__virtual_directory = VirtualDirectory(bytes(self.__buffer[offset: offset+size]))
 
     def __parse_backup_log(self):
         log = self.__virtual_directory.BackupFiles[-1]
@@ -38,7 +38,7 @@ class AbfParser:
         size = int(log.Size)
         self.data_model.error_code = self.__backup_log_header.ErrorCode
         self.data_model.apply_compression = self.__backup_log_header.ApplyCompression
-        self.__backup_log = BackupLog(self.__buffer[offset:offset+size], self.__backup_log_header.ErrorCode)
+        self.__backup_log = BackupLog(bytes(self.__buffer[offset:offset+size]), self.__backup_log_header.ErrorCode)
 
     def __match_logs_and_get_attributes(self):
         persist_root = self.__backup_log.FileGroups[1].PersistLocationPath + '\\'
