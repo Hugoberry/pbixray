@@ -12,6 +12,19 @@ doc: |
     and an inner xpress9 block consisting of a 32-byte header, per-block
     Huffman tables, and LZ77-encoded segments.
 
+    Two layouts share this inner chunk format, distinguished by the
+    signature string:
+
+      * Single-threaded: "This backup was created using XPress9 compression."
+        The signature is followed directly by a flat stream of chunks.
+
+      * Multithreaded: "This backup was created using multithreaded XPrs9."
+        The signature is followed by a 40-byte thread-distribution header
+        (five u8 fields), then a "prefix" group of chunks, then a "main"
+        group of chunks. Each group is laid out thread-by-thread but the
+        decompressed output is the prefix chunks followed by the main
+        chunks, in stored order.
+
     XPress9 uses a sliding window (64 KB - 4 MB) that spans across block
     boundaries, so decompression of block N may reference decoded data
     from earlier blocks within the window. Huffman tables and MTF initial
@@ -19,9 +32,10 @@ doc: |
     positions in the sliding window history.
 
     References:
-      - src/Xpress9Internal.h  (header struct, constants)
-      - src/Xpress9DecLz77.c   (decoder state machine)
-      - src/Xpress9Lz77Dec.i   (LZ77 decode loop)
+      - src/Xpress9Internal.h    (header struct, constants)
+      - src/Xpress9DecLz77.c     (decoder state machine)
+      - src/Xpress9Lz77Dec.i     (LZ77 decode loop)
+      - pbixray/loader.py        (single- and multi-threaded readers)
 
 seq:
   - id: signature
@@ -29,23 +43,154 @@ seq:
     type: str
     encoding: UTF-16LE
     doc: |
-      Fixed 51-character UTF-16LE string (102 bytes) identifying the
-      compression method, e.g. "This backup was created using Xpress9 compression."
+      Fixed UTF-16LE string (102 bytes) identifying the compression
+      method. Either "This backup was created using XPress9 compression."
+      (single-threaded) or "This backup was created using multithreaded
+      XPrs9." (multithreaded). See `is_multithreaded`.
 
-  - id: chunks
-    type: chunk
-    repeat: eos
+  - id: body
+    type:
+      switch-on: is_multithreaded
+      cases:
+        true: multithreaded_body
+        false: single_threaded_body
     doc: |
-      Stream of compressed chunks. Each chunk is independently sized
-      (variable compressed length) but shares a session-wide LZ77
-      sliding window with preceding chunks.
+      Compressed payload. The concrete layout depends on the signature:
+      a flat chunk stream for single-threaded files, or a
+      thread-distribution header plus prefix/main chunk groups for
+      multithreaded files.
+
+instances:
+  is_multithreaded:
+    value: 'signature.substring(30, 43) == "multithreaded"'
+    doc: |
+      True when the signature names the multithreaded XPrs9 codec. The
+      method name begins at character offset 30 ("This backup was created
+      using " is 30 characters); the multithreaded variant has
+      "multithreaded" there, the single-threaded variant has "XPress9 ...".
+
+  chunk_uncompressed_size:
+    value: 'is_multithreaded ? body.as<multithreaded_body>.distribution.chunk_uncompressed_size : body.as<single_threaded_body>.chunks[0].uncompressed'
+    doc: |
+      Uncompressed size of a full chunk in bytes (typically 2 MB). Stored
+      explicitly in the thread-distribution header for multithreaded
+      files; for single-threaded files it is taken from the first chunk.
+      Used to size the LZ77 warmup region (see `warmup_blocks`).
+
+  first_chunk:
+    value: 'is_multithreaded ? (body.as<multithreaded_body>.distribution.prefix_thread_count > 0 ? body.as<multithreaded_body>.prefix_chunks[0] : body.as<multithreaded_body>.main_chunks[0]) : body.as<single_threaded_body>.chunks[0]'
+    doc: |
+      First decompressed chunk in the stream, regardless of layout. For
+      multithreaded files this is the first prefix chunk when a prefix
+      group is present, otherwise the first main chunk. Its block header
+      carries the session-wide flags (window size, etc.).
+
+  window_size:
+    value: first_chunk.node.header.flags.window_size
+    doc: |
+      LZ77 sliding-window size in bytes for the session, taken from the
+      first chunk's header flags. Constant across all blocks in a session.
+
+  warmup_blocks:
+    value: '(window_size + chunk_uncompressed_size - 1) / chunk_uncompressed_size'
+    doc: |
+      Number of additional blocks to decompress before a target block in
+      order to fill the LZ77 sliding window with valid history. Required
+      for reliable partial decompression from the middle or end of a
+      stream.
+
+      Formula: ceil(window_size / chunk_uncompressed_size)
+
+      Example with 2 MB chunks and 4 MB window: 2 warmup blocks. To
+      decompress the last 4 blocks, start 2 blocks earlier (6 total) and
+      discard the warmup output.
 
 types:
+  single_threaded_body:
+    doc: |
+      Flat stream of compressed chunks. Each chunk is independently sized
+      (variable compressed length) but shares a session-wide LZ77 sliding
+      window with preceding chunks.
+
+      See: pbixray/loader.py __process_single_threaded
+    seq:
+      - id: chunks
+        type: chunk
+        repeat: eos
+
+  multithreaded_body:
+    doc: |
+      Multithreaded layout: a thread-distribution header followed by the
+      prefix chunk group and then the main chunk group. Within each group
+      chunks are stored thread-by-thread (thread 0's chunks, then thread
+      1's, ...), and the decompressed output concatenates prefix-then-main
+      in stored order.
+
+      See: pbixray/loader.py __process_multi_threaded
+    seq:
+      - id: distribution
+        type: thread_distribution
+        doc: 40-byte header describing how chunks are split across threads.
+
+      - id: prefix_chunks
+        type: chunk
+        repeat: expr
+        repeat-expr: distribution.prefix_thread_count * distribution.prefix_chunks_per_thread
+        doc: |
+          Prefix chunk group, decompressed before the main group. Empty
+          when prefix_thread_count or prefix_chunks_per_thread is 0.
+
+      - id: main_chunks
+        type: chunk
+        repeat: expr
+        repeat-expr: distribution.main_thread_count * distribution.main_chunks_per_thread
+        doc: |
+          Main chunk group. Empty when main_thread_count or
+          main_chunks_per_thread is 0.
+
+  thread_distribution:
+    doc: |
+      40-byte multithreaded header: five little-endian u8 (8-byte) counts
+      describing how the compressor split the stream across threads.
+
+      The fields are read in this exact order by the loader; note the
+      slightly counter-intuitive ordering (main per-thread count first,
+      then prefix per-thread count, then the two thread counts).
+
+      See: pbixray/loader.py lines 116-120
+    seq:
+      - id: main_chunks_per_thread
+        type: u8
+        doc: Number of chunks each main-group thread produced.
+
+      - id: prefix_chunks_per_thread
+        type: u8
+        doc: Number of chunks each prefix-group thread produced.
+
+      - id: prefix_thread_count
+        type: u8
+        doc: |
+          Number of threads in the prefix group. Prefix chunk count is
+          prefix_thread_count * prefix_chunks_per_thread.
+
+      - id: main_thread_count
+        type: u8
+        doc: |
+          Number of threads in the main group. Main chunk count is
+          main_thread_count * main_chunks_per_thread.
+
+      - id: chunk_uncompressed_size
+        type: u8
+        doc: |
+          Uncompressed size of a full chunk in bytes (typically 2 MB).
+          Used to size the LZ77 sliding-window warmup region.
+
   chunk:
     doc: |
       Outer envelope for one xpress9-compressed block. The uncompressed
       and compressed sizes are stored as a pair of u4 values preceding
-      the raw compressed payload.
+      the raw compressed payload. Identical in both single-threaded and
+      multithreaded layouts.
     seq:
       - id: uncompressed
         type: u4
@@ -230,21 +375,6 @@ types:
           this field is non-zero (src/Xpress9DecLz77.c line 698).
           A non-zero value here indicates either file corruption or
           a format version mismatch.
-
-      warmup_blocks:
-        value: |
-          (window_size + _root.chunks[0].uncompressed - 1) / _root.chunks[0].uncompressed
-        doc: |
-          Number of additional blocks to decompress before a target
-          block in order to fill the LZ77 sliding window with valid
-          history. Required for reliable partial decompression from
-          the middle or end of a stream.
-
-          Formula: ceil(window_size / chunk_uncompressed_size)
-
-          Example with 2 MB chunks and 4 MB window: 2 warmup blocks.
-          To decompress the last 4 blocks, start 2 blocks earlier
-          (6 total) and discard the warmup output.
 
 enums:
   mtf_entries_enum:
