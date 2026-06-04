@@ -1,8 +1,51 @@
+import shutil
+import tempfile
 import zipfile
 import concurrent.futures
 from .abf import parser
 from .abf.data_model import DataModel, Container
+from .abf.mapped_buffer import MappedBuffer
 from xpress9 import Xpress9
+
+
+class _MemorySink:
+    """Accumulates decompressed chunks into an in-process ``bytearray``.
+
+    This preserves the original (``on_disk=False``) behavior byte-for-byte: the
+    full decompressed data model lives in RAM for the lifetime of the loader.
+    """
+
+    def __init__(self):
+        self._buf = bytearray()
+
+    def write(self, chunk):
+        self._buf.extend(chunk)
+
+    def finish(self):
+        return self._buf
+
+
+class _FileSink:
+    """Streams decompressed chunks to a temp file, then mmaps it (``on_disk=True``).
+
+    Chunks are written as they are produced so the full decompressed data model
+    is never held in RAM. :meth:`finish` returns a :class:`MappedBuffer` that owns
+    the temp file and releases it on ``close()`` / GC.
+    """
+
+    def __init__(self, temp_dir=None):
+        self._tmp = tempfile.NamedTemporaryFile(
+            mode='wb', suffix='.pbixray', dir=temp_dir, delete=False
+        )
+        self._path = self._tmp.name
+
+    def write(self, chunk):
+        self._tmp.write(chunk)
+
+    def finish(self):
+        self._tmp.flush()
+        self._tmp.close()
+        return MappedBuffer(self._path)
 
 
 class DataModelLoader:
@@ -11,14 +54,20 @@ class DataModelLoader:
     MULTI_THREAD_SIGNATURE = "This backup was created using multithreaded XPrs9."
     STREAM_STORAGE_SIGNATURE = b'\xff\xfe' + "STREAM_STORAGE_SIGNATURE_)!@#$%^&*(".encode('utf-16le')
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, on_disk=False, temp_dir=None):
         self.file_path = file_path
+        self._on_disk = on_disk
+        self._temp_dir = temp_dir
 
         # Attributes populated during unpacking
         self._data_model = DataModel(file_log=[], decompressed_data=b'', container=Container.PBIX)
 
         # Detect container and unpack accordingly
         self.__unpack()
+
+    def __make_sink(self):
+        """Create the output sink for decompressed data based on ``on_disk``."""
+        return _FileSink(self._temp_dir) if self._on_disk else _MemorySink()
 
     def __detect_compression(self, data_model_file):
         """Detect the compression scheme of the DataModel stream based on its signature."""
@@ -70,20 +119,23 @@ class DataModelLoader:
                     self.__process_multi_threaded(data_model_in_archive)
                 else:
                     raise RuntimeError("Unknown or unsupported DataModel compression format")
+                # Note: signatures are decoded above; on_disk only changes where the
+                # decompressed output lands, not how the stream is parsed.
 
         # Parse the decompressed data
         parser.AbfParser(self._data_model)
 
     def __process_uncompressed(self, data_model_file):
         """Process an uncompressed DataModel file."""
-        # For uncompressed files, we can just read the entire file
+        sink = self.__make_sink()
+        # Stream the member straight into the sink rather than reading it whole.
         data_model_file.seek(0)
-        all_data = data_model_file.read()
-        self._data_model.decompressed_data = bytearray(all_data)
+        shutil.copyfileobj(data_model_file, sink)
+        self._data_model.decompressed_data = sink.finish()
 
     def __process_single_threaded(self, data_model_file):
         """Process a single-threaded Xpress9 compressed DataModel file."""
-        all_decompressed_data = bytearray()
+        sink = self.__make_sink()
         total_size = data_model_file.seek(0, 2)  # Get total size of file
         data_model_file.seek(102)  # Skip signature
 
@@ -99,18 +151,18 @@ class DataModelLoader:
                 decompressed_chunk = xpress9_lib.decompress(
                     compressed_data, uncompressed_size
                 )
-                
-                # Append decompressed data
-                all_decompressed_data.extend(decompressed_chunk)
+
+                # Emit decompressed data (RAM bytearray or temp file)
+                sink.write(decompressed_chunk)
         finally:
             # Ensure the library is properly terminated
             del xpress9_lib
-            
-        # Populate the byte array of the data bundle
-        self._data_model.decompressed_data = all_decompressed_data
+
+        # Populate the data bundle (bytearray or mmap-backed buffer)
+        self._data_model.decompressed_data = sink.finish()
 
     def __process_multi_threaded(self, data_model_file):
-        all_decompressed_data = bytearray()
+        sink = self.__make_sink()
         data_model_file.seek(102)
 
         main_chunks_per_thread = int.from_bytes(data_model_file.read(8), 'little')
@@ -145,7 +197,7 @@ class DataModelLoader:
                     
                     for result in ordered_results:
                         if result:
-                            all_decompressed_data.extend(result)
+                            sink.write(result)
         
         # Process main chunks if there are any
         if main_thread_count > 0 and main_chunks_per_thread > 0:
@@ -173,9 +225,9 @@ class DataModelLoader:
                     
                     for result in ordered_results:
                         if result:
-                            all_decompressed_data.extend(result)
+                            sink.write(result)
 
-        self._data_model.decompressed_data = all_decompressed_data
+        self._data_model.decompressed_data = sink.finish()
 
     def __process_chunk_group(self, chunk_group):
         if not chunk_group:

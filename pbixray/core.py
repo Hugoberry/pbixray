@@ -7,15 +7,53 @@ from .meta import Metadata
 # ---------- MAIN CLASS ----------
 
 class PBIXRay:
-    def __init__(self, file_path):
-        loader = DataModelLoader(file_path)
+    def __init__(self, file_path, *, on_disk=False, temp_dir=None):
+        """Open a PBIX/XLSX data model.
 
-        self._metadata = Metadata(loader.data_model)
-        self._vertipaq_decoder = VertiPaqDecoder(self._metadata.source, loader.data_model)
+        Args:
+            file_path: Path to the ``.pbix`` or ``.xlsx`` file.
+            on_disk: When ``True``, the decompressed data model is spilled to a
+                temporary file and memory-mapped instead of being held in a
+                single in-process buffer. Use this for models whose uncompressed
+                size approaches or exceeds available RAM. Default ``False``
+                preserves the original fully-in-memory behavior.
+            temp_dir: Directory for the spill file when ``on_disk=True``
+                (defaults to the system temp directory). Ignored otherwise.
+        """
+        loader = DataModelLoader(file_path, on_disk=on_disk, temp_dir=temp_dir)
+        self._data_model = loader.data_model
 
-    def get_table(self, table_name):
-        """Generates a DataFrame representation of the specified table."""
-        return self._vertipaq_decoder.get_table(table_name)
+        self._metadata = Metadata(self._data_model)
+        self._vertipaq_decoder = VertiPaqDecoder(self._metadata.source, self._data_model)
+
+    def get_table(self, table_name, columns=None):
+        """Generates a DataFrame representation of the specified table.
+
+        Args:
+            table_name: Name of the table to decode.
+            columns: Optional list of column names to decode. When provided, only
+                those columns are decoded (useful for wide tables); ``None``
+                decodes every column.
+        """
+        return self._vertipaq_decoder.get_table(table_name, columns=columns)
+
+    def close(self):
+        """Release OS resources (memory-map / temp file, metadata connection).
+
+        Safe to call multiple times. Only has an effect for ``on_disk=True``
+        models and the metadata SQLite connection.
+        """
+        source = getattr(self._metadata, 'source', None)
+        if source is not None and hasattr(source, 'close'):
+            source.close()
+        self._data_model.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
 
     # ---------- PROPERTIES ----------
 

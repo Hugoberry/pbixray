@@ -70,6 +70,12 @@ class XmlMetadataSource:
         # the MetadataSource surface is uniform.
         for attr in _EMPTY_DF_STUBS:
             setattr(self, attr, pd.DataFrame())
+
+    def close(self):
+        """No resources to release (XLSX metadata is parsed eagerly from
+        already-decompressed XML). Present for interface parity with
+        SqliteMetadataSource."""
+        return None
     
     def _load_xml_singleton(self, pattern, parse, label):
         """Find the first file matching ``pattern`` and parse it; return the

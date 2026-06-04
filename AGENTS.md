@@ -28,6 +28,18 @@ print(model.get_table(model.tables[0]).head())
 File type (PBIX vs XLSX) is auto-detected from contents. Same API either
 way.
 
+## Memory model / large files
+
+By default the whole decompressed data model is held in one in-memory
+buffer for the life of the `PBIXRay` object, and metadata is loaded
+lazily on first property access. For models that approach or exceed host
+RAM, construct with `on_disk=True` (optionally `temp_dir=...`): the
+decompressed data is streamed to a temp file and `mmap`-ed, so only the
+pages a requested table touches are resident. `PBIXRay` is a context
+manager; use `with PBIXRay(path, on_disk=True) as model:` or call
+`model.close()` to release the mapping and temp file deterministically.
+`get_table(name, columns=[...])` decodes only the listed columns.
+
 ## Decision tree — "I want X → use Y"
 
 | I want…                              | Use                                                |

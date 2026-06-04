@@ -295,9 +295,23 @@ class VertiPaqDecoder:
             return column_data.apply(lambda x: Decimal(x)/10000 if pd.notnull(x) else None)
         return column_data
 
-    def get_table(self, table_name):
-        """Generates a DataFrame representation of the specified table."""
+    def get_table(self, table_name, columns=None):
+        """Generates a DataFrame representation of the specified table.
+
+        When ``columns`` is provided, only those columns are decoded; unknown
+        names raise a ``ValueError``.
+        """
         table_metadata_df = self._meta.schema_df[self._meta.schema_df['TableName'] == table_name]
+        if columns is not None:
+            available = set(table_metadata_df['ColumnName'])
+            missing = [c for c in columns if c not in available]
+            if missing:
+                raise ValueError(
+                    f"Column(s) {missing} not found in table {table_name!r}. "
+                    f"Available: {sorted(available)}"
+                )
+            wanted = set(columns)
+            table_metadata_df = table_metadata_df[table_metadata_df['ColumnName'].isin(wanted)]
         dataframe_data = {}
 
         for _, column_metadata in table_metadata_df.iterrows():

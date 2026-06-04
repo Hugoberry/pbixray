@@ -24,6 +24,25 @@ from pbixray import PBIXRay
 model = PBIXRay('path/to/your/file.pbix')
 ```
 
+### Large models (on-disk loading)
+By default the entire decompressed data model is held in memory. For models whose
+uncompressed size approaches or exceeds available RAM, pass `on_disk=True`: the
+decompressed data is streamed to a temporary file and memory-mapped, so only the
+pages a requested table actually touches are faulted in. Use `temp_dir` to control
+where the spill file is created (defaults to the system temp directory).
+
+```python
+# Spill to disk + mmap instead of holding everything in RAM.
+with PBIXRay('path/to/large.pbix', on_disk=True, temp_dir='/fast/scratch') as model:
+    df = model.get_table('Sales')
+# leaving the `with` block releases the mapping and removes the temp file
+```
+
+`PBIXRay` is also a context manager; `model.close()` (or exiting the `with` block)
+deterministically releases the memory map and the metadata connection. When
+`on_disk=False` (the default) behavior is unchanged. Metadata (DAX, TMSCHEMA_*, etc.)
+is loaded lazily on first access, so simply opening a file is cheap.
+
 ## Features and Usage
 ### Tables
 To list all tables in the model:
@@ -98,6 +117,11 @@ table_name = 'YourTableName'
 table_contents = model.get_table(table_name)
 print(table_contents)
 ```
+To decode only a subset of columns from a wide table (decoding the others is skipped),
+pass `columns`:
+```python
+table_contents = model.get_table(table_name, columns=['ProductKey', 'Sales'])
+```
 Dictionary decode runs on a native Huffman kernel ([xmhuffman](https://github.com/Hugoberry/xmhuffman-cython)) and fans out across cores automatically for large dictionaries.
 ### Statistics
 To get statistics about the model, including column cardinality and byte sizes of dictionary, hash index, and data components, in a dataframe with columns `TableName`, `ColumnName`, `Cardinality`, `Dictionary`, `HashIndex`, and `DataSize`:
@@ -162,3 +186,8 @@ print(model.tmschema_refresh_policies)
 # Example — list all security roles and their members
 print(model.tmschema_role_memberships)
 ```
+
+## Roadmap
+
+Planned optimizations for very large models (Arrow output, direct zip-member
+mmap, RecordBatch streaming) are tracked in [ROADMAP.md](ROADMAP.md).

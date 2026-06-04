@@ -45,66 +45,86 @@ class SqliteMetadataSource:
         self._data_model = data_model
         self._db = _SqliteReader(get_data_slice(data_model, 'metadata.sqlitedb'))
 
-        # Populate dataframes upon instantiation
-        self.schema_df = self.__populate_schema()
+        # ``schema_df`` is needed eagerly by VertiPaqDecoder, statistics and the
+        # table list, so it is built (and normalized) up front. Every other
+        # dataframe is loaded lazily on first access (see ``__getattr__``) and
+        # cached, so merely opening a model no longer runs ~40 queries.
+        self.schema_df = convert_time_columns(self.__populate_schema())
         self.__normalize_schema()
-        self.m_df = self.__populate_m()
-        self.m_parameters_df = self.__populate_m_parameters()
-        self.dax_tables_df = self.__populate_dax_tables()
-        self.dax_measures_df = self.__populate_dax_measures()
-        self.dax_columns_df = self.__populate_dax_columns()
-        self.metadata_df = self.__populate_metadata()
-        self.relationships_df = self.__populate_relationships()
-        self.rls_df = self.__populate_rls()
 
-        # TMSCHEMA_* DMV equivalents
-        self.model_df                     = self.__populate_model()
-        self.tables_df                    = self.__populate_tables()
-        self.columns_df                   = self.__populate_columns()
-        self.partitions_df                = self.__populate_partitions()
-        self.hierarchies_df               = self.__populate_hierarchies()
-        self.levels_df                    = self.__populate_levels()
-        self.datasources_df               = self.__populate_datasources()
-        self.perspectives_df              = self.__populate_perspectives()
-        self.perspective_tables_df        = self.__populate_perspective_tables()
-        self.perspective_columns_df       = self.__populate_perspective_columns()
-        self.perspective_hierarchies_df   = self.__populate_perspective_hierarchies()
-        self.perspective_measures_df      = self.__populate_perspective_measures()
-        self.kpis_df                      = self.__populate_kpis()
-        self.annotations_df               = self.__populate_annotations()
-        self.extended_properties_df       = self.__populate_extended_properties()
-        self.cultures_df                  = self.__populate_cultures()
-        self.translations_df              = self.__populate_translations()
-        self.linguistic_metadata_df       = self.__populate_linguistic_metadata()
-        self.query_groups_df              = self.__populate_query_groups()
-        self.calculation_groups_df        = self.__populate_calculation_groups()
-        self.calculation_items_df         = self.__populate_calculation_items()
-        self.calculation_expressions_df   = self.__populate_calculation_expressions()
-        self.variations_df                = self.__populate_variations()
-        self.attribute_hierarchies_df     = self.__populate_attribute_hierarchies()
-        self.sets_df                      = self.__populate_sets()
-        self.refresh_policies_df          = self.__populate_refresh_policies()
-        self.detail_rows_definitions_df   = self.__populate_detail_rows_definitions()
-        self.format_string_definitions_df = self.__populate_format_string_definitions()
-        self.functions_df                 = self.__populate_functions()
-        self.calendars_df                 = self.__populate_calendars()
-        self.calendar_column_groups_df    = self.__populate_calendar_column_groups()
-        self.calendar_column_refs_df      = self.__populate_calendar_column_refs()
-        self.alternate_of_df              = self.__populate_alternate_of()
-        self.related_column_details_df    = self.__populate_related_column_details()
-        self.group_by_columns_df          = self.__populate_group_by_columns()
-        self.binding_info_df              = self.__populate_binding_info()
-        self.analytics_ai_metadata_df     = self.__populate_analytics_ai_metadata()
-        self.data_coverage_definitions_df = self.__populate_data_coverage_definitions()
-        self.role_memberships_df          = self.__populate_role_memberships()
+        # Map each lazy ``*_df`` attribute to the method that builds it. The
+        # bound methods resolve name-mangled private populators correctly.
+        self._lazy_populators = {
+            'm_df':                          self.__populate_m,
+            'm_parameters_df':               self.__populate_m_parameters,
+            'dax_tables_df':                 self.__populate_dax_tables,
+            'dax_measures_df':               self.__populate_dax_measures,
+            'dax_columns_df':                self.__populate_dax_columns,
+            'metadata_df':                   self.__populate_metadata,
+            'relationships_df':              self.__populate_relationships,
+            'rls_df':                        self.__populate_rls,
+            'model_df':                      self.__populate_model,
+            'tables_df':                     self.__populate_tables,
+            'columns_df':                    self.__populate_columns,
+            'partitions_df':                 self.__populate_partitions,
+            'hierarchies_df':                self.__populate_hierarchies,
+            'levels_df':                     self.__populate_levels,
+            'datasources_df':                self.__populate_datasources,
+            'perspectives_df':               self.__populate_perspectives,
+            'perspective_tables_df':         self.__populate_perspective_tables,
+            'perspective_columns_df':        self.__populate_perspective_columns,
+            'perspective_hierarchies_df':    self.__populate_perspective_hierarchies,
+            'perspective_measures_df':       self.__populate_perspective_measures,
+            'kpis_df':                       self.__populate_kpis,
+            'annotations_df':                self.__populate_annotations,
+            'extended_properties_df':        self.__populate_extended_properties,
+            'cultures_df':                   self.__populate_cultures,
+            'translations_df':               self.__populate_translations,
+            'linguistic_metadata_df':        self.__populate_linguistic_metadata,
+            'query_groups_df':               self.__populate_query_groups,
+            'calculation_groups_df':         self.__populate_calculation_groups,
+            'calculation_items_df':          self.__populate_calculation_items,
+            'calculation_expressions_df':    self.__populate_calculation_expressions,
+            'variations_df':                 self.__populate_variations,
+            'attribute_hierarchies_df':      self.__populate_attribute_hierarchies,
+            'sets_df':                       self.__populate_sets,
+            'refresh_policies_df':           self.__populate_refresh_policies,
+            'detail_rows_definitions_df':    self.__populate_detail_rows_definitions,
+            'format_string_definitions_df':  self.__populate_format_string_definitions,
+            'functions_df':                  self.__populate_functions,
+            'calendars_df':                  self.__populate_calendars,
+            'calendar_column_groups_df':     self.__populate_calendar_column_groups,
+            'calendar_column_refs_df':       self.__populate_calendar_column_refs,
+            'alternate_of_df':               self.__populate_alternate_of,
+            'related_column_details_df':     self.__populate_related_column_details,
+            'group_by_columns_df':           self.__populate_group_by_columns,
+            'binding_info_df':               self.__populate_binding_info,
+            'analytics_ai_metadata_df':      self.__populate_analytics_ai_metadata,
+            'data_coverage_definitions_df':  self.__populate_data_coverage_definitions,
+            'role_memberships_df':           self.__populate_role_memberships,
+        }
 
-        self.__convert_timestamps()
-        self._db.close()
+    def __getattr__(self, name):
+        """Lazily build, timestamp-convert and cache ``*_df`` attributes.
 
-    def __convert_timestamps(self):
-        for attr, df in vars(self).items():
-            if attr.endswith('_df') and hasattr(df, 'columns'):
-                setattr(self, attr, convert_time_columns(df))
+        Invoked only when normal attribute lookup fails, so cached results (set
+        below) and eager attributes bypass it entirely.
+        """
+        populators = self.__dict__.get('_lazy_populators')
+        if populators and name in populators:
+            df = convert_time_columns(populators[name]())
+            setattr(self, name, df)  # cache for subsequent access
+            return df
+        raise AttributeError(
+            f"{type(self).__name__!r} object has no attribute {name!r}"
+        )
+
+    def close(self):
+        """Close the in-memory SQLite connection. Safe to call repeatedly."""
+        db = self.__dict__.get('_db')
+        if db is not None:
+            db.close()
+            self._db = None
 
     def __normalize_schema(self):
         """Add format-agnostic ``PandasDataType`` and ``SemanticType`` columns
