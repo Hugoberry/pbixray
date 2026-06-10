@@ -281,12 +281,13 @@ class SqliteMetadataSource:
         FROM Relationship rel
             LEFT JOIN [Table] ft ON rel.FromTableID = ft.id
             LEFT JOIN [Column] fc ON rel.FromColumnID = fc.id
-            LEFT JOIN [Table] tt ON rel.ToTableID = tt.id AND tt.systemflags = 0
+            LEFT JOIN [Table] tt ON rel.ToTableID = tt.id
             LEFT JOIN [Column] tc ON rel.ToColumnID = tc.id
             LEFT JOIN RelationshipStorage rs ON rs.id = rel.RelationshipStorageID
             LEFT JOIN RelationshipIndexStorage rid ON rs.RelationshipIndexStorageID = rid.id
             LEFT JOIN RelationshipStorage rs2 ON rs2.id = rel.RelationshipStorage2ID
             LEFT JOIN RelationshipIndexStorage rid2 ON rs2.RelationshipIndexStorageID = rid2.id
+        WHERE ft.SystemFlags = 0 AND tt.SystemFlags = 0
         """
         return self._db.query(sql)
 
