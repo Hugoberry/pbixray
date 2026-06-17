@@ -61,3 +61,17 @@ def xlsx_model():
 @pytest.fixture(scope="module")
 def five_m_model():
     return PBIXRay(os.path.join(DATA_DIR, "5M.pbix"))
+
+
+@pytest.fixture(scope="module")
+def legacy_schema17_model():
+    # SCHEMAVERSION 17 PowerPivot-era model whose `Column` table has no `Type`
+    # column (role lives in `BindingType`). Regression guard for that schema.
+    return PBIXRay(os.path.join(DATA_DIR, "old-schema17-DataTable.pbix"))
+
+
+@pytest.fixture(scope="module")
+def empty_schema_model():
+    # Model with only calculated tables / measures, so the schema query matches
+    # no rows. Regression guard: the model must still open with an empty schema.
+    return PBIXRay(os.path.join(DATA_DIR, "empty-schema-calc-only.pbix"))
