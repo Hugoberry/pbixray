@@ -41,6 +41,14 @@ class _SqliteReader:
 
 
 class SqliteMetadataSource:
+    # Canonical columns produced by ``__populate_schema``. Used to give an
+    # empty (no-matching-rows) schema a stable shape.
+    _SCHEMA_COLUMNS = [
+        'TableName', 'ColumnName', 'Dictionary', 'HIDX', 'IDF', 'Cardinality',
+        'DataType', 'BaseId', 'Magnitude', 'IsNullable', 'ModifiedTime',
+        'StructureModifiedTime',
+    ]
+
     def __init__(self, data_model: DataModel):
         self._data_model = data_model
         self._db = _SqliteReader(get_data_slice(data_model, 'metadata.sqlitedb'))
@@ -49,7 +57,12 @@ class SqliteMetadataSource:
         # table list, so it is built (and normalized) up front. Every other
         # dataframe is loaded lazily on first access (see ``__getattr__``) and
         # cached, so merely opening a model no longer runs ~40 queries.
-        self.schema_df = convert_time_columns(self.__populate_schema())
+        schema_df = convert_time_columns(self.__populate_schema())
+        # A query that matches no rows (e.g. a model with only calculated tables,
+        # measures, or a DirectQuery source) comes back column-less from the APSW
+        # wrapper. Reindex to the canonical columns so downstream consumers can
+        # always select them and the model still opens (with an empty schema).
+        self.schema_df = schema_df.reindex(columns=self._SCHEMA_COLUMNS)
         self.__normalize_schema()
 
         # Map each lazy ``*_df`` attribute to the method that builds it. The
@@ -126,9 +139,35 @@ class SqliteMetadataSource:
             db.close()
             self._db = None
 
+    def _has_column(self, table, column):
+        """Return True if ``table`` has ``column`` in this database.
+
+        Metadata schemas evolve across Power BI versions: some columns the
+        queries reference (e.g. ``Column.Type``) simply do not exist in older
+        schemas. Column sets are cached per table on first lookup. ``table`` is
+        always a fixed internal identifier, never user input.
+        """
+        cache = self.__dict__.setdefault('_column_cache', {})
+        if table not in cache:
+            cache[table] = {
+                row[1]
+                for row in self._db.conn.cursor().execute(
+                    f'PRAGMA table_info("{table}")'
+                )
+            }
+        return column in cache[table]
+
     def __normalize_schema(self):
         """Add format-agnostic ``PandasDataType`` and ``SemanticType`` columns
         so downstream code never has to know this came from a pbix."""
+        if 'DataType' not in self.schema_df.columns:
+            # Empty or unexpected schema (e.g. a query that found no matching
+            # columns). Keep a stable shape instead of raising KeyError.
+            self.schema_df = self.schema_df.assign(
+                PandasDataType=pd.Series(dtype='object'),
+                SemanticType=pd.Series(dtype='object'),
+            )
+            return
         dt = self.schema_df['DataType']
         self.schema_df = self.schema_df.assign(
             PandasDataType=dt.map(AMO_PANDAS_TYPE_MAPPING).fillna('object'),
@@ -155,7 +194,11 @@ class SqliteMetadataSource:
     # -------------------------------------------------------------------------
 
     def __populate_schema(self):
-        sql = """
+        # ``Column.Type`` (1=Data, 2=Calculated, 3=RowNumber, 4=CalculatedTableColumn)
+        # does not exist in legacy schemas (SCHEMAVERSION < ~18). There the same
+        # role enumeration lives in ``Column.BindingType``, so fall back to it.
+        type_col = "c.Type" if self._has_column("Column", "Type") else "c.BindingType"
+        sql = f"""
         SELECT
             t.Name AS TableName,
             c.ExplicitName AS ColumnName,
@@ -183,7 +226,7 @@ class SqliteMetadataSource:
         --IDF
         JOIN ColumnPartitionStorage cps ON cps.ColumnStorageID = cs.ID
         JOIN StorageFile sfi ON sfi.ID = cps.StorageFileID
-        WHERE c.Type IN (1,2)
+        WHERE {type_col} IN (1,2)
         ORDER BY t.Name, cs.StoragePosition
         """
         return self._db.query(sql)
