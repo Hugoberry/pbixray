@@ -5,6 +5,8 @@ import concurrent.futures
 from .abf import parser
 from .abf.data_model import DataModel, Container
 from .abf.mapped_buffer import MappedBuffer
+from .connections import parse_connections
+from .exceptions import LiveConnectionError, NoEmbeddedModelError
 from xpress9 import Xpress9
 
 
@@ -61,6 +63,7 @@ class DataModelLoader:
 
         # Attributes populated during unpacking
         self._data_model = DataModel(file_log=[], decompressed_data=b'', container=Container.PBIX)
+        self._connections = []
 
         # Detect container and unpack accordingly
         self.__unpack()
@@ -102,10 +105,18 @@ class DataModelLoader:
             self._data_model.container = Container.XLSX
             return 'xl/model/item.data'
 
-        raise RuntimeError("No supported data model file found. File must be a PBIX file with 'DataModel' or an XLSX file with 'xl/model/item.data'")
+        # No embedded model. If the report carries a connection manifest it is a
+        # thin/live-connection report whose model lives on an external server.
+        if self._connections:
+            raise LiveConnectionError(self._connections)
+        raise NoEmbeddedModelError(
+            "No supported data model found. File must be a PBIX with 'DataModel' "
+            "or an XLSX with 'xl/model/item.data'."
+        )
 
     def __unpack(self):
         with zipfile.ZipFile(self.file_path, 'r') as zip_ref:
+            self._connections = parse_connections(zip_ref)
             data_model_path = self.__get_data_model_path(zip_ref)
 
             with zip_ref.open(data_model_path) as data_model_in_archive:
@@ -244,6 +255,11 @@ class DataModelLoader:
         finally:
             del xpress9_lib
         return decompressed
+
+    @property
+    def connections(self):
+        """Parsed ``Connections`` manifest entries (list of dicts)."""
+        return self._connections
 
     @property
     def data_model(self):

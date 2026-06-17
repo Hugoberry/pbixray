@@ -130,6 +130,36 @@ statistics = model.statistics
 print(statistics)
 ```
 
+### Connections
+Reports expose their `Connections` manifest — the list of data connections
+declared by the report — as a list of dictionaries:
+```python
+print(model.connections)
+```
+Self-contained (import) models usually return an empty list.
+
+### Live-connection (thin) reports
+Some `.pbix` files are *thin reports* with no embedded model: they live-connect
+to an external Analysis Services server (`analysisServicesDatabaseLive`) or a
+Power BI Service dataset (`pbiServiceLive`). Because the model lives on a remote
+server, there is nothing to extract on disk, and constructing `PBIXRay` raises
+`LiveConnectionError`. The exception carries the parsed connection details so you
+can still identify what the report points at:
+```python
+from pbixray import PBIXRay, LiveConnectionError, NoEmbeddedModelError
+
+try:
+    model = PBIXRay("thin-report.pbix")
+except LiveConnectionError as e:
+    print(e.connection_type)   # e.g. 'pbiServiceLive'
+    print(e.database_name)     # remote dataset id, when available
+    print(e.connections)       # full manifest (list of dicts)
+```
+The exception hierarchy is `LiveConnectionError` → `NoEmbeddedModelError` →
+`PBIXRayError`. `NoEmbeddedModelError` is raised when a file has no model and no
+connection manifest. Both also subclass `RuntimeError` for backward
+compatibility.
+
 ## Tabular Model Schema (TMSCHEMA) Endpoints
 
 Full equivalents of the Analysis Services `$System.TMSCHEMA_*` DMVs, read directly from the embedded SQLite metadata database.

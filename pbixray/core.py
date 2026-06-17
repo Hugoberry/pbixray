@@ -22,6 +22,7 @@ class PBIXRay:
         """
         loader = DataModelLoader(file_path, on_disk=on_disk, temp_dir=temp_dir)
         self._data_model = loader.data_model
+        self._connections = loader.connections
 
         self._metadata = Metadata(self._data_model)
         self._vertipaq_decoder = VertiPaqDecoder(self._metadata.source, self._data_model)
@@ -100,6 +101,16 @@ class PBIXRay:
     @property
     def relationships(self):
         return self._metadata.source.relationships_df
+
+    @property
+    def connections(self):
+        """Parsed entries from the report's ``Connections`` manifest (list of dicts).
+
+        Self-contained (import) models usually return an empty list. Thin/live
+        reports have no embedded model and instead raise ``LiveConnectionError``
+        on construction; that exception carries the same connection details.
+        """
+        return self._connections
 
     @property
     def rls(self):
