@@ -64,6 +64,7 @@ class DataModelLoader:
         # Attributes populated during unpacking
         self._data_model = DataModel(file_log=[], decompressed_data=b'', container=Container.PBIX)
         self._connections = []
+        self._data_mashup_bytes = None
 
         # Detect container and unpack accordingly
         self.__unpack()
@@ -117,6 +118,8 @@ class DataModelLoader:
     def __unpack(self):
         with zipfile.ZipFile(self.file_path, 'r') as zip_ref:
             self._connections = parse_connections(zip_ref)
+            if 'DataMashup' in zip_ref.namelist():
+                self._data_mashup_bytes = zip_ref.read('DataMashup')
             data_model_path = self.__get_data_model_path(zip_ref)
 
             with zip_ref.open(data_model_path) as data_model_in_archive:
@@ -260,6 +263,11 @@ class DataModelLoader:
     def connections(self):
         """Parsed ``Connections`` manifest entries (list of dicts)."""
         return self._connections
+
+    @property
+    def data_mashup_bytes(self):
+        """Raw bytes of the ``DataMashup`` part, or ``None`` when absent."""
+        return self._data_mashup_bytes
 
     @property
     def data_model(self):

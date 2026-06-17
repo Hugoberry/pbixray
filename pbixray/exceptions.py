@@ -10,6 +10,10 @@ class PBIXRayError(Exception):
     """Base class for all pbixray errors."""
 
 
+class DataMashupError(PBIXRayError):
+    """Raised when the ``DataMashup`` (Power Query) part cannot be decoded."""
+
+
 class NoEmbeddedModelError(PBIXRayError, RuntimeError):
     """Raised when a PBIX/XLSX file contains no embedded data model to parse.
 

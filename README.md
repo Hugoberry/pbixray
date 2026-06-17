@@ -160,6 +160,26 @@ The exception hierarchy is `LiveConnectionError` → `NoEmbeddedModelError` →
 connection manifest. Both also subclass `RuntimeError` for backward
 compatibility.
 
+### Power Query (DataMashup)
+`power_query` and `m_parameters` read the M from the Analysis Services metadata,
+which works for **import** models. Some models — notably **DirectQuery / native
+SQL** — keep their queries and parameters only in the report's `DataMashup` part
+([MS-QDEFF]). `model.data_mashup` and `model.mashup_queries` parse that part
+directly:
+```python
+df = model.mashup_queries        # Name, Kind, IsParameter, Expression, Type, DefaultValue, AllowedValues
+params = df[df["IsParameter"]]   # the Power Query parameters and their metadata
+
+mashup = model.data_mashup       # None when the file has no DataMashup part
+if mashup is not None:
+    print(mashup.version)
+    for q in mashup.parameters:  # MQuery objects
+        print(q.name, q.param_type, q.default_value, q.allowed_values)
+```
+`data_mashup` is `None` for files without a mashup, and raises `DataMashupError`
+if the part is malformed. These accessors are additive — `power_query` and
+`m_parameters` keep their existing AS-metadata behavior.
+
 ## Tabular Model Schema (TMSCHEMA) Endpoints
 
 Full equivalents of the Analysis Services `$System.TMSCHEMA_*` DMVs, read directly from the embedded SQLite metadata database.
