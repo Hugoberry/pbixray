@@ -48,6 +48,25 @@ def test_legacy_metadata_properties(legacy_schema17_model):
         assert isinstance(getattr(model, prop), pd.DataFrame)
 
 
+def test_legacy_all_dmv_dataframes_realize(legacy_schema17_model):
+    """Force-realize every lazy ``*_df`` populator on a legacy model.
+
+    The Python analogue of the Swift ``test_oldABF_endToEnd_allFixtures`` sweep:
+    legacy schemas rename/drop columns the modern DMV queries reference, so every
+    populator must resolve to a DataFrame (degrading missing columns to NULL)
+    rather than crashing. Populators whose whole table is absent in the legacy
+    schema legitimately come back empty.
+    """
+    source = legacy_schema17_model._metadata.source
+    for name in source._lazy_populators:
+        df = getattr(source, name)
+        assert isinstance(df, pd.DataFrame), f"{name} did not realize to a DataFrame"
+    # Core high-traffic populators must actually carry data on this fixture.
+    assert len(getattr(source, "tables_df")) > 0
+    assert len(getattr(source, "columns_df")) > 0
+    assert len(getattr(source, "partitions_df")) > 0
+
+
 # ---------------------------------------------------------------------------
 # Empty-schema models (only calculated tables / measures -> zero schema rows).
 # The schema query matches no rows and the APSW wrapper returns a column-less
