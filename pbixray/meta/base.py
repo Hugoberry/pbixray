@@ -12,7 +12,10 @@ class MetadataSource(Protocol):
 
     * ``TableName``, ``ColumnName`` — identification
     * ``Cardinality`` — distinct value count
-    * ``Dictionary``, ``HIDX``, ``IDF`` — storage file refs (may be None)
+    * ``Dictionary``, ``HIDX``, ``IDF`` — storage file refs (may be None);
+      ``IDF`` is the first partition's data file
+    * ``IDFs`` — ordered list of per-partition IDF data files (one entry for
+      single-partition columns); the decoder concatenates them in this order
     * ``ModifiedTime``, ``StructureModifiedTime``
     * ``PandasDataType`` — pandas dtype string ready for ``astype`` (e.g.
       ``"Int64"``, ``"string"``, ``"datetime64[ns]"``)

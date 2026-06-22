@@ -44,9 +44,9 @@ class SqliteMetadataSource:
     # Canonical columns produced by ``__populate_schema``. Used to give an
     # empty (no-matching-rows) schema a stable shape.
     _SCHEMA_COLUMNS = [
-        'TableName', 'ColumnName', 'Dictionary', 'HIDX', 'IDF', 'Cardinality',
-        'DataType', 'BaseId', 'Magnitude', 'IsNullable', 'ModifiedTime',
-        'StructureModifiedTime',
+        'TableName', 'ColumnName', 'Dictionary', 'HIDX', 'IDF', 'IDFs',
+        'Cardinality', 'DataType', 'BaseId', 'Magnitude', 'IsNullable',
+        'ModifiedTime', 'StructureModifiedTime',
     ]
 
     def __init__(self, data_model: DataModel):
@@ -210,9 +210,15 @@ class SqliteMetadataSource:
             SemanticType=dt.map(_AMO_SEMANTIC_TYPES).fillna('Other'),
         )
 
-    def get_segment_meta(self, column_row):
-        """Parse the ``.idfmeta`` blob for a column into a list of per-segment dicts."""
-        buffer = get_data_slice(self._data_model, column_row["IDF"] + 'meta')
+    def get_segment_meta(self, column_row, idf=None):
+        """Parse the ``.idfmeta`` blob for one partition IDF into per-segment dicts.
+
+        ``idf`` selects which partition's IDF to read; it defaults to the column's
+        first partition (``column_row["IDF"]``) so the single-partition contract is
+        unchanged. The decoder iterates ``column_row["IDFs"]`` and passes each in
+        turn to read that partition's segments.
+        """
+        buffer = get_data_slice(self._data_model, (idf or column_row["IDF"]) + 'meta')
         with io.BytesIO(buffer) as f:
             parsed = IdfmetaParser.from_io(f)
             return [
@@ -231,6 +237,11 @@ class SqliteMetadataSource:
 
     def __populate_schema(self):
         type_col = self._column_type_col()
+        # ``ColumnPartitionStorage`` has one row per (column, partition), so a
+        # multi-partition table yields N rows per column — one IDF each. Order
+        # them by ``PartitionStorage.StoragePosition`` (a per-table partition
+        # ordering, present even on legacy schemas) so partitions concatenate in
+        # storage order; the grouping below collapses them back to one row/column.
         sql = f"""
         SELECT
             t.Name AS TableName,
@@ -245,7 +256,9 @@ class SqliteMetadataSource:
             ds.Magnitude,
             ds.IsNullable,
             c.ModifiedTime,
-            c.StructureModifiedTime
+            c.StructureModifiedTime,
+            cs.StoragePosition AS _ColumnPosition,
+            ps.StoragePosition AS _PartitionPosition
         FROM Column c
         JOIN [Table] t ON c.TableId = t.ID
         JOIN ColumnStorage cs ON c.ColumnStorageID = cs.ID
@@ -256,13 +269,38 @@ class SqliteMetadataSource:
         --Dictionary
         LEFT JOIN DictionaryStorage ds ON ds.ID = cs.DictionaryStorageID
         LEFT JOIN StorageFile sfd ON sfd.ID = ds.StorageFileID
-        --IDF
+        --IDF (one per partition)
         JOIN ColumnPartitionStorage cps ON cps.ColumnStorageID = cs.ID
         JOIN StorageFile sfi ON sfi.ID = cps.StorageFileID
+        JOIN PartitionStorage ps ON ps.ID = cps.PartitionStorageID
         WHERE {type_col} IN (1,2)
-        ORDER BY t.Name, cs.StoragePosition
+        ORDER BY t.Name, cs.StoragePosition, ps.StoragePosition
         """
-        return self._db.query(sql)
+        return self.__collapse_partitions(self._db.query(sql))
+
+    @staticmethod
+    def __collapse_partitions(df):
+        """Collapse the per-partition rows from the schema query into one row per
+        column, attaching the ordered list of partition IDF files as ``IDFs``.
+
+        Rows arrive ordered by column then partition ``StoragePosition``; every
+        non-IDF field is identical across a column's partition rows (the dictionary,
+        HIDX, cardinality, etc. are shared), so we keep the first of each and
+        aggregate only the IDF file names. ``IDF`` stays as the first partition for
+        backward compatibility.
+        """
+        if df.empty:
+            return df
+        # Stable group order = first appearance, which already reflects the
+        # ``ORDER BY t.Name, cs.StoragePosition`` column ordering.
+        idfs = (
+            df.groupby(['TableName', 'ColumnName'], sort=False)['IDF']
+            .apply(list)
+            .rename('IDFs')
+        )
+        collapsed = df.drop_duplicates(subset=['TableName', 'ColumnName'], keep='first').copy()
+        collapsed = collapsed.merge(idfs, on=['TableName', 'ColumnName'], how='left')
+        return collapsed.drop(columns=['_ColumnPosition', '_PartitionPosition'])
 
     def __populate_m(self):
         # ``Partition.Type`` is absent on legacy schemas; without it M (4) and
