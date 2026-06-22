@@ -116,6 +116,21 @@ class DataModelLoader:
         )
 
     def __unpack(self):
+        # A pbix/xlsx is a zip envelope around the DataModel stream; a raw ``.abf``
+        # Analysis Services backup is that same stream with no envelope. Branch on
+        # the container so both reach the shared decompress + parse pipeline.
+        if zipfile.is_zipfile(self.file_path):
+            self.__unpack_zip()
+        else:
+            self.__unpack_abf()
+
+        # Parse the decompressed data
+        parser.AbfParser(self._data_model)
+
+    def __unpack_zip(self):
+        """Unpack a zip container (pbix/xlsx): connections, mashup, DataModel member."""
+        # ``is_zipfile`` consumed/seeked a file-like ``file_path``; ZipFile re-seeks
+        # from 0 itself, so no manual rewind is needed here.
         with zipfile.ZipFile(self.file_path, 'r') as zip_ref:
             self._connections = parse_connections(zip_ref)
             if 'DataMashup' in zip_ref.namelist():
@@ -123,21 +138,37 @@ class DataModelLoader:
             data_model_path = self.__get_data_model_path(zip_ref)
 
             with zip_ref.open(data_model_path) as data_model_in_archive:
-                compression = self.__detect_compression(data_model_in_archive)
+                self.__decompress_stream(data_model_in_archive)
 
-                if compression == "uncompressed":
-                    self.__process_uncompressed(data_model_in_archive)
-                elif compression == "single_threaded":
-                    self.__process_single_threaded(data_model_in_archive)
-                elif compression == "multi_threaded":
-                    self.__process_multi_threaded(data_model_in_archive)
-                else:
-                    raise RuntimeError("Unknown or unsupported DataModel compression format")
-                # Note: signatures are decoded above; on_disk only changes where the
-                # decompressed output lands, not how the stream is parsed.
+    def __unpack_abf(self):
+        """Unpack a raw ``.abf`` backup: the DataModel stream with no zip envelope.
 
-        # Parse the decompressed data
-        parser.AbfParser(self._data_model)
+        An abf always carries an embedded model (sqlitedb-backed, like a pbix), so
+        there are no connections or DataMashup to parse; the container stays PBIX.
+        """
+        self._data_model.container = Container.PBIX
+        if hasattr(self.file_path, 'read'):
+            self.file_path.seek(0)
+            self.__decompress_stream(self.file_path)
+        else:
+            with open(self.file_path, 'rb') as data_model_file:
+                self.__decompress_stream(data_model_file)
+
+    def __decompress_stream(self, data_model_file):
+        """Detect the DataModel stream's compression and emit it into a sink.
+
+        Shared by the zip and raw-abf paths; ``on_disk`` only changes where the
+        decompressed output lands, not how the stream is parsed.
+        """
+        compression = self.__detect_compression(data_model_file)
+        if compression == "uncompressed":
+            self.__process_uncompressed(data_model_file)
+        elif compression == "single_threaded":
+            self.__process_single_threaded(data_model_file)
+        elif compression == "multi_threaded":
+            self.__process_multi_threaded(data_model_file)
+        else:
+            raise RuntimeError("Unknown or unsupported DataModel compression format")
 
     def __process_uncompressed(self, data_model_file):
         """Process an uncompressed DataModel file."""
