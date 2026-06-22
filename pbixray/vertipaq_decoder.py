@@ -247,26 +247,70 @@ class VertiPaqDecoder:
 
         return None
 
-    def _get_column_data(self, column_metadata, segments_meta):
-        """Extracts column data based on the given column metadata and meta information."""
+    def _column_idfs(self, column_metadata):
+        """Ordered list of partition IDF files for a column.
+
+        Falls back to the single ``IDF`` when ``IDFs`` is absent/empty so any
+        metadata source that predates the partition-aware schema still decodes.
+        """
+        idfs = column_metadata.get("IDFs") if hasattr(column_metadata, "get") else None
+        if idfs is not None and len(idfs) > 0:
+            return list(idfs)
+        return [column_metadata["IDF"]]
+
+    def _get_column_data(self, column_metadata):
+        """Extract a column's data, concatenating all partitions in storage order.
+
+        Each partition has its own IDF value stream and per-segment ``.idfmeta``
+        (min_data_id / bit_width / records); the dictionary is shared across a
+        column's partitions, so it is read once. Single-partition columns reduce
+        to the original single-IDF behavior.
+        """
+        idfs = self._column_idfs(column_metadata)
+
         if pd.notnull(column_metadata["Dictionary"]):
-            dictionary_buffer = get_data_slice(self._data_model,column_metadata["Dictionary"])
+            dictionary_buffer = get_data_slice(self._data_model, column_metadata["Dictionary"])
             null_adjustment = 1 if column_metadata["IsNullable"] else 0
-            # Read and construct the dictionary with appropriate minimum data ID
-            segments_meta_adj = [
-                {**segment, 'min_data_id': segment['min_data_id'] - null_adjustment}
-                for segment in segments_meta
-            ]
-            dictionary = self._read_dictionary(dictionary_buffer, min_data_id=segments_meta[0]['min_data_id'])
-            data_slice = get_data_slice(self._data_model,column_metadata["IDF"])
-            return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, segments_meta_adj)).map(dictionary)
+            # The dictionary's base index uses the column's min_data_id, identical
+            # across partitions; read it once from the first partition.
+            first_meta = self._meta.get_segment_meta(column_metadata, idfs[0])
+            dictionary = self._read_dictionary(
+                dictionary_buffer, min_data_id=first_meta[0]['min_data_id']
+            )
+            parts = []
+            for idf in idfs:
+                segments_meta = self._meta.get_segment_meta(column_metadata, idf)
+                # The null adjustment uses this partition's own .idfmeta.
+                segments_meta_adj = [
+                    {**segment, 'min_data_id': segment['min_data_id'] - null_adjustment}
+                    for segment in segments_meta
+                ]
+                data_slice = get_data_slice(self._data_model, idf)
+                parts.append(
+                    pd.Series(self._read_rle_bit_packed_hybrid(data_slice, segments_meta_adj)).map(dictionary)
+                )
+            return pd.concat(parts, ignore_index=True) if len(parts) > 1 else parts[0]
         elif pd.notnull(column_metadata["HIDX"]):
-            data_slice = get_data_slice(self._data_model,column_metadata["IDF"])
-            return pd.Series(self._read_rle_bit_packed_hybrid(data_slice, segments_meta)).add(column_metadata["BaseId"]) / column_metadata["Magnitude"]
+            parts = []
+            for idf in idfs:
+                segments_meta = self._meta.get_segment_meta(column_metadata, idf)
+                data_slice = get_data_slice(self._data_model, idf)
+                parts.append(
+                    pd.Series(self._read_rle_bit_packed_hybrid(data_slice, segments_meta))
+                    .add(column_metadata["BaseId"]) / column_metadata["Magnitude"]
+                )
+            return pd.concat(parts, ignore_index=True) if len(parts) > 1 else parts[0]
         else:
             # Column has no dictionary or HIDX (e.g. empty column, all-null column,
-            # or calculated column without independently stored data).
-            total_rows = sum(segment['count_bit_packed'] for segment in segments_meta)
+            # or calculated column without independently stored data). Use each
+            # segment's total row count (``records``) — not ``count_bit_packed``,
+            # which is 0 for pure-RLE (single-run) segments — so the all-null
+            # column stays aligned with its dictionary/HIDX peers across partitions.
+            total_rows = sum(
+                segment['records']
+                for idf in idfs
+                for segment in self._meta.get_segment_meta(column_metadata, idf)
+            )
             return pd.Series([None] * total_rows)
 
         
@@ -317,8 +361,7 @@ class VertiPaqDecoder:
         for _, column_metadata in table_metadata_df.iterrows():
             col_name = column_metadata["ColumnName"]
             try:
-                meta = self._meta.get_segment_meta(column_metadata)
-                column_data = self._get_column_data(column_metadata, meta)
+                column_data = self._get_column_data(column_metadata)
                 column_data = self._handle_special_cases(column_data, column_metadata["SemanticType"], col_name)
             except Exception as e:
                 raise type(e)(
@@ -334,5 +377,16 @@ class VertiPaqDecoder:
                 dataframe_data[column_metadata["ColumnName"]] = column_data.astype(pandas_dtype)
             except (TypeError, ValueError):
                 dataframe_data[column_metadata["ColumnName"]] = column_data
+
+        # All columns are concatenated using the same partition (StoragePosition)
+        # order, so every decoded column must have the same length; a mismatch
+        # means a partition was dropped or misaligned — fail loudly rather than
+        # let pandas broadcast/raise an opaque error.
+        lengths = {name: len(series) for name, series in dataframe_data.items()}
+        if len(set(lengths.values())) > 1:
+            raise ValueError(
+                f"[pbixray] column length mismatch decoding table {table_name!r}; "
+                f"partitions misaligned across columns: {lengths}"
+            )
 
         return pd.DataFrame(dataframe_data)
