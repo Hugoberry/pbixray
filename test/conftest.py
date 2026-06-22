@@ -78,6 +78,14 @@ def empty_schema_model():
 
 
 @pytest.fixture(scope="module")
+def internet_sales_abf_model():
+    # AdventureWorks Internet Sales tabular backup, loaded natively as a raw .abf
+    # (no zip envelope). Its `Internet Sales` table has 5 partitions
+    # (2010..2014) — the canonical multi-partition decode fixture.
+    return PBIXRay(os.path.join(DATA_DIR, "Adventure Works Internet Sales Database.abf"))
+
+
+@pytest.fixture(scope="module")
 def directquery_model():
     # DirectQuery model whose queries and parameters live only in the DataMashup
     # part (native-SQL partitions, empty AS Expression table).

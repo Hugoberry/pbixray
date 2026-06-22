@@ -8,6 +8,12 @@ This library is the Python implementation of the logic embedded in the DuckDB ex
 
 > **Note:** PBIXRay also supports Excel (XLSX) files with embedded PowerPivot models. You can use the same API to extract and analyze data models from XLSX files that contain PowerPivot data.
 
+> **Note:** Analysis Services backup files (`.abf`) are also accepted. An `.abf`
+> holds the same data model as a `.pbix`, just without the zip envelope, so the
+> same `PBIXRay('path/to/backup.abf')` API applies. Multi-partition tables
+> (classic SSAS partitioning and incremental-refresh partitions) are decoded in
+> full — `get_table` concatenates every partition in storage order.
+
 ## Installation
 
 Install with pip:
