@@ -28,15 +28,19 @@ class Metadata:
             Dictionary=self._meta.schema_df['Dictionary'].map(self._get_file_size_from_log),
             HashIndex=self._meta.schema_df['HIDX'].map(self._get_file_size_from_log),
             # DataSize sums every partition's IDF so multi-partition columns
-            # report their full on-disk data size, not just the first partition.
+            # report their full data size, not just the first partition.
             DataSize=data_size,
             ModifiedTime=self._meta.schema_df['ModifiedTime'],
             StructureModifiedTime=self._meta.schema_df['StructureModifiedTime'],
         )
 
     def _get_file_size_from_log(self, file_name):
+        # Report the uncompressed size (``SizeFromLog``) to match the in-memory
+        # sizes VertiPaq Analyzer surfaces. For regular .pbix these equal the
+        # on-disk ``Size`` (no per-file compression); they only diverge in ABF
+        # backups, where ``Size`` is the xpress8-compressed slice.
         file_ref = next((x for x in self._data_model.file_log if x['FileName'] == file_name), None)
-        return file_ref['Size'] if file_ref else 0
+        return file_ref['SizeFromLog'] if file_ref else 0
 
     def _sum_file_sizes_from_log(self, file_names):
         """Total size of a column's IDF files across all partitions.
