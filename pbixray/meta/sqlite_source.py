@@ -237,6 +237,20 @@ class SqliteMetadataSource:
 
     def __populate_schema(self):
         type_col = self._column_type_col()
+        # A column's effective data type is its ExplicitDataType unless that is
+        # Automatic (1) — typical for calculated columns — in which case the real
+        # type lives in InferredDataType. Without this, a calculated currency
+        # column (e.g. Internet Sales[Margin], ExplicitDataType=1 /
+        # InferredDataType=10) is read as 'Other' and never gets the currency
+        # /10000 scaling, decoding 10000x too large. Legacy schemas without
+        # InferredDataType fall back to ExplicitDataType.
+        if self._has_column("Column", "InferredDataType"):
+            data_type_col = (
+                "CASE WHEN c.ExplicitDataType = 1 THEN c.InferredDataType "
+                "ELSE c.ExplicitDataType END"
+            )
+        else:
+            data_type_col = "c.ExplicitDataType"
         # ``ColumnPartitionStorage`` has one row per (column, partition), so a
         # multi-partition table yields N rows per column — one IDF each. Order
         # them by ``PartitionStorage.StoragePosition`` (a per-table partition
@@ -250,7 +264,7 @@ class SqliteMetadataSource:
             sfh.FileName AS HIDX,
             sfi.FileName AS IDF,
             cs.Statistics_DistinctStates as Cardinality,
-            c.ExplicitDataType AS DataType,
+            {data_type_col} AS DataType,
             --ds.DataType,
             ds.BaseId,
             ds.Magnitude,

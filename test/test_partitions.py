@@ -8,7 +8,16 @@ instead of the full 60,398.
 
 See docs/specs/partition-aware-decode-spec.md.
 """
+import os
+from decimal import Decimal
+
+import numpy as np
 import pandas as pd
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
+# Ground-truth extract of the abf's Internet Sales table (model column names,
+# actual stored dates). Used for an exact value comparison against the decode.
+INTERNET_SALES_CSV = os.path.join(DATA_DIR, "Internet Sales.csv")
 
 # Per-partition record counts (SegmentMapStorage.RecordCount), keyed by the
 # partition's Order Date year. Sum = 60,398.
@@ -84,6 +93,47 @@ def test_statistics_dedup(internet_sales_abf_model):
     is_stats = stats[stats.TableName == "Internet Sales"]
     assert len(is_stats) == 24
     assert not is_stats.duplicated(subset=["TableName", "ColumnName"]).any()
+
+
+def test_values_match_csv_extract(internet_sales_abf_model):
+    """Decoded Internet Sales matches a ground-truth CSV extract value-for-value
+    across all 24 columns (numeric within tolerance, dates and strings exact).
+
+    Rows are aligned on the unique (Sales Order Number, Sales Order Line Number)
+    key because the decode emits partitions in storage order while the extract is
+    in the model's row order. Covers the calculated currency column Margin, whose
+    /10000 scaling depends on resolving Automatic -> InferredDataType.
+    """
+    got = internet_sales_abf_model.get_table("Internet Sales")
+    exp = pd.read_csv(INTERNET_SALES_CSV)
+    assert set(got.columns) == set(exp.columns)
+    assert len(got) == len(exp) == EXPECTED_TOTAL
+
+    date_cols = {"Order Date", "Due Date", "Ship Date"}
+    str_cols = {"Sales Order Number", "Carrier Tracking Number", "Customer PO Number"}
+    key = ["Sales Order Number", "Sales Order Line Number"]
+    g = got.sort_values(key).reset_index(drop=True)
+    e = exp.sort_values(key).reset_index(drop=True)
+
+    for col in exp.columns:
+        gs, es = g[col], e[col]
+        if col in date_cols:
+            gd, ed = pd.to_datetime(gs), pd.to_datetime(es)
+            eq = (gd == ed) | (gd.isna() & ed.isna())
+        elif col in str_cols:
+            # Treat NaN and "" as the same empty value (all-null string columns).
+            g_empty = gs.isna() | (gs.astype(str) == "")
+            e_empty = es.isna() | (es.astype(str) == "")
+            eq = (g_empty & e_empty) | (gs.astype(str) == es.astype(str))
+        else:
+            a = pd.to_numeric(
+                gs.map(lambda x: float(x) if isinstance(x, Decimal) else x),
+                errors="coerce",
+            ).to_numpy(dtype=float)
+            b = pd.to_numeric(es, errors="coerce").to_numpy(dtype=float)
+            eq = np.isclose(a, b, rtol=1e-9, atol=1e-6, equal_nan=True)
+        bad = int((~np.asarray(eq)).sum())
+        assert bad == 0, f"{bad} value mismatches in column {col!r}"
 
 
 def test_single_partition_regression(adventure_works_model):
