@@ -21,17 +21,36 @@ class Metadata:
     def _compute_statistics(self):
         """Computes statistics from the metadata schema."""
         self._stats = self._meta.schema_df[['TableName', 'ColumnName', 'Cardinality']].copy()
+        data_size = self._meta.schema_df['IDFs'].map(self._sum_file_sizes_from_log) \
+            if 'IDFs' in self._meta.schema_df.columns \
+            else self._meta.schema_df['IDF'].map(self._get_file_size_from_log)
         self._stats = self._stats.assign(
             Dictionary=self._meta.schema_df['Dictionary'].map(self._get_file_size_from_log),
             HashIndex=self._meta.schema_df['HIDX'].map(self._get_file_size_from_log),
-            DataSize=self._meta.schema_df['IDF'].map(self._get_file_size_from_log),
+            # DataSize sums every partition's IDF so multi-partition columns
+            # report their full data size, not just the first partition.
+            DataSize=data_size,
             ModifiedTime=self._meta.schema_df['ModifiedTime'],
             StructureModifiedTime=self._meta.schema_df['StructureModifiedTime'],
         )
 
     def _get_file_size_from_log(self, file_name):
+        # Report the uncompressed size (``SizeFromLog``) to match the in-memory
+        # sizes VertiPaq Analyzer surfaces. For regular .pbix these equal the
+        # on-disk ``Size`` (no per-file compression); they only diverge in ABF
+        # backups, where ``Size`` is the xpress8-compressed slice.
         file_ref = next((x for x in self._data_model.file_log if x['FileName'] == file_name), None)
-        return file_ref['Size'] if file_ref else 0
+        return file_ref['SizeFromLog'] if file_ref else 0
+
+    def _sum_file_sizes_from_log(self, file_names):
+        """Total size of a column's IDF files across all partitions.
+
+        ``file_names`` is the ordered ``IDFs`` list; falls back gracefully for a
+        missing/non-list value (empty schema row) by treating it as no files.
+        """
+        if not isinstance(file_names, (list, tuple)):
+            return 0
+        return sum(self._get_file_size_from_log(name) for name in file_names)
 
     @property
     def source(self):

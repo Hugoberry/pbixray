@@ -8,6 +8,12 @@ This library is the Python implementation of the logic embedded in the DuckDB ex
 
 > **Note:** PBIXRay also supports Excel (XLSX) files with embedded PowerPivot models. You can use the same API to extract and analyze data models from XLSX files that contain PowerPivot data.
 
+> **Note:** Analysis Services backup files (`.abf`) are also accepted. An `.abf`
+> holds the same data model as a `.pbix`, just without the zip envelope, so the
+> same `PBIXRay('path/to/backup.abf')` API applies. Multi-partition tables
+> (classic SSAS partitioning and incremental-refresh partitions) are decoded in
+> full — `get_table` concatenates every partition in storage order.
+
 ## Installation
 
 Install with pip:
@@ -159,6 +165,26 @@ The exception hierarchy is `LiveConnectionError` → `NoEmbeddedModelError` →
 `PBIXRayError`. `NoEmbeddedModelError` is raised when a file has no model and no
 connection manifest. Both also subclass `RuntimeError` for backward
 compatibility.
+
+### Power Query (DataMashup)
+`power_query` and `m_parameters` read the M from the Analysis Services metadata,
+which works for **import** models. Some models — notably **DirectQuery / native
+SQL** — keep their queries and parameters only in the report's `DataMashup` part
+([MS-QDEFF]). `model.data_mashup` and `model.mashup_queries` parse that part
+directly:
+```python
+df = model.mashup_queries        # Name, Kind, IsParameter, Expression, Type, DefaultValue, AllowedValues
+params = df[df["IsParameter"]]   # the Power Query parameters and their metadata
+
+mashup = model.data_mashup       # None when the file has no DataMashup part
+if mashup is not None:
+    print(mashup.version)
+    for q in mashup.parameters:  # MQuery objects
+        print(q.name, q.param_type, q.default_value, q.allowed_values)
+```
+`data_mashup` is `None` for files without a mashup, and raises `DataMashupError`
+if the part is malformed. These accessors are additive — `power_query` and
+`m_parameters` keep their existing AS-metadata behavior.
 
 ## Tabular Model Schema (TMSCHEMA) Endpoints
 

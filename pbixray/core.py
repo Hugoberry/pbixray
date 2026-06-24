@@ -1,8 +1,11 @@
 # ---------- IMPORTS ----------
 
+import pandas as pd
+
 from .loader import DataModelLoader
 from .vertipaq_decoder import VertiPaqDecoder
 from .meta import Metadata
+from .mashup import parse_data_mashup
 
 # ---------- MAIN CLASS ----------
 
@@ -23,6 +26,8 @@ class PBIXRay:
         loader = DataModelLoader(file_path, on_disk=on_disk, temp_dir=temp_dir)
         self._data_model = loader.data_model
         self._connections = loader.connections
+        self._data_mashup_bytes = loader.data_mashup_bytes
+        self._data_mashup = None  # parsed lazily on first access
 
         self._metadata = Metadata(self._data_model)
         self._vertipaq_decoder = VertiPaqDecoder(self._metadata.source, self._data_model)
@@ -111,6 +116,46 @@ class PBIXRay:
         on construction; that exception carries the same connection details.
         """
         return self._connections
+
+    @property
+    def data_mashup(self):
+        """Parsed Power Query ``DataMashup`` part, or ``None`` when absent.
+
+        Returns a :class:`pbixray.mashup.DataMashup` with the section ``queries``
+        (including parameters), the raw ``section_m`` and metadata XML. Surfaces
+        the M for models — e.g. DirectQuery/native-SQL — that keep their queries
+        and parameters only in the mashup rather than the AS metadata. Raises
+        :class:`pbixray.exceptions.DataMashupError` if the part is malformed.
+        """
+        if self._data_mashup is None and self._data_mashup_bytes is not None:
+            self._data_mashup = parse_data_mashup(self._data_mashup_bytes)
+        return self._data_mashup
+
+    @property
+    def mashup_queries(self):
+        """Power Query queries/parameters from the ``DataMashup`` as a DataFrame.
+
+        Columns: ``Name, Kind, IsParameter, Expression, Type, DefaultValue,
+        AllowedValues``. Empty (with those columns) when the file has no mashup.
+        """
+        columns = ['Name', 'Kind', 'IsParameter', 'Expression',
+                   'Type', 'DefaultValue', 'AllowedValues']
+        mashup = self.data_mashup
+        if mashup is None:
+            return pd.DataFrame(columns=columns)
+        rows = [
+            {
+                'Name': q.name,
+                'Kind': q.kind,
+                'IsParameter': q.is_parameter,
+                'Expression': q.expression,
+                'Type': q.param_type,
+                'DefaultValue': q.default_value,
+                'AllowedValues': q.allowed_values,
+            }
+            for q in mashup.queries
+        ]
+        return pd.DataFrame(rows, columns=columns)
 
     @property
     def rls(self):

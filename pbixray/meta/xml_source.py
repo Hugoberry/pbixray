@@ -187,13 +187,19 @@ class XmlMetadataSource:
                         data_type = self._map_attribute_type_to_pandas(attr)
                         ssas_type = self._get_attribute_ssas_type(attr)
 
+                        idf = file_info.get('idf') or None
                         column_data = {
                             'TableName': table_name,
                             'ColumnName': column_name,
                             'StorageName': storage_name,
                             'Dictionary': file_info.get('dictionary') or None,
                             'HIDX': file_info.get('hidx') or None,
-                            'IDF': file_info.get('idf') or None,
+                            'IDF': idf,
+                            # xlsx stores one IDF per column (multi-segment in-file,
+                            # already concatenated by the decoder). The single-element
+                            # list keeps the partition-aware decode path uniform with
+                            # the sqlite source.
+                            'IDFs': [idf] if idf is not None else [],
                             'Cardinality': stats.get('cardinality', 0),
                             'DataType': data_type,
                             'SSASType': ssas_type,
@@ -299,11 +305,15 @@ class XmlMetadataSource:
                     return key_col.DataType
         return ''
 
-    def get_segment_meta(self, column_row):
+    def get_segment_meta(self, column_row, idf=None):
         """Build segments_meta for a column from the parsed .tbl.xml tree.
 
         Returns a list of dicts matching the shape produced by
         SqliteMetadataSource.get_segment_meta: {min_data_id, count_bit_packed, bit_width}.
+
+        ``idf`` is accepted for signature parity with the sqlite source but ignored:
+        xlsx stores a single IDF per column whose in-file segments are returned in
+        full here.
         """
         dimension_id = column_row["DimensionID"]
         column_name = column_row.get("StorageName") or column_row["ColumnName"]

@@ -44,9 +44,9 @@ class SqliteMetadataSource:
     # Canonical columns produced by ``__populate_schema``. Used to give an
     # empty (no-matching-rows) schema a stable shape.
     _SCHEMA_COLUMNS = [
-        'TableName', 'ColumnName', 'Dictionary', 'HIDX', 'IDF', 'Cardinality',
-        'DataType', 'BaseId', 'Magnitude', 'IsNullable', 'ModifiedTime',
-        'StructureModifiedTime',
+        'TableName', 'ColumnName', 'Dictionary', 'HIDX', 'IDF', 'IDFs',
+        'Cardinality', 'DataType', 'BaseId', 'Magnitude', 'IsNullable',
+        'ModifiedTime', 'StructureModifiedTime',
     ]
 
     def __init__(self, data_model: DataModel):
@@ -157,6 +157,42 @@ class SqliteMetadataSource:
             }
         return column in cache[table]
 
+    def _col_or_null(self, table, column, alias):
+        """SELECT-list fragment producing ``alias``.
+
+        Emits the qualified ``column`` (e.g. ``c.DisplayFolder``) when its bare
+        name exists on ``table``, else ``NULL``. Always aliased to the modern
+        name so downstream column access stays stable across schema versions.
+        Legacy schemas (SCHEMAVERSION < ~18) simply lack some modern columns;
+        those degrade to ``None`` instead of failing the whole statement.
+        """
+        bare = column.split('.')[-1]
+        if self._has_column(table, bare):
+            return f"{column} AS {alias}"
+        return f"NULL AS {alias}"
+
+    def _column_type_col(self):
+        """``Column.Type`` (1=Data, 2=Calculated, 3=RowNumber,
+        4=CalculatedTableColumn) on modern schemas; legacy schemas store the
+        same role enumeration in ``Column.BindingType``."""
+        return "c.Type" if self._has_column("Column", "Type") else "c.BindingType"
+
+    def _rel_col(self, modern):
+        """Map a modern ``Relationship`` endpoint column to its legacy name.
+
+        On legacy schemas the four endpoint columns and two cardinalities gained
+        an ``End`` infix after the ``From``/``To`` prefix
+        (``FromColumnID`` -> ``FromEndColumnID``). Detected via the presence of
+        the modern ``FromColumnID`` column.
+        """
+        if self._has_column("Relationship", "FromColumnID"):
+            return modern  # modern schema
+        if modern.startswith("From"):
+            return "FromEnd" + modern[len("From"):]
+        if modern.startswith("To"):
+            return "ToEnd" + modern[len("To"):]
+        return modern
+
     def __normalize_schema(self):
         """Add format-agnostic ``PandasDataType`` and ``SemanticType`` columns
         so downstream code never has to know this came from a pbix."""
@@ -174,9 +210,15 @@ class SqliteMetadataSource:
             SemanticType=dt.map(_AMO_SEMANTIC_TYPES).fillna('Other'),
         )
 
-    def get_segment_meta(self, column_row):
-        """Parse the ``.idfmeta`` blob for a column into a list of per-segment dicts."""
-        buffer = get_data_slice(self._data_model, column_row["IDF"] + 'meta')
+    def get_segment_meta(self, column_row, idf=None):
+        """Parse the ``.idfmeta`` blob for one partition IDF into per-segment dicts.
+
+        ``idf`` selects which partition's IDF to read; it defaults to the column's
+        first partition (``column_row["IDF"]``) so the single-partition contract is
+        unchanged. The decoder iterates ``column_row["IDFs"]`` and passes each in
+        turn to read that partition's segments.
+        """
+        buffer = get_data_slice(self._data_model, (idf or column_row["IDF"]) + 'meta')
         with io.BytesIO(buffer) as f:
             parsed = IdfmetaParser.from_io(f)
             return [
@@ -194,10 +236,26 @@ class SqliteMetadataSource:
     # -------------------------------------------------------------------------
 
     def __populate_schema(self):
-        # ``Column.Type`` (1=Data, 2=Calculated, 3=RowNumber, 4=CalculatedTableColumn)
-        # does not exist in legacy schemas (SCHEMAVERSION < ~18). There the same
-        # role enumeration lives in ``Column.BindingType``, so fall back to it.
-        type_col = "c.Type" if self._has_column("Column", "Type") else "c.BindingType"
+        type_col = self._column_type_col()
+        # A column's effective data type is its ExplicitDataType unless that is
+        # Automatic (1) — typical for calculated columns — in which case the real
+        # type lives in InferredDataType. Without this, a calculated currency
+        # column (e.g. Internet Sales[Margin], ExplicitDataType=1 /
+        # InferredDataType=10) is read as 'Other' and never gets the currency
+        # /10000 scaling, decoding 10000x too large. Legacy schemas without
+        # InferredDataType fall back to ExplicitDataType.
+        if self._has_column("Column", "InferredDataType"):
+            data_type_col = (
+                "CASE WHEN c.ExplicitDataType = 1 THEN c.InferredDataType "
+                "ELSE c.ExplicitDataType END"
+            )
+        else:
+            data_type_col = "c.ExplicitDataType"
+        # ``ColumnPartitionStorage`` has one row per (column, partition), so a
+        # multi-partition table yields N rows per column — one IDF each. Order
+        # them by ``PartitionStorage.StoragePosition`` (a per-table partition
+        # ordering, present even on legacy schemas) so partitions concatenate in
+        # storage order; the grouping below collapses them back to one row/column.
         sql = f"""
         SELECT
             t.Name AS TableName,
@@ -206,13 +264,15 @@ class SqliteMetadataSource:
             sfh.FileName AS HIDX,
             sfi.FileName AS IDF,
             cs.Statistics_DistinctStates as Cardinality,
-            c.ExplicitDataType AS DataType,
+            {data_type_col} AS DataType,
             --ds.DataType,
             ds.BaseId,
             ds.Magnitude,
             ds.IsNullable,
             c.ModifiedTime,
-            c.StructureModifiedTime
+            c.StructureModifiedTime,
+            cs.StoragePosition AS _ColumnPosition,
+            ps.StoragePosition AS _PartitionPosition
         FROM Column c
         JOIN [Table] t ON c.TableId = t.ID
         JOIN ColumnStorage cs ON c.ColumnStorageID = cs.ID
@@ -223,22 +283,50 @@ class SqliteMetadataSource:
         --Dictionary
         LEFT JOIN DictionaryStorage ds ON ds.ID = cs.DictionaryStorageID
         LEFT JOIN StorageFile sfd ON sfd.ID = ds.StorageFileID
-        --IDF
+        --IDF (one per partition)
         JOIN ColumnPartitionStorage cps ON cps.ColumnStorageID = cs.ID
         JOIN StorageFile sfi ON sfi.ID = cps.StorageFileID
+        JOIN PartitionStorage ps ON ps.ID = cps.PartitionStorageID
         WHERE {type_col} IN (1,2)
-        ORDER BY t.Name, cs.StoragePosition
+        ORDER BY t.Name, cs.StoragePosition, ps.StoragePosition
         """
-        return self._db.query(sql)
+        return self.__collapse_partitions(self._db.query(sql))
+
+    @staticmethod
+    def __collapse_partitions(df):
+        """Collapse the per-partition rows from the schema query into one row per
+        column, attaching the ordered list of partition IDF files as ``IDFs``.
+
+        Rows arrive ordered by column then partition ``StoragePosition``; every
+        non-IDF field is identical across a column's partition rows (the dictionary,
+        HIDX, cardinality, etc. are shared), so we keep the first of each and
+        aggregate only the IDF file names. ``IDF`` stays as the first partition for
+        backward compatibility.
+        """
+        if df.empty:
+            return df
+        # Stable group order = first appearance, which already reflects the
+        # ``ORDER BY t.Name, cs.StoragePosition`` column ordering.
+        idfs = (
+            df.groupby(['TableName', 'ColumnName'], sort=False)['IDF']
+            .apply(list)
+            .rename('IDFs')
+        )
+        collapsed = df.drop_duplicates(subset=['TableName', 'ColumnName'], keep='first').copy()
+        collapsed = collapsed.merge(idfs, on=['TableName', 'ColumnName'], how='left')
+        return collapsed.drop(columns=['_ColumnPosition', '_PartitionPosition'])
 
     def __populate_m(self):
-        sql = """
+        # ``Partition.Type`` is absent on legacy schemas; without it M (4) and
+        # calculated (2) partitions can't be distinguished, so there are none.
+        where = "WHERE p.Type = 4" if self._has_column("Partition", "Type") else "WHERE 0"
+        sql = f"""
         SELECT
             t.Name AS 'TableName',
             p.QueryDefinition AS 'Expression'
         FROM partition p
         JOIN [Table] t ON t.ID = p.TableID
-        WHERE p.Type = 4;
+        {where};
         """
         return self._db.query(sql)
 
@@ -254,23 +342,25 @@ class SqliteMetadataSource:
         return self._db.query(sql)
 
     def __populate_dax_tables(self):
-        sql = """
+        # See ``__populate_m``: no ``Partition.Type`` -> no calculated tables.
+        where = "WHERE p.Type = 2" if self._has_column("Partition", "Type") else "WHERE 0"
+        sql = f"""
         SELECT
             t.Name AS 'TableName',
             p.QueryDefinition AS 'Expression'
         FROM partition p
         JOIN [Table] t ON t.ID = p.TableID
-        WHERE p.Type = 2;
+        {where};
         """
         return self._db.query(sql)
 
     def __populate_dax_measures(self):
-        sql = """
+        sql = f"""
         SELECT
             t.Name AS TableName,
             m.Name,
             m.Expression,
-            m.DisplayFolder,
+            {self._col_or_null("Measure", "m.DisplayFolder", "DisplayFolder")},
             m.Description
         FROM Measure m
         JOIN [Table] t ON m.TableID = t.ID;
@@ -278,14 +368,15 @@ class SqliteMetadataSource:
         return self._db.query(sql)
 
     def __populate_dax_columns(self):
-        sql = """
+        type_col = self._column_type_col()
+        sql = f"""
         SELECT
             t.Name AS TableName,
             c.ExplicitName AS ColumnName,
             c.Expression
         FROM Column c
         JOIN [Table] t ON c.TableID = t.ID
-        WHERE c.Type = 2;
+        WHERE {type_col} = 2;
         """
         return self._db.query(sql)
 
@@ -298,7 +389,15 @@ class SqliteMetadataSource:
         return self._db.query(sql)
 
     def __populate_relationships(self):
-        sql = """
+        # Legacy schemas rename the endpoint columns with an ``End`` infix
+        # (``FromColumnID`` -> ``FromEndColumnID``); resolve via ``_rel_col``.
+        from_table = self._rel_col("FromTableID")
+        from_column = self._rel_col("FromColumnID")
+        to_table = self._rel_col("ToTableID")
+        to_column = self._rel_col("ToColumnID")
+        from_cardinality = self._rel_col("FromCardinality")
+        to_cardinality = self._rel_col("ToCardinality")
+        sql = f"""
         SELECT
             ft.Name AS FromTableName,
             fc.ExplicitName AS FromColumnName,
@@ -306,11 +405,11 @@ class SqliteMetadataSource:
             tc.ExplicitName AS ToColumnName,
             rel.IsActive,
             CASE
-                WHEN rel.FromCardinality = 2 THEN 'M'
+                WHEN rel.{from_cardinality} = 2 THEN 'M'
                 ELSE '1'
             END || ':' ||
             CASE
-                WHEN rel.ToCardinality = 2 THEN 'M'
+                WHEN rel.{to_cardinality} = 2 THEN 'M'
                 ELSE '1'
             END AS Cardinality,
             CASE
@@ -322,10 +421,10 @@ class SqliteMetadataSource:
             rid2.RecordCount AS ToKeyCount,
             rel.RelyOnReferentialIntegrity
         FROM Relationship rel
-            LEFT JOIN [Table] ft ON rel.FromTableID = ft.id
-            LEFT JOIN [Column] fc ON rel.FromColumnID = fc.id
-            LEFT JOIN [Table] tt ON rel.ToTableID = tt.id
-            LEFT JOIN [Column] tc ON rel.ToColumnID = tc.id
+            LEFT JOIN [Table] ft ON rel.{from_table} = ft.id
+            LEFT JOIN [Column] fc ON rel.{from_column} = fc.id
+            LEFT JOIN [Table] tt ON rel.{to_table} = tt.id
+            LEFT JOIN [Column] tc ON rel.{to_column} = tc.id
             LEFT JOIN RelationshipStorage rs ON rs.id = rel.RelationshipStorageID
             LEFT JOIN RelationshipIndexStorage rid ON rs.RelationshipIndexStorageID = rid.id
             LEFT JOIN RelationshipStorage rs2 ON rs2.id = rel.RelationshipStorage2ID
@@ -335,14 +434,14 @@ class SqliteMetadataSource:
         return self._db.query(sql)
 
     def __populate_rls(self):
-        sql = """
+        sql = f"""
         SELECT
             t.Name as TableName,
             r.Name as RoleName,
             r.Description as RoleDescription,
             tp.FilterExpression,
             tp.State,
-            tp.MetadataPermission
+            {self._col_or_null("TablePermission", "tp.MetadataPermission", "MetadataPermission")}
         FROM TablePermission tp
         JOIN [Table] t on t.ID = tp.TableID
         JOIN Role r on r.ID = tp.RoleID
@@ -362,7 +461,7 @@ class SqliteMetadataSource:
     # -------------------------------------------------------------------------
 
     def __populate_tables(self):
-        sql = """
+        sql = f"""
         SELECT
             t.ID,
             t.Name,
@@ -371,8 +470,8 @@ class SqliteMetadataSource:
             t.IsHidden,
             t.IsPrivate,
             t.ShowAsVariationsOnly,
-            t.LineageTag,
-            t.SourceLineageTag,
+            {self._col_or_null("Table", "t.LineageTag", "LineageTag")},
+            {self._col_or_null("Table", "t.SourceLineageTag", "SourceLineageTag")},
             t.ModifiedTime,
             t.StructureModifiedTime
         FROM [Table] t
@@ -385,13 +484,14 @@ class SqliteMetadataSource:
     # -------------------------------------------------------------------------
 
     def __populate_columns(self):
-        sql = """
+        type_col = self._column_type_col()
+        sql = f"""
         SELECT
             c.ID,
             t.Name              AS TableName,
             c.TableID,
             COALESCE(c.ExplicitName, c.InferredName) AS Name,
-            c.Type,
+            {type_col} AS Type,
             COALESCE(c.ExplicitDataType, c.InferredDataType) AS DataType,
             c.DataCategory,
             c.Description,
@@ -403,17 +503,17 @@ class SqliteMetadataSource:
             c.SourceColumn,
             c.Expression,
             c.FormatString,
-            c.DisplayFolder,
+            {self._col_or_null("Column", "c.DisplayFolder", "DisplayFolder")},
             c.IsAvailableInMDX,
-            c.EncodingHint,
-            c.LineageTag,
-            c.SourceLineageTag,
+            {self._col_or_null("Column", "c.EncodingHint", "EncodingHint")},
+            {self._col_or_null("Column", "c.LineageTag", "LineageTag")},
+            {self._col_or_null("Column", "c.SourceLineageTag", "SourceLineageTag")},
             c.DisplayOrdinal,
             c.ModifiedTime,
             c.StructureModifiedTime
         FROM [Column] c
         JOIN [Table] t ON c.TableID = t.ID
-        WHERE c.Type IN (1, 2)
+        WHERE {type_col} IN (1, 2)
         ORDER BY t.Name, c.DisplayOrdinal;
         """
         return self._db.query(sql)
@@ -423,16 +523,19 @@ class SqliteMetadataSource:
     # -------------------------------------------------------------------------
 
     def __populate_partitions(self):
-        sql = """
+        # Legacy ``Partition`` has neither ``Type`` nor ``Mode``; their legacy
+        # analogues (``BindingType``/``CacheMode``) carry different semantics, so
+        # degrade to NULL rather than reuse them.
+        sql = f"""
         SELECT
             p.ID,
             t.Name          AS TableName,
             p.TableID,
             p.Name,
             p.Description,
-            p.Type,
+            {self._col_or_null("Partition", "p.Type", "Type")},
             p.State,
-            p.Mode,
+            {self._col_or_null("Partition", "p.Mode", "Mode")},
             p.DataView,
             p.DataSourceID,
             p.QueryDefinition,
@@ -449,7 +552,7 @@ class SqliteMetadataSource:
     # -------------------------------------------------------------------------
 
     def __populate_hierarchies(self):
-        sql = """
+        sql = f"""
         SELECT
             h.ID,
             t.Name  AS TableName,
@@ -458,11 +561,11 @@ class SqliteMetadataSource:
             h.Description,
             h.IsHidden,
             h.State,
-            h.DisplayFolder,
-            h.HideMembers,
+            {self._col_or_null("Hierarchy", "h.DisplayFolder", "DisplayFolder")},
+            {self._col_or_null("Hierarchy", "h.HideMembers", "HideMembers")},
             h.HierarchyStorageID,
-            h.LineageTag,
-            h.SourceLineageTag,
+            {self._col_or_null("Hierarchy", "h.LineageTag", "LineageTag")},
+            {self._col_or_null("Hierarchy", "h.SourceLineageTag", "SourceLineageTag")},
             h.ModifiedTime,
             h.StructureModifiedTime,
             h.RefreshedTime
@@ -476,19 +579,22 @@ class SqliteMetadataSource:
     # -------------------------------------------------------------------------
 
     def __populate_levels(self):
-        sql = """
+        # Legacy ``Level`` stores the position in ``Index`` (modern ``Ordinal``)
+        # and lacks the lineage-tag columns.
+        ordinal = "l.Ordinal" if self._has_column("Level", "Ordinal") else "l.[Index] AS Ordinal"
+        sql = f"""
         SELECT
             l.ID,
             h.Name              AS HierarchyName,
             l.HierarchyID,
             t.Name              AS TableName,
-            l.Ordinal,
+            {ordinal},
             l.Name,
             l.Description,
             COALESCE(c.ExplicitName, c.InferredName) AS ColumnName,
             l.ColumnID,
-            l.LineageTag,
-            l.SourceLineageTag,
+            {self._col_or_null("Level", "l.LineageTag", "LineageTag")},
+            {self._col_or_null("Level", "l.SourceLineageTag", "SourceLineageTag")},
             l.ModifiedTime
         FROM Level l
         JOIN Hierarchy  h ON l.HierarchyID = h.ID
@@ -656,7 +762,7 @@ class SqliteMetadataSource:
     # -------------------------------------------------------------------------
 
     def __populate_translations(self):
-        sql = """
+        sql = f"""
         SELECT
             ot.ID,
             ot.CultureID,
@@ -665,7 +771,7 @@ class SqliteMetadataSource:
             ot.ObjectType,
             ot.Property,
             ot.Value,
-            ot.Altered,
+            {self._col_or_null("ObjectTranslation", "ot.Altered", "Altered")},
             ot.ModifiedTime
         FROM ObjectTranslation ot
         JOIN Culture cu ON ot.CultureID = cu.ID;
@@ -677,13 +783,13 @@ class SqliteMetadataSource:
     # -------------------------------------------------------------------------
 
     def __populate_linguistic_metadata(self):
-        sql = """
+        sql = f"""
         SELECT
             lm.ID,
             lm.CultureID,
             cu.Name     AS CultureName,
             lm.Content,
-            lm.ContentType,
+            {self._col_or_null("LinguisticMetadata", "lm.ContentType", "ContentType")},
             lm.ModifiedTime
         FROM LinguisticMetadata lm
         JOIN Culture cu ON lm.CultureID = cu.ID;
