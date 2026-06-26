@@ -957,7 +957,11 @@ class SqliteMetadataSource:
     # -------------------------------------------------------------------------
 
     def __populate_refresh_policies(self):
-        sql = """
+        # ``RefreshPolicy.Mode`` (import vs. hybrid/DirectQuery refresh) was added
+        # in a later schema version; older models (e.g. SCHEMAVERSION 76) lack it,
+        # so emit it defensively to keep a stable output shape.
+        mode = self._col_or_null("RefreshPolicy", "rp.Mode", "Mode")
+        sql = f"""
         SELECT
             rp.ID,
             t.Name  AS TableName,
@@ -970,7 +974,7 @@ class SqliteMetadataSource:
             rp.IncrementalPeriodsOffset,
             rp.PollingExpression,
             rp.SourceExpression,
-            rp.Mode
+            {mode}
         FROM RefreshPolicy rp
         JOIN [Table] t ON rp.TableID = t.ID;
         """

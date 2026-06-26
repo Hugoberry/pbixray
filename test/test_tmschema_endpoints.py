@@ -8,8 +8,28 @@ All 39 properties are exercised against the rls-sample-report.pbix fixture
     datetime objects rather than raw integers
 """
 import datetime
+import os
+
 import pandas as pd
 import pytest
+
+from pbixray import PBIXRay
+
+# Packt sample (submodule) carrying a single incremental-refresh policy on a
+# SCHEMAVERSION 76 model whose `RefreshPolicy` table predates the `Mode` column.
+SAMPLES_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'samples'))
+_INCREMENTAL_REFRESH_PBIX = os.path.join(
+    SAMPLES_ROOT,
+    'Expert-Data-Modeling-with-Power-BI', 'Chapter10',
+    'Chapter 10, Incremental Refresh.pbix',
+)
+
+
+@pytest.fixture(scope="module")
+def incremental_refresh_model():
+    if not os.path.exists(_INCREMENTAL_REFRESH_PBIX):
+        pytest.skip("Expert-Data-Modeling-with-Power-BI submodule not initialised")
+    return PBIXRay(_INCREMENTAL_REFRESH_PBIX)
 
 
 # ---------------------------------------------------------------------------
@@ -136,6 +156,18 @@ def test_tmschema_functions(rls_model):
 
 def test_tmschema_refresh_policies(rls_model):
     _check(rls_model.tmschema_refresh_policies)
+
+
+def test_tmschema_refresh_policies_no_mode_column(incremental_refresh_model):
+    """Regression: a model whose `RefreshPolicy` table predates the `Mode`
+    column must still surface its incremental-refresh policy. Previously the
+    unconditional `rp.Mode` raised SQLError, swallowed into an empty frame."""
+    df = incremental_refresh_model.tmschema_refresh_policies
+    _check(df, nonempty=True)
+    # The policy row is present with the expected incremental-refresh shape,
+    # and `Mode` degrades to NULL rather than failing the whole query.
+    assert {"TableName", "PolicyType", "SourceExpression", "Mode"} <= set(df.columns)
+    assert df["Mode"].isna().all()
 
 
 def test_tmschema_data_coverage_definitions(rls_model):
