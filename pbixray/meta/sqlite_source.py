@@ -49,6 +49,17 @@ class SqliteMetadataSource:
         'ModifiedTime', 'StructureModifiedTime',
     ]
 
+    # Friendly, resolved aggregations view (see ``__populate_aggregations``).
+    _AGGREGATIONS_COLUMNS = [
+        'AggregationTable', 'AggregationColumn', 'Summarization',
+        'DetailTable', 'DetailColumn',
+    ]
+
+    # ``AlternateOf.Summarization`` enum -> human label.
+    _SUMMARIZATION_LABELS = {
+        0: 'GroupBy', 1: 'Sum', 2: 'Count', 3: 'Min', 4: 'Max',
+    }
+
     def __init__(self, data_model: DataModel):
         self._data_model = data_model
         self._db = _SqliteReader(get_data_slice(data_model, 'metadata.sqlitedb'))
@@ -109,6 +120,7 @@ class SqliteMetadataSource:
             'calendar_column_groups_df':     self.__populate_calendar_column_groups,
             'calendar_column_refs_df':       self.__populate_calendar_column_refs,
             'alternate_of_df':               self.__populate_alternate_of,
+            'aggregations_df':               self.__populate_aggregations,
             'related_column_details_df':     self.__populate_related_column_details,
             'group_by_columns_df':           self.__populate_group_by_columns,
             'binding_info_df':               self.__populate_binding_info,
@@ -1070,6 +1082,41 @@ class SqliteMetadataSource:
         LEFT JOIN [Table]  bt ON ao.BaseTableID  = bt.ID;
         """
         return self._db.query(sql)
+
+    # -------------------------------------------------------------------------
+    # Aggregations (friendly view over AlternateOf)
+    # -------------------------------------------------------------------------
+
+    def __populate_aggregations(self):
+        """Resolved aggregation mappings — one row per aggregation-table column.
+
+        Friendly layer over ``AlternateOf``: ``Summarization`` is the human
+        label and ``DetailTable`` is resolved from the base column's *own*
+        ``TableID`` (``AlternateOf.BaseTableID`` is ``0`` for column mappings,
+        populated only for the count-rows case). See the count-rows fallback via
+        the ``bt`` join.
+        """
+        sql = """
+        SELECT
+            at.Name                                     AS AggregationTable,
+            COALESCE(ac.ExplicitName, ac.InferredName)  AS AggregationColumn,
+            ao.Summarization                            AS Summarization,
+            COALESCE(bct.Name, bt.Name)                 AS DetailTable,
+            COALESCE(bc.ExplicitName, bc.InferredName)  AS DetailColumn
+        FROM AlternateOf ao
+        JOIN [Column] ac  ON ac.ID  = ao.ColumnID
+        JOIN [Table]  at  ON at.ID  = ac.TableID
+        LEFT JOIN [Column] bc  ON bc.ID  = ao.BaseColumnID
+        LEFT JOIN [Table]  bct ON bct.ID = bc.TableID
+        LEFT JOIN [Table]  bt  ON bt.ID  = ao.BaseTableID;
+        """
+        df = self._db.query(sql)
+        if df.empty:
+            # Missing ``AlternateOf`` (legacy schema) or no aggregations: give a
+            # stable shape so callers can always select the canonical columns.
+            return df.reindex(columns=self._AGGREGATIONS_COLUMNS)
+        df['Summarization'] = df['Summarization'].map(self._SUMMARIZATION_LABELS)
+        return df
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_RELATED_COLUMN_DETAILS

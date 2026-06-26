@@ -98,6 +98,13 @@ To access calculated column DAX expressions in a dataframe with `TableName`,`Col
 dax_columns = model.dax_columns
 print(dax_columns)
 ```
+### Aggregations
+To inspect Power BI aggregations (the "Manage aggregations" feature) as a resolved dataframe with `AggregationTable`, `AggregationColumn`, `Summarization`, `DetailTable`, and `DetailColumn` columns:
+```python
+aggregations = model.aggregations
+print(aggregations)
+```
+Each row maps one aggregation-table column to a detail (base) table. `Summarization` is the human label (`GroupBy`, `Sum`, `Count`, `Min`, `Max`); `DetailColumn` is `None` for the "Count table rows" case. A model with no aggregations returns an empty dataframe with these columns.
 ### Schema
 To get details about the data model schema and column types in a dataframe with `TableName`, `ColumnName`, and `PandasDataType` columns:
 ```python

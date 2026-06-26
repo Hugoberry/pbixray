@@ -92,6 +92,18 @@ class PBIXRay:
         return self._metadata.source.dax_columns_df
 
     @property
+    def aggregations(self):
+        """Resolved aggregation mappings as a DataFrame.
+
+        Columns: ``AggregationTable, AggregationColumn, Summarization,
+        DetailTable, DetailColumn``. One row per aggregation-table column mapped
+        to its detail (base) table; ``DetailColumn`` is ``None`` for the
+        "Count table rows" case. Empty (with those columns) when the model has
+        no aggregations. Friendly layer over ``tmschema_alternate_of``.
+        """
+        return self._metadata.source.aggregations_df
+
+    @property
     def metadata(self):
         return self._metadata.source.metadata_df
 
