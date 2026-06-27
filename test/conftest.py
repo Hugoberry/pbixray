@@ -39,6 +39,14 @@ def rls_model():
 
 
 @pytest.fixture(scope="module")
+def ols_model():
+    # Object-level-security sample: 4 roles, column-level OLS hiding three
+    # `Customers` columns (Address, ContactInformation, PreferredContactMethod)
+    # and table-level OLS hiding the `Reviews` table for select roles.
+    return PBIXRay(os.path.join(DATA_DIR, "ols-sample-report.pbix"))
+
+
+@pytest.fixture(scope="module")
 def excalidraw_model():
     return PBIXRay(os.path.join(DATA_DIR, "Excalidraw.pbix"))
 

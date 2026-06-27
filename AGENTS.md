@@ -53,10 +53,12 @@ manager; use `with PBIXRay(path, on_disk=True) as model:` or call
 | M / Power Query source               | `model.power_query`, `model.m_parameters`          |
 | Relationships                        | `model.relationships`                              |
 | Row-Level Security                   | `model.rls`                                        |
+| Object-Level Security                | `model.ols`                                        |
+| Perspectives (consolidated members)  | `model.perspectives`                               |
 | Model build / locale metadata        | `model.metadata`                                   |
 | Per-column size breakdown            | `model.statistics`                                 |
 | Total model size (bytes, int)        | `model.size`                                       |
-| Raw Analysis Services DMV-equivalents| `model.tmschema_*` (38 properties; PBIX only)      |
+| Raw Analysis Services DMV-equivalents| `model.tmschema_*` (40 properties; PBIX only)      |
 
 ## API surface
 
@@ -78,13 +80,16 @@ Source of truth: [pbixray/core.py](pbixray/core.py).
 | `dax_measures`         | `DataFrame`         | `TableName`, `Name`, `Expression`, `DisplayFolder`, `Description`                                                        |
 | `dax_columns`          | `DataFrame`         | `TableName`, `ColumnName`, `Expression`                                                                                  |
 | `rls`                  | `DataFrame`         | `TableName`, `RoleName`, `RoleDescription`, `FilterExpression`, `State`, `MetadataPermission`                            |
+| `ols`                  | `DataFrame`         | `RoleName`, `TableName`, `ColumnName`, `Scope` (`Table`/`Column`), `Permission` (`None`/`Read`/`Default`); excludes plain RLS rows |
+| `perspectives`         | `DataFrame`         | `PerspectiveName`, `ObjectType` (`Table`/`Column`/`Measure`/`Hierarchy`), `TableName`, `ObjectName`, `IncludeAll`        |
 | `metadata`             | `DataFrame`         | Build / locale / version key-value rows                                                                                  |
 
 ### TMSCHEMA endpoints (PBIX only)
 
-38 properties named `tmschema_<entity>` mirror the Analysis Services
+40 properties named `tmschema_<entity>` mirror the Analysis Services
 `$System.TMSCHEMA_*` DMVs (e.g. `tmschema_columns`, `tmschema_partitions`,
-`tmschema_refresh_policies`, `tmschema_role_memberships`). Full list with
+`tmschema_refresh_policies`, `tmschema_role_memberships`,
+`tmschema_column_permissions`). Full list with
 DMV mapping: [README.md §Tabular Model Schema Endpoints](README.md#tabular-model-schema-tmschema-endpoints)
 and [docs/TMSCHEMA_MAPPING.md](docs/TMSCHEMA_MAPPING.md).
 
@@ -99,8 +104,8 @@ and [docs/TMSCHEMA_MAPPING.md](docs/TMSCHEMA_MAPPING.md).
 | `dax_measures`                            | Populated   | Populated (measure groups) |
 | `dax_columns`                             | Populated   | Empty                      |
 | `power_query`, `m_parameters`             | Populated   | Empty                      |
-| `metadata`, `rls`                         | Populated   | Empty                      |
-| `tmschema_*` (all 38)                     | Populated   | Empty                      |
+| `metadata`, `rls`, `ols`, `perspectives`  | Populated   | Empty                      |
+| `tmschema_*` (all 40)                     | Populated   | Empty                      |
 
 Empty here means a zero-row DataFrame, not `None` and not an exception.
 

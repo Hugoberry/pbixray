@@ -60,6 +60,24 @@ class SqliteMetadataSource:
         0: 'GroupBy', 1: 'Sum', 2: 'Count', 3: 'Min', 4: 'Max',
     }
 
+    # Friendly, resolved object-level-security view (see ``__populate_ols``).
+    _OLS_COLUMNS = [
+        'RoleName', 'TableName', 'ColumnName', 'Scope', 'Permission',
+    ]
+
+    # ``MetadataPermission`` enum (TablePermission / ColumnPermission) -> label.
+    # ``None`` hides the object (OLS enforced); ``Read`` makes it visible;
+    # ``Default`` inherits (no OLS restriction — the plain RLS case).
+    _METADATA_PERMISSION_LABELS = {
+        0: 'Default', 1: 'None', 2: 'Read',
+    }
+
+    # Friendly, consolidated perspective-membership view (see
+    # ``__populate_perspectives_view``).
+    _PERSPECTIVES_COLUMNS = [
+        'PerspectiveName', 'ObjectType', 'TableName', 'ObjectName', 'IncludeAll',
+    ]
+
     def __init__(self, data_model: DataModel):
         self._data_model = data_model
         self._db = _SqliteReader(get_data_slice(data_model, 'metadata.sqlitedb'))
@@ -127,6 +145,9 @@ class SqliteMetadataSource:
             'analytics_ai_metadata_df':      self.__populate_analytics_ai_metadata,
             'data_coverage_definitions_df':  self.__populate_data_coverage_definitions,
             'role_memberships_df':           self.__populate_role_memberships,
+            'column_permissions_df':         self.__populate_column_permissions,
+            'ols_df':                        self.__populate_ols,
+            'perspectives_view_df':          self.__populate_perspectives_view,
         }
 
     def __getattr__(self, name):
@@ -1220,3 +1241,141 @@ class SqliteMetadataSource:
         JOIN Role r ON rm.RoleID = r.ID;
         """
         return self._db.query(sql)
+
+    # -------------------------------------------------------------------------
+    # TMSCHEMA_COLUMN_PERMISSIONS
+    # -------------------------------------------------------------------------
+
+    def __populate_column_permissions(self):
+        # Raw ``ColumnPermission`` rowset, resolved to role / table / column
+        # names. Each row denies or grants a single column to one role
+        # (object-level security). ``MetadataPermission`` is the raw enum; the
+        # friendly ``ols`` view labels it.
+        sql = f"""
+        SELECT
+            cp.ID,
+            cp.TablePermissionID,
+            r.Name  AS RoleName,
+            tp.RoleID,
+            cp.ColumnID,
+            COALESCE(c.ExplicitName, c.InferredName) AS ColumnName,
+            t.Name  AS TableName,
+            cp.MetadataPermission,
+            cp.ModifiedTime
+        FROM ColumnPermission cp
+        JOIN TablePermission tp ON cp.TablePermissionID = tp.ID
+        JOIN Role            r  ON tp.RoleID            = r.ID
+        JOIN [Column]        c  ON cp.ColumnID          = c.ID
+        JOIN [Table]         t  ON c.TableID            = t.ID;
+        """
+        return self._db.query(sql)
+
+    # -------------------------------------------------------------------------
+    # Object-level security (friendly view over Column/Table permissions)
+    # -------------------------------------------------------------------------
+
+    def __populate_ols(self):
+        """Resolved object-level-security restrictions — one row per secured object.
+
+        Friendly layer combining both OLS granularities:
+
+        * **Column-level** — every ``ColumnPermission`` row (``Scope='Column'``).
+        * **Table-level** — ``TablePermission`` rows whose ``MetadataPermission``
+          is *not* ``Default`` (``Scope='Table'``, ``ColumnName=None``). A plain
+          row-level-security row carries ``Default`` and is excluded here; it is
+          surfaced by ``rls`` instead.
+
+        ``Permission`` is the human label (``None`` hides the object, ``Read``
+        makes it visible). Empty (with the canonical columns) when the model has
+        no OLS or predates the permission tables.
+        """
+        sql = """
+        SELECT
+            r.Name  AS RoleName,
+            t.Name  AS TableName,
+            COALESCE(c.ExplicitName, c.InferredName) AS ColumnName,
+            'Column' AS Scope,
+            cp.MetadataPermission AS _Perm
+        FROM ColumnPermission cp
+        JOIN TablePermission tp ON cp.TablePermissionID = tp.ID
+        JOIN Role            r  ON tp.RoleID            = r.ID
+        JOIN [Column]        c  ON cp.ColumnID          = c.ID
+        JOIN [Table]         t  ON c.TableID            = t.ID
+        UNION ALL
+        SELECT
+            r.Name  AS RoleName,
+            t.Name  AS TableName,
+            NULL    AS ColumnName,
+            'Table' AS Scope,
+            tp.MetadataPermission AS _Perm
+        FROM TablePermission tp
+        JOIN Role    r ON tp.RoleID  = r.ID
+        JOIN [Table] t ON tp.TableID = t.ID
+        WHERE tp.MetadataPermission IS NOT NULL
+          AND tp.MetadataPermission <> 0
+        ORDER BY RoleName, Scope, TableName, ColumnName;
+        """
+        df = self._db.query(sql)
+        if df.empty:
+            # No OLS, or a legacy schema lacking the permission tables / the
+            # ``MetadataPermission`` column: give a stable shape so callers can
+            # always select the canonical columns.
+            return df.reindex(columns=self._OLS_COLUMNS)
+        df['Permission'] = df.pop('_Perm').map(self._METADATA_PERMISSION_LABELS)
+        return df.reindex(columns=self._OLS_COLUMNS)
+
+    # -------------------------------------------------------------------------
+    # Perspectives (friendly, consolidated membership view)
+    # -------------------------------------------------------------------------
+
+    def __populate_perspectives_view(self):
+        """Consolidated perspective membership — one row per included object.
+
+        Friendly layer over the raw ``tmschema_perspective_*`` rowsets: unions a
+        perspective's member tables, columns, measures and hierarchies into a
+        single frame keyed by ``ObjectType``. ``TableName`` is the owning table
+        for every row; ``ObjectName`` is the object's own name (equal to
+        ``TableName`` for ``Table`` rows). ``IncludeAll`` is populated only for
+        ``Table`` rows (whether the whole table is included). Empty (with the
+        canonical columns) when the model has no perspectives.
+        """
+        sql = """
+        SELECT
+            p.Name   AS PerspectiveName,
+            'Table'  AS ObjectType,
+            t.Name   AS TableName,
+            t.Name   AS ObjectName,
+            pt.IncludeAll AS IncludeAll
+        FROM PerspectiveTable pt
+        JOIN Perspective p ON pt.PerspectiveID = p.ID
+        JOIN [Table]     t ON pt.TableID       = t.ID
+        UNION ALL
+        SELECT
+            p.Name, 'Column', t.Name,
+            COALESCE(c.ExplicitName, c.InferredName), NULL
+        FROM PerspectiveColumn pc
+        JOIN PerspectiveTable  pt ON pc.PerspectiveTableID = pt.ID
+        JOIN Perspective       p  ON pt.PerspectiveID      = p.ID
+        JOIN [Column]          c  ON pc.ColumnID           = c.ID
+        JOIN [Table]           t  ON c.TableID             = t.ID
+        UNION ALL
+        SELECT
+            p.Name, 'Measure', t.Name, m.Name, NULL
+        FROM PerspectiveMeasure pm
+        JOIN PerspectiveTable   pt ON pm.PerspectiveTableID = pt.ID
+        JOIN Perspective        p  ON pt.PerspectiveID      = p.ID
+        JOIN Measure            m  ON pm.MeasureID          = m.ID
+        JOIN [Table]            t  ON m.TableID             = t.ID
+        UNION ALL
+        SELECT
+            p.Name, 'Hierarchy', t.Name, h.Name, NULL
+        FROM PerspectiveHierarchy ph
+        JOIN PerspectiveTable     pt ON ph.PerspectiveTableID = pt.ID
+        JOIN Perspective          p  ON pt.PerspectiveID      = p.ID
+        JOIN Hierarchy            h  ON ph.HierarchyID        = h.ID
+        JOIN [Table]              t  ON h.TableID             = t.ID
+        ORDER BY PerspectiveName, ObjectType, TableName, ObjectName;
+        """
+        # ``reindex`` gives a stable shape whether or not the model has
+        # perspectives (an all-empty union comes back column-less from APSW).
+        return self._db.query(sql).reindex(columns=self._PERSPECTIVES_COLUMNS)
