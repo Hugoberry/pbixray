@@ -49,6 +49,12 @@ deterministically releases the memory map and the metadata connection. When
 `on_disk=False` (the default) behavior is unchanged. Metadata (DAX, TMSCHEMA_*, etc.)
 is loaded lazily on first access, so simply opening a file is cheap.
 
+The `DataModel` member is read in place from the container file whenever it is
+STORED in the zip (the normal case — it carries its own compression). If the
+member is additionally *uncompressed* (a raw ABF backup inside the zip),
+`on_disk=True` serves it directly from the `.pbix`/`.xlsx` with no temp-file
+copy at all.
+
 ## Features and Usage
 ### Tables
 To list all tables in the model:
