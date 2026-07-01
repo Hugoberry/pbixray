@@ -92,6 +92,18 @@ class PBIXRay:
         return self._metadata.source.dax_columns_df
 
     @property
+    def aggregations(self):
+        """Resolved aggregation mappings as a DataFrame.
+
+        Columns: ``AggregationTable, AggregationColumn, Summarization,
+        DetailTable, DetailColumn``. One row per aggregation-table column mapped
+        to its detail (base) table; ``DetailColumn`` is ``None`` for the
+        "Count table rows" case. Empty (with those columns) when the model has
+        no aggregations. Friendly layer over ``tmschema_alternate_of``.
+        """
+        return self._metadata.source.aggregations_df
+
+    @property
     def metadata(self):
         return self._metadata.source.metadata_df
 
@@ -160,6 +172,33 @@ class PBIXRay:
     @property
     def rls(self):
         return self._metadata.source.rls_df
+
+    @property
+    def ols(self):
+        """Object-level security restrictions as a DataFrame.
+
+        Columns: ``RoleName, TableName, ColumnName, Scope, Permission``. One row
+        per secured object: ``Scope='Column'`` rows hide/expose a single column,
+        ``Scope='Table'`` rows (``ColumnName`` is ``None``) hide/expose a whole
+        table. ``Permission`` is ``None`` (hidden), ``Read`` (visible) or
+        ``Default``. Plain row-level-security rows are excluded (see ``rls``).
+        Empty (with those columns) when the model has no OLS. Friendly layer over
+        ``tmschema_column_permissions`` and the table permissions.
+        """
+        return self._metadata.source.ols_df
+
+    @property
+    def perspectives(self):
+        """Consolidated perspective membership as a DataFrame.
+
+        Columns: ``PerspectiveName, ObjectType, TableName, ObjectName,
+        IncludeAll``. One row per object included in a perspective, with
+        ``ObjectType`` one of ``Table, Column, Measure, Hierarchy``;
+        ``IncludeAll`` is populated only for ``Table`` rows. Empty (with those
+        columns) when the model has no perspectives. Friendly roll-up over the
+        raw ``tmschema_perspective_*`` rowsets.
+        """
+        return self._metadata.source.perspectives_view_df
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_* DMV equivalents
@@ -321,3 +360,7 @@ class PBIXRay:
     @property
     def tmschema_role_memberships(self):
         return self._metadata.source.role_memberships_df
+
+    @property
+    def tmschema_column_permissions(self):
+        return self._metadata.source.column_permissions_df

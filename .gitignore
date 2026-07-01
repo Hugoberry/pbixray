@@ -168,3 +168,4 @@ pyvenv.cfg
 .DS_Store
 docs/MS-XLDM.md
 docs/xlsx-parsing.md
+docs/TM_OBJECT_TYPES.md

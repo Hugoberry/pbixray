@@ -98,6 +98,13 @@ To access calculated column DAX expressions in a dataframe with `TableName`,`Col
 dax_columns = model.dax_columns
 print(dax_columns)
 ```
+### Aggregations
+To inspect Power BI aggregations (the "Manage aggregations" feature) as a resolved dataframe with `AggregationTable`, `AggregationColumn`, `Summarization`, `DetailTable`, and `DetailColumn` columns:
+```python
+aggregations = model.aggregations
+print(aggregations)
+```
+Each row maps one aggregation-table column to a detail (base) table. `Summarization` is the human label (`GroupBy`, `Sum`, `Count`, `Min`, `Max`); `DetailColumn` is `None` for the "Count table rows" case. A model with no aggregations returns an empty dataframe with these columns.
 ### Schema
 To get details about the data model schema and column types in a dataframe with `TableName`, `ColumnName`, and `PandasDataType` columns:
 ```python
@@ -116,6 +123,20 @@ To get the details about Row-Level Security roles and permissions in a dataframe
 rls = model.rls
 print(rls)
 ```
+### Object-Level Security (OLS)
+To get object-level security restrictions as a resolved dataframe with `RoleName`, `TableName`, `ColumnName`, `Scope` and `Permission` columns:
+```python
+ols = model.ols
+print(ols)
+```
+Each row is one secured object: `Scope='Column'` rows hide or expose a single column, `Scope='Table'` rows (where `ColumnName` is `None`) a whole table. `Permission` is `None` (hidden), `Read` (visible) or `Default`. Plain row-level-security rows are excluded — see `model.rls`. A model with no OLS returns an empty dataframe with these columns.
+### Perspectives
+To inspect perspective membership as a single consolidated dataframe with `PerspectiveName`, `ObjectType`, `TableName`, `ObjectName` and `IncludeAll` columns:
+```python
+perspectives = model.perspectives
+print(perspectives)
+```
+Each row is one object included in a perspective; `ObjectType` is `Table`, `Column`, `Measure` or `Hierarchy`, and `IncludeAll` is populated only for `Table` rows. This is a friendly roll-up over the raw `tmschema_perspective_*` endpoints. A model with no perspectives returns an empty dataframe with these columns.
 ### Get Table Contents
 To retrieve the contents of a specified table:
 ```python
@@ -231,6 +252,7 @@ Full equivalents of the Analysis Services `$System.TMSCHEMA_*` DMVs, read direct
 | `model.tmschema_analytics_ai_metadata` | `TMSCHEMA_ANALYTICS_AI_METADATA` |
 | `model.tmschema_data_coverage_definitions` | `TMSCHEMA_DATA_COVERAGE_DEFINITIONS` |
 | `model.tmschema_role_memberships` | `TMSCHEMA_ROLE_MEMBERSHIPS` |
+| `model.tmschema_column_permissions` | `TMSCHEMA_COLUMN_PERMISSIONS` |
 
 ```python
 # Example — list all columns with their tables
