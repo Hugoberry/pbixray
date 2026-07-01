@@ -6,7 +6,7 @@ import zipfile
 import concurrent.futures
 from .abf import parser
 from .abf.data_model import DataModel, Container
-from .abf.mapped_buffer import MappedBuffer
+from .abf.mapped_buffer import MappedBuffer, MappedFileWindow
 from .connections import parse_connections
 from .exceptions import LiveConnectionError, NoEmbeddedModelError
 from xpress9 import Xpress9
@@ -149,8 +149,50 @@ class DataModelLoader:
                 self._data_mashup_bytes = zip_ref.read('DataMashup')
             data_model_path = self.__get_data_model_path(zip_ref)
 
-            with zip_ref.open(data_model_path) as data_model_in_archive:
-                self.__decompress_stream(data_model_in_archive)
+            mapped = self.__map_stored_member(zip_ref, data_model_path)
+            if mapped is not None:
+                self.__decompress_stream(mapped)
+                # The uncompressed + on_disk path adopts the mapping as the
+                # decompressed data itself; otherwise it was only an input view.
+                if self._data_model.decompressed_data is not mapped:
+                    mapped.close()
+            else:
+                with zip_ref.open(data_model_path) as data_model_in_archive:
+                    self.__decompress_stream(data_model_in_archive)
+
+    def __map_stored_member(self, zip_ref, name):
+        """View a STORED zip member in place, or ``None`` to stream instead.
+
+        The data model member is normally STORED (it is already XPress9-
+        compressed, so the zip adds no compression of its own), which makes
+        its bytes one contiguous range of the container file: local header
+        data offset + ``compress_size``. The window reads that range
+        directly — no ``ZipExtFile`` buffering/CRC pass — and, decisively,
+        an *uncompressed* member can then be adopted as the decompressed
+        model itself (see ``__process_uncompressed``) instead of being
+        copied through a temp file. Requires a real file path (not a
+        file-like input) and a plain STORED, unencrypted member with a sane
+        local header; anything else falls back to streaming.
+        """
+        if hasattr(self.file_path, 'read'):
+            return None
+        info = zip_ref.getinfo(name)
+        if info.compress_type != zipfile.ZIP_STORED or info.flag_bits & 0x1:
+            return None
+        if info.compress_size <= 0:
+            return None
+        try:
+            with open(self.file_path, 'rb') as f:
+                f.seek(info.header_offset)
+                header = f.read(30)
+            if len(header) != 30 or header[:4] != b'PK\x03\x04':
+                return None
+            name_len = int.from_bytes(header[26:28], 'little')
+            extra_len = int.from_bytes(header[28:30], 'little')
+            data_offset = info.header_offset + 30 + name_len + extra_len
+            return MappedFileWindow(self.file_path, data_offset, info.compress_size)
+        except (OSError, ValueError):
+            return None
 
     def __unpack_abf(self):
         """Unpack a raw ``.abf`` backup: the DataModel stream with no zip envelope.
@@ -184,6 +226,12 @@ class DataModelLoader:
 
     def __process_uncompressed(self, data_model_file):
         """Process an uncompressed DataModel file."""
+        if self._on_disk and isinstance(data_model_file, MappedFileWindow):
+            # The member bytes *are* the decompressed model; adopt the mapping
+            # in place instead of copying them through a temp file.
+            data_model_file.seek(0)
+            self._data_model.decompressed_data = data_model_file
+            return
         sink = self.__make_sink()
         # Stream the member straight into the sink rather than reading it whole.
         data_model_file.seek(0)
