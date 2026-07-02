@@ -1,13 +1,25 @@
+import collections
+import queue
 import shutil
 import tempfile
 import zipfile
 import concurrent.futures
 from .abf import parser
 from .abf.data_model import DataModel, Container
-from .abf.mapped_buffer import MappedBuffer
+from .abf.mapped_buffer import MappedBuffer, MappedFileWindow
 from .connections import parse_connections
 from .exceptions import LiveConnectionError, NoEmbeddedModelError
 from xpress9 import Xpress9
+
+# Multi-threaded ABF streams are split into per-thread chunk groups laid out
+# sequentially; each group is an independent Xpress9 stream (its own history
+# window), so groups are the parallel unit. The pipeline below keeps at most
+# this many groups in flight: it bounds the compressed bytes held in RAM to
+# window * group_size instead of the whole member.
+_PIPELINE_GROUP_WINDOW = 4
+# Decompressed chunks buffered per in-flight group before its worker blocks;
+# bounds decompressed RAM to window * queue * chunk_size (chunks are ~2 MiB).
+_GROUP_QUEUE_CHUNKS = 8
 
 
 class _MemorySink:
@@ -137,8 +149,50 @@ class DataModelLoader:
                 self._data_mashup_bytes = zip_ref.read('DataMashup')
             data_model_path = self.__get_data_model_path(zip_ref)
 
-            with zip_ref.open(data_model_path) as data_model_in_archive:
-                self.__decompress_stream(data_model_in_archive)
+            mapped = self.__map_stored_member(zip_ref, data_model_path)
+            if mapped is not None:
+                self.__decompress_stream(mapped)
+                # The uncompressed + on_disk path adopts the mapping as the
+                # decompressed data itself; otherwise it was only an input view.
+                if self._data_model.decompressed_data is not mapped:
+                    mapped.close()
+            else:
+                with zip_ref.open(data_model_path) as data_model_in_archive:
+                    self.__decompress_stream(data_model_in_archive)
+
+    def __map_stored_member(self, zip_ref, name):
+        """View a STORED zip member in place, or ``None`` to stream instead.
+
+        The data model member is normally STORED (it is already XPress9-
+        compressed, so the zip adds no compression of its own), which makes
+        its bytes one contiguous range of the container file: local header
+        data offset + ``compress_size``. The window reads that range
+        directly — no ``ZipExtFile`` buffering/CRC pass — and, decisively,
+        an *uncompressed* member can then be adopted as the decompressed
+        model itself (see ``__process_uncompressed``) instead of being
+        copied through a temp file. Requires a real file path (not a
+        file-like input) and a plain STORED, unencrypted member with a sane
+        local header; anything else falls back to streaming.
+        """
+        if hasattr(self.file_path, 'read'):
+            return None
+        info = zip_ref.getinfo(name)
+        if info.compress_type != zipfile.ZIP_STORED or info.flag_bits & 0x1:
+            return None
+        if info.compress_size <= 0:
+            return None
+        try:
+            with open(self.file_path, 'rb') as f:
+                f.seek(info.header_offset)
+                header = f.read(30)
+            if len(header) != 30 or header[:4] != b'PK\x03\x04':
+                return None
+            name_len = int.from_bytes(header[26:28], 'little')
+            extra_len = int.from_bytes(header[28:30], 'little')
+            data_offset = info.header_offset + 30 + name_len + extra_len
+            return MappedFileWindow(self.file_path, data_offset, info.compress_size)
+        except (OSError, ValueError):
+            return None
 
     def __unpack_abf(self):
         """Unpack a raw ``.abf`` backup: the DataModel stream with no zip envelope.
@@ -172,6 +226,12 @@ class DataModelLoader:
 
     def __process_uncompressed(self, data_model_file):
         """Process an uncompressed DataModel file."""
+        if self._on_disk and isinstance(data_model_file, MappedFileWindow):
+            # The member bytes *are* the decompressed model; adopt the mapping
+            # in place instead of copying them through a temp file.
+            data_model_file.seek(0)
+            self._data_model.decompressed_data = data_model_file
+            return
         sink = self.__make_sink()
         # Stream the member straight into the sink rather than reading it whole.
         data_model_file.seek(0)
@@ -216,79 +276,96 @@ class DataModelLoader:
         main_thread_count = int.from_bytes(data_model_file.read(8), 'little')
         chunk_uncompressed_size = int.from_bytes(data_model_file.read(8), 'little')
 
-        # Process prefix chunks if there are any
-        if prefix_thread_count > 0 and prefix_chunks_per_thread > 0:
-            # Read all prefix chunks and group by thread
-            prefix_chunks = []
-            for _ in range(prefix_thread_count * prefix_chunks_per_thread):
-                uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                compressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                compressed_data = data_model_file.read(compressed_size)
-                prefix_chunks.append((uncompressed_size, compressed_data))
-
-            prefix_groups = [prefix_chunks[i*prefix_chunks_per_thread : (i+1)*prefix_chunks_per_thread]
-                            for i in range(prefix_thread_count)]
-
-            # Process prefix groups in parallel, maintaining order
-            if prefix_thread_count > 0:  # Ensure we only create a ThreadPoolExecutor if we have threads
-                with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, prefix_thread_count)) as executor:
-                    future_to_group = {executor.submit(self.__process_chunk_group, group): idx 
-                                    for idx, group in enumerate(prefix_groups)}
-                    # Collect results in original order
-                    ordered_results = [None] * len(prefix_groups)
-                    for future in concurrent.futures.as_completed(future_to_group):
-                        idx = future_to_group[future]
-                        ordered_results[idx] = future.result()
-                    
-                    for result in ordered_results:
-                        if result:
-                            sink.write(result)
-        
-        # Process main chunks if there are any
-        if main_thread_count > 0 and main_chunks_per_thread > 0:
-            # Read all main chunks and group by thread
-            main_chunks = []
-            for _ in range(main_thread_count * main_chunks_per_thread):
-                uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                compressed_size = int.from_bytes(data_model_file.read(4), 'little')
-                compressed_data = data_model_file.read(compressed_size)
-                main_chunks.append((uncompressed_size, compressed_data))
-
-            main_groups = [main_chunks[i*main_chunks_per_thread : (i+1)*main_chunks_per_thread]
-                        for i in range(main_thread_count)]
-
-            # Process main groups in parallel, maintaining order
-            if main_thread_count > 0:  # Ensure we only create a ThreadPoolExecutor if we have threads
-                with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, main_thread_count)) as executor:
-                    future_to_group = {executor.submit(self.__process_chunk_group, group): idx 
-                                    for idx, group in enumerate(main_groups)}
-                    # Collect results in original order
-                    ordered_results = [None] * len(main_groups)
-                    for future in concurrent.futures.as_completed(future_to_group):
-                        idx = future_to_group[future]
-                        ordered_results[idx] = future.result()
-                    
-                    for result in ordered_results:
-                        if result:
-                            sink.write(result)
+        # Prefix groups precede main groups in the stream; output order is
+        # prefix groups in order, then main groups in order.
+        self.__stream_chunk_groups(data_model_file, sink,
+                                   prefix_thread_count, prefix_chunks_per_thread)
+        self.__stream_chunk_groups(data_model_file, sink,
+                                   main_thread_count, main_chunks_per_thread)
 
         self._data_model.decompressed_data = sink.finish()
 
-    def __process_chunk_group(self, chunk_group):
-        if not chunk_group:
-            return bytearray()
-            
-        xpress9_lib = Xpress9()
-        decompressed = bytearray()
+    def __stream_chunk_groups(self, data_model_file, sink, thread_count, chunks_per_thread):
+        """Decompress per-thread chunk groups through a bounded pipeline.
+
+        At most ``_PIPELINE_GROUP_WINDOW`` groups are in flight: their
+        compressed bytes are read lazily from the stream, and each worker
+        emits decompressed chunks through a small bounded queue that the main
+        thread drains strictly in group order into the sink. This keeps peak
+        RAM at roughly window * group_size instead of holding the whole
+        compressed member plus the whole decompressed output (which defeated
+        ``on_disk=True`` on large models).
+        """
+        if thread_count <= 0 or chunks_per_thread <= 0:
+            return
+
+        def read_group():
+            group = collections.deque()
+            for _ in range(chunks_per_thread):
+                uncompressed_size = int.from_bytes(data_model_file.read(4), 'little')
+                compressed_size = int.from_bytes(data_model_file.read(4), 'little')
+                group.append((uncompressed_size, data_model_file.read(compressed_size)))
+            return group
+
+        window = min(thread_count, _PIPELINE_GROUP_WINDOW)
+        pending = collections.deque()
+        submitted = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=window) as executor:
+            try:
+                while submitted < min(window, thread_count):
+                    out_queue = queue.Queue(maxsize=_GROUP_QUEUE_CHUNKS)
+                    pending.append((
+                        executor.submit(self.__decompress_group, read_group(), out_queue),
+                        out_queue,
+                    ))
+                    submitted += 1
+
+                while pending:
+                    future, out_queue = pending.popleft()
+                    while True:
+                        chunk = out_queue.get()
+                        if chunk is None:
+                            break
+                        sink.write(chunk)
+                    future.result()  # surface worker exceptions
+                    if submitted < thread_count:
+                        out_queue = queue.Queue(maxsize=_GROUP_QUEUE_CHUNKS)
+                        pending.append((
+                            executor.submit(self.__decompress_group, read_group(), out_queue),
+                            out_queue,
+                        ))
+                        submitted += 1
+            except BaseException:
+                # Unblock workers stuck on full queues so executor shutdown
+                # (and the with-block exit) can't deadlock.
+                for future, out_queue in pending:
+                    while not future.done():
+                        try:
+                            out_queue.get(timeout=0.1)
+                        except queue.Empty:
+                            pass
+                raise
+
+    @staticmethod
+    def __decompress_group(chunk_group, out_queue):
+        """Worker: decompress one group, streaming chunks into its queue.
+
+        Chunks of a group share one Xpress9 history window, so they must be
+        decompressed sequentially here; compressed chunks are dropped as they
+        are consumed. A trailing ``None`` always marks the end of the group,
+        even on error, so the consumer can never block forever.
+        """
         try:
-            for uncompressed_size, compressed_data in chunk_group:
-                decompressed_chunk = xpress9_lib.decompress(
-                    compressed_data, uncompressed_size
-                )
-                decompressed.extend(decompressed_chunk)
+            if chunk_group:
+                xpress9_lib = Xpress9()
+                try:
+                    while chunk_group:
+                        uncompressed_size, compressed_data = chunk_group.popleft()
+                        out_queue.put(xpress9_lib.decompress(compressed_data, uncompressed_size))
+                finally:
+                    del xpress9_lib
         finally:
-            del xpress9_lib
-        return decompressed
+            out_queue.put(None)
 
     @property
     def connections(self):

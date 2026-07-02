@@ -49,6 +49,12 @@ deterministically releases the memory map and the metadata connection. When
 `on_disk=False` (the default) behavior is unchanged. Metadata (DAX, TMSCHEMA_*, etc.)
 is loaded lazily on first access, so simply opening a file is cheap.
 
+The `DataModel` member is read in place from the container file whenever it is
+STORED in the zip (the normal case — it carries its own compression). If the
+member is additionally *uncompressed* (a raw ABF backup inside the zip),
+`on_disk=True` serves it directly from the `.pbix`/`.xlsx` with no temp-file
+copy at all.
+
 ## Features and Usage
 ### Tables
 To list all tables in the model:
@@ -149,7 +155,29 @@ pass `columns`:
 ```python
 table_contents = model.get_table(table_name, columns=['ProductKey', 'Sales'])
 ```
+With `strings_as_categorical=True` string columns come back as `pd.Categorical`,
+so each distinct value is stored once instead of once per row — a large memory
+saving on low-cardinality string columns:
+```python
+table_contents = model.get_table(table_name, strings_as_categorical=True)
+```
 Dictionary decode runs on a native Huffman kernel ([xmhuffman](https://github.com/Hugoberry/xmhuffman-cython)) and fans out across cores automatically for large dictionaries.
+### Stream Large Tables in Chunks
+For tables too large to materialize whole, `iter_table` yields DataFrame chunks
+instead of one DataFrame. Chunks follow VertiPaq segment boundaries, and
+`chunk_size` further splits each segment (chunks never span two segments, so
+tail chunks may be shorter). String columns default to `pd.Categorical`,
+sharing one categories array across all chunks; pass
+`strings_as_categorical=False` for plain object-dtype strings.
+```python
+with PBIXRay('path/to/large.pbix', on_disk=True) as model:
+    for chunk in model.iter_table('Sales', chunk_size=1_000_000):
+        process(chunk)  # chunk.index is the global row range
+```
+The dictionaries of every selected column are decoded up front and kept for the
+whole iteration, so on dictionary-heavy models (e.g. wide free-text columns)
+pass `columns` to project only what you need. Combine with `on_disk=True` to
+also keep the decompressed model itself out of RAM.
 ### Statistics
 To get statistics about the model, including column cardinality and byte sizes of dictionary, hash index, and data components, in a dataframe with columns `TableName`, `ColumnName`, `Cardinality`, `Dictionary`, `HashIndex`, and `DataSize`:
 ```python
@@ -265,7 +293,3 @@ print(model.tmschema_refresh_policies)
 print(model.tmschema_role_memberships)
 ```
 
-## Roadmap
-
-Planned optimizations for very large models (Arrow output, direct zip-member
-mmap, RecordBatch streaming) are tracked in [ROADMAP.md](ROADMAP.md).

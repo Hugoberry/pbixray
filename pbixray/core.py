@@ -32,7 +32,7 @@ class PBIXRay:
         self._metadata = Metadata(self._data_model)
         self._vertipaq_decoder = VertiPaqDecoder(self._metadata.source, self._data_model)
 
-    def get_table(self, table_name, columns=None):
+    def get_table(self, table_name, columns=None, strings_as_categorical=False):
         """Generates a DataFrame representation of the specified table.
 
         Args:
@@ -40,8 +40,49 @@ class PBIXRay:
             columns: Optional list of column names to decode. When provided, only
                 those columns are decoded (useful for wide tables); ``None``
                 decodes every column.
+            strings_as_categorical: When ``True``, string columns are returned
+                as ``pd.Categorical`` so each distinct value is stored once
+                instead of once per row. Default ``False`` keeps the original
+                object-dtype output.
         """
-        return self._vertipaq_decoder.get_table(table_name, columns=columns)
+        return self._vertipaq_decoder.get_table(
+            table_name, columns=columns, strings_as_categorical=strings_as_categorical
+        )
+
+    def iter_table(self, table_name, columns=None, chunk_size=None,
+                   strings_as_categorical=True):
+        """Iterates over the specified table as a sequence of DataFrame chunks.
+
+        Use this instead of :meth:`get_table` for tables too large to
+        materialize whole. Chunks follow VertiPaq segment boundaries
+        (partitions flattened in storage order); ``chunk_size`` further
+        splits each segment, so a chunk never spans two segments and tail
+        chunks may be shorter than ``chunk_size``.
+
+        Dictionaries of every selected column are decoded up front and kept
+        for the whole iteration — on dictionary-heavy models (e.g. wide
+        free-text columns) pass ``columns`` to project only what you need.
+        Pairs well with ``on_disk=True``, which keeps the decompressed model
+        itself out of RAM.
+
+        Args:
+            table_name: Name of the table to decode.
+            columns: Optional list of column names to decode.
+            chunk_size: Optional maximum rows per chunk; ``None`` yields one
+                chunk per VertiPaq segment.
+            strings_as_categorical: Default ``True``: string columns come back
+                as ``pd.Categorical`` sharing one categories array across all
+                chunks. Set ``False`` for plain object-dtype strings.
+
+        Yields:
+            ``pd.DataFrame`` chunks whose index is the global row range.
+        """
+        return self._vertipaq_decoder.iter_table(
+            table_name,
+            columns=columns,
+            chunk_size=chunk_size,
+            strings_as_categorical=strings_as_categorical,
+        )
 
     def close(self):
         """Release OS resources (memory-map / temp file, metadata connection).
