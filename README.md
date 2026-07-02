@@ -293,7 +293,3 @@ print(model.tmschema_refresh_policies)
 print(model.tmschema_role_memberships)
 ```
 
-## Roadmap
-
-Planned optimizations for very large models (Arrow output, direct zip-member
-mmap, RecordBatch streaming) are tracked in [ROADMAP.md](ROADMAP.md).
