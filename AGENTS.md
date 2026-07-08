@@ -44,7 +44,9 @@ pages a requested table touches are resident. (When the container's
 `on_disk=True` serves it directly from the `.pbix`/`.xlsx` with no
 temp-file copy at all.) `PBIXRay` is a context manager; use
 `with PBIXRay(path, on_disk=True) as model:` or call `model.close()` to
-release the mapping and temp file deterministically.
+release the mapping and temp file deterministically. After `close()`,
+`get_table`/`iter_table` and any metadata not yet loaded raise
+`RuntimeError`; DataFrames already materialized remain usable.
 
 Per-table levers:
 
@@ -95,7 +97,7 @@ Source of truth: [pbixray/core.py](pbixray/core.py).
 | `get_table(name, columns=None, strings_as_categorical=False)` | `DataFrame` | Row data; `RowNumber` excluded; unknown name → empty DataFrame (no exception)             |
 | `iter_table(name, columns=None, chunk_size=None, strings_as_categorical=True)` | iterator of `DataFrame` | Chunks follow VertiPaq segment boundaries; `chunk.index` is the global row range |
 | `schema`               | `DataFrame`         | `TableName`, `ColumnName`, `PandasDataType`                                                                              |
-| `statistics`           | `DataFrame`         | `TableName`, `ColumnName`, `Cardinality`, `Dictionary`, `HashIndex`, `DataSize`                                          |
+| `statistics`           | `DataFrame`         | `TableName`, `ColumnName`, `Cardinality`, `Dictionary`, `HashIndex`, `DataSize`, `ModifiedTime`, `StructureModifiedTime` |
 | `size`                 | `int`               | Total model size in bytes                                                                                                |
 | `relationships`        | `DataFrame`         | `FromTableName`, `FromColumnName`, `ToTableName`, `ToColumnName`, `IsActive`, `Cardinality`, `CrossFilteringBehavior`, … |
 | `power_query`          | `DataFrame`         | `TableName`, `Expression` (M code, from AS metadata — import models)                                                     |
@@ -175,8 +177,8 @@ metadata); it has no zip envelope, so report-layer parts
 | `mashup_queries`, `data_mashup`           | Populated when the file has a `DataMashup` part | Empty / `None` |
 | `connections`                             | Populated (PBIX) / `[]` (ABF) | `[]`     |
 | `metadata`, `rls`                         | Populated   | Empty                      |
-| `aggregations`, `ols`, `perspectives`     | Populated   | **Raises `AttributeError`** (see Gotchas) |
-| `tmschema_*`                              | Populated   | Empty (except `tmschema_column_permissions`, which raises `AttributeError`) |
+| `aggregations`, `ols`, `perspectives`     | Populated   | Empty                      |
+| `tmschema_*`                              | Populated   | Empty                      |
 
 Empty here means a zero-row DataFrame, not `None` and not an exception.
 
@@ -194,12 +196,6 @@ Empty here means a zero-row DataFrame, not `None` and not an exception.
 - **Thin/live-connection reports raise on construction** — wrap
   `PBIXRay(...)` in `try/except LiveConnectionError` if the input file
   might be a live-connected report (see Exceptions).
-- **Newer roll-up endpoints raise `AttributeError` on XLSX** —
-  `aggregations`, `ols`, `perspectives`, and
-  `tmschema_column_permissions` are not implemented in the XLSX
-  metadata source, so on `.xlsx` inputs they raise instead of returning
-  an empty DataFrame. Guard with `try/except AttributeError` when the
-  input may be XLSX.
 - **`get_table` and `iter_table` default `strings_as_categorical`
   differently** — `get_table` defaults to `False` (plain object dtype),
   `iter_table` defaults to `True` (shared `pd.Categorical` across

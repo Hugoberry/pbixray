@@ -48,13 +48,11 @@ def test_power_query_and_m_parameters_unchanged(directquery_model):
 
 
 def test_model_without_mashup(sales_returns_model):
+    # Column-less empty frame, like every other endpoint's empty case.
     assert sales_returns_model.data_mashup is None
     df = sales_returns_model.mashup_queries
-    assert list(df.columns) == [
-        "Name", "Kind", "IsParameter", "Expression",
-        "Type", "DefaultValue", "AllowedValues",
-    ]
-    assert len(df) == 0
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
 
 
 # ---------------------------------------------------------------------------

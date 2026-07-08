@@ -52,11 +52,10 @@ def test_ols_excludes_plain_rls(ols_model):
 
 def test_ols_empty_shape(rls_model):
     # A model with row-level security but no object-level security returns an
-    # empty frame with the canonical columns (not a column-less frame).
+    # empty frame — column-less, like every other endpoint's empty case.
     df = rls_model.ols
     assert isinstance(df, pd.DataFrame)
     assert df.empty
-    assert list(df.columns) == _OLS_COLUMNS
 
 
 def test_tmschema_column_permissions(ols_model):
@@ -97,8 +96,8 @@ def test_perspectives_membership(internet_sales_abf_model):
 
 
 def test_perspectives_empty_shape(abc_model):
-    # A model with no perspectives returns an empty frame with canonical columns.
+    # A model with no perspectives returns an empty frame — column-less, like
+    # every other endpoint's empty case.
     df = abc_model.perspectives
     assert isinstance(df, pd.DataFrame)
     assert df.empty
-    assert list(df.columns) == _PERSPECTIVES_COLUMNS

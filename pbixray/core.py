@@ -28,9 +28,16 @@ class PBIXRay:
         self._connections = loader.connections
         self._data_mashup_bytes = loader.data_mashup_bytes
         self._data_mashup = None  # parsed lazily on first access
+        self._closed = False
 
         self._metadata = Metadata(self._data_model)
         self._vertipaq_decoder = VertiPaqDecoder(self._metadata.source, self._data_model)
+
+    def _ensure_open(self):
+        if self._closed:
+            raise RuntimeError(
+                "This PBIXRay model is closed; create a new PBIXRay to keep reading."
+            )
 
     def get_table(self, table_name, columns=None, strings_as_categorical=False):
         """Generates a DataFrame representation of the specified table.
@@ -45,6 +52,7 @@ class PBIXRay:
                 instead of once per row. Default ``False`` keeps the original
                 object-dtype output.
         """
+        self._ensure_open()
         return self._vertipaq_decoder.get_table(
             table_name, columns=columns, strings_as_categorical=strings_as_categorical
         )
@@ -77,6 +85,7 @@ class PBIXRay:
         Yields:
             ``pd.DataFrame`` chunks whose index is the global row range.
         """
+        self._ensure_open()
         return self._vertipaq_decoder.iter_table(
             table_name,
             columns=columns,
@@ -87,13 +96,15 @@ class PBIXRay:
     def close(self):
         """Release OS resources (memory-map / temp file, metadata connection).
 
-        Safe to call multiple times. Only has an effect for ``on_disk=True``
-        models and the metadata SQLite connection.
+        Safe to call multiple times. After closing, ``get_table``/``iter_table``
+        and any metadata not yet loaded raise a ``RuntimeError``; DataFrames
+        already materialized remain usable.
         """
         source = getattr(self._metadata, 'source', None)
         if source is not None and hasattr(source, 'close'):
             source.close()
         self._data_model.close()
+        self._closed = True
 
     def __enter__(self):
         return self
@@ -139,8 +150,8 @@ class PBIXRay:
         Columns: ``AggregationTable, AggregationColumn, Summarization,
         DetailTable, DetailColumn``. One row per aggregation-table column mapped
         to its detail (base) table; ``DetailColumn`` is ``None`` for the
-        "Count table rows" case. Empty (with those columns) when the model has
-        no aggregations. Friendly layer over ``tmschema_alternate_of``.
+        "Count table rows" case. Empty (column-less) when the model has no
+        aggregations. Friendly layer over ``tmschema_alternate_of``.
         """
         return self._metadata.source.aggregations_df
 
@@ -189,13 +200,11 @@ class PBIXRay:
         """Power Query queries/parameters from the ``DataMashup`` as a DataFrame.
 
         Columns: ``Name, Kind, IsParameter, Expression, Type, DefaultValue,
-        AllowedValues``. Empty (with those columns) when the file has no mashup.
+        AllowedValues``. Empty (column-less) when the file has no mashup.
         """
-        columns = ['Name', 'Kind', 'IsParameter', 'Expression',
-                   'Type', 'DefaultValue', 'AllowedValues']
         mashup = self.data_mashup
         if mashup is None:
-            return pd.DataFrame(columns=columns)
+            return pd.DataFrame()
         rows = [
             {
                 'Name': q.name,
@@ -208,7 +217,12 @@ class PBIXRay:
             }
             for q in mashup.queries
         ]
-        return pd.DataFrame(rows, columns=columns)
+        if not rows:
+            return pd.DataFrame()
+        return pd.DataFrame(rows, columns=[
+            'Name', 'Kind', 'IsParameter', 'Expression',
+            'Type', 'DefaultValue', 'AllowedValues',
+        ])
 
     @property
     def rls(self):
@@ -223,7 +237,7 @@ class PBIXRay:
         ``Scope='Table'`` rows (``ColumnName`` is ``None``) hide/expose a whole
         table. ``Permission`` is ``None`` (hidden), ``Read`` (visible) or
         ``Default``. Plain row-level-security rows are excluded (see ``rls``).
-        Empty (with those columns) when the model has no OLS. Friendly layer over
+        Empty (column-less) when the model has no OLS. Friendly layer over
         ``tmschema_column_permissions`` and the table permissions.
         """
         return self._metadata.source.ols_df
@@ -235,9 +249,9 @@ class PBIXRay:
         Columns: ``PerspectiveName, ObjectType, TableName, ObjectName,
         IncludeAll``. One row per object included in a perspective, with
         ``ObjectType`` one of ``Table, Column, Measure, Hierarchy``;
-        ``IncludeAll`` is populated only for ``Table`` rows. Empty (with those
-        columns) when the model has no perspectives. Friendly roll-up over the
-        raw ``tmschema_perspective_*`` rowsets.
+        ``IncludeAll`` is populated only for ``Table`` rows. Empty
+        (column-less) when the model has no perspectives. Friendly roll-up
+        over the raw ``tmschema_perspective_*`` rowsets.
         """
         return self._metadata.source.perspectives_view_df
 

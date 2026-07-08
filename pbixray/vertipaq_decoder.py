@@ -398,11 +398,12 @@ class VertiPaqDecoder:
     def _select_table_metadata(self, table_name, columns):
         """Filters schema_df to the requested table and (optionally) columns.
 
-        Unknown column names raise a ``ValueError``; an unknown table simply
-        yields an empty selection.
+        An unknown table yields an empty selection — with or without
+        ``columns`` — so the caller's empty-result contract holds. Unknown
+        column names on a *known* table raise a ``ValueError``.
         """
         table_metadata_df = self._meta.schema_df[self._meta.schema_df['TableName'] == table_name]
-        if columns is not None:
+        if columns is not None and not table_metadata_df.empty:
             available = set(table_metadata_df['ColumnName'])
             missing = [c for c in columns if c not in available]
             if missing:

@@ -49,12 +49,6 @@ class SqliteMetadataSource:
         'ModifiedTime', 'StructureModifiedTime',
     ]
 
-    # Friendly, resolved aggregations view (see ``__populate_aggregations``).
-    _AGGREGATIONS_COLUMNS = [
-        'AggregationTable', 'AggregationColumn', 'Summarization',
-        'DetailTable', 'DetailColumn',
-    ]
-
     # ``AlternateOf.Summarization`` enum -> human label.
     _SUMMARIZATION_LABELS = {
         0: 'GroupBy', 1: 'Sum', 2: 'Count', 3: 'Min', 4: 'Max',
@@ -71,12 +65,6 @@ class SqliteMetadataSource:
     _METADATA_PERMISSION_LABELS = {
         0: 'Default', 1: 'None', 2: 'Read',
     }
-
-    # Friendly, consolidated perspective-membership view (see
-    # ``__populate_perspectives_view``).
-    _PERSPECTIVES_COLUMNS = [
-        'PerspectiveName', 'ObjectType', 'TableName', 'ObjectName', 'IncludeAll',
-    ]
 
     def __init__(self, data_model: DataModel):
         self._data_model = data_model
@@ -158,6 +146,11 @@ class SqliteMetadataSource:
         """
         populators = self.__dict__.get('_lazy_populators')
         if populators and name in populators:
+            if self.__dict__.get('_db') is None:
+                raise RuntimeError(
+                    "This PBIXRay model is closed; metadata not loaded before "
+                    "close() is no longer available."
+                )
             df = convert_time_columns(populators[name]())
             setattr(self, name, df)  # cache for subsequent access
             return df
@@ -1137,9 +1130,9 @@ class SqliteMetadataSource:
         """
         df = self._db.query(sql)
         if df.empty:
-            # Missing ``AlternateOf`` (legacy schema) or no aggregations: give a
-            # stable shape so callers can always select the canonical columns.
-            return df.reindex(columns=self._AGGREGATIONS_COLUMNS)
+            # Missing ``AlternateOf`` (legacy schema) or no aggregations:
+            # column-less empty frame, like every other endpoint.
+            return df
         df['Summarization'] = df['Summarization'].map(self._SUMMARIZATION_LABELS)
         return df
 
@@ -1286,8 +1279,8 @@ class SqliteMetadataSource:
           surfaced by ``rls`` instead.
 
         ``Permission`` is the human label (``None`` hides the object, ``Read``
-        makes it visible). Empty (with the canonical columns) when the model has
-        no OLS or predates the permission tables.
+        makes it visible). Empty (column-less) when the model has no OLS or
+        predates the permission tables.
         """
         sql = """
         SELECT
@@ -1318,9 +1311,9 @@ class SqliteMetadataSource:
         df = self._db.query(sql)
         if df.empty:
             # No OLS, or a legacy schema lacking the permission tables / the
-            # ``MetadataPermission`` column: give a stable shape so callers can
-            # always select the canonical columns.
-            return df.reindex(columns=self._OLS_COLUMNS)
+            # ``MetadataPermission`` column: column-less empty frame, like
+            # every other endpoint.
+            return df
         df['Permission'] = df.pop('_Perm').map(self._METADATA_PERMISSION_LABELS)
         return df.reindex(columns=self._OLS_COLUMNS)
 
@@ -1336,8 +1329,8 @@ class SqliteMetadataSource:
         single frame keyed by ``ObjectType``. ``TableName`` is the owning table
         for every row; ``ObjectName`` is the object's own name (equal to
         ``TableName`` for ``Table`` rows). ``IncludeAll`` is populated only for
-        ``Table`` rows (whether the whole table is included). Empty (with the
-        canonical columns) when the model has no perspectives.
+        ``Table`` rows (whether the whole table is included). Empty
+        (column-less) when the model has no perspectives.
         """
         sql = """
         SELECT
@@ -1376,6 +1369,6 @@ class SqliteMetadataSource:
         JOIN [Table]              t  ON h.TableID             = t.ID
         ORDER BY PerspectiveName, ObjectType, TableName, ObjectName;
         """
-        # ``reindex`` gives a stable shape whether or not the model has
-        # perspectives (an all-empty union comes back column-less from APSW).
-        return self._db.query(sql).reindex(columns=self._PERSPECTIVES_COLUMNS)
+        # An all-empty union comes back column-less from APSW — left as-is,
+        # like every other endpoint's empty case.
+        return self._db.query(sql)

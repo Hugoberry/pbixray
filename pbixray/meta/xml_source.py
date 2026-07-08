@@ -32,7 +32,8 @@ _EMPTY_DF_STUBS = (
     'calendar_column_groups_df', 'calendar_column_refs_df', 'alternate_of_df',
     'related_column_details_df', 'group_by_columns_df', 'binding_info_df',
     'analytics_ai_metadata_df', 'data_coverage_definitions_df',
-    'role_memberships_df',
+    'role_memberships_df', 'column_permissions_df',
+    'aggregations_df', 'ols_df', 'perspectives_view_df',
 )
 
 
