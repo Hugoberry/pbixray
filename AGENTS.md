@@ -175,8 +175,8 @@ metadata); it has no zip envelope, so report-layer parts
 | `mashup_queries`, `data_mashup`           | Populated when the file has a `DataMashup` part | Empty / `None` |
 | `connections`                             | Populated (PBIX) / `[]` (ABF) | `[]`     |
 | `metadata`, `rls`                         | Populated   | Empty                      |
-| `aggregations`, `ols`, `perspectives`     | Populated   | **Raises `AttributeError`** (see Gotchas) |
-| `tmschema_*`                              | Populated   | Empty (except `tmschema_column_permissions`, which raises `AttributeError`) |
+| `aggregations`, `ols`, `perspectives`     | Populated   | Empty                      |
+| `tmschema_*`                              | Populated   | Empty                      |
 
 Empty here means a zero-row DataFrame, not `None` and not an exception.
 
@@ -194,12 +194,6 @@ Empty here means a zero-row DataFrame, not `None` and not an exception.
 - **Thin/live-connection reports raise on construction** — wrap
   `PBIXRay(...)` in `try/except LiveConnectionError` if the input file
   might be a live-connected report (see Exceptions).
-- **Newer roll-up endpoints raise `AttributeError` on XLSX** —
-  `aggregations`, `ols`, `perspectives`, and
-  `tmschema_column_permissions` are not implemented in the XLSX
-  metadata source, so on `.xlsx` inputs they raise instead of returning
-  an empty DataFrame. Guard with `try/except AttributeError` when the
-  input may be XLSX.
 - **`get_table` and `iter_table` default `strings_as_categorical`
   differently** — `get_table` defaults to `False` (plain object dtype),
   `iter_table` defaults to `True` (shared `pd.Categorical` across
