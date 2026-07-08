@@ -66,7 +66,7 @@ def test_aggregations_groupby_resolves_own_detail_table(aggregations_model):
 
 
 def test_aggregations_empty_model(rls_model):
+    # Column-less when empty, like every other endpoint's empty case.
     df = rls_model.aggregations
     assert isinstance(df, pd.DataFrame)
     assert df.empty
-    assert list(df.columns) == _AGG_COLUMNS

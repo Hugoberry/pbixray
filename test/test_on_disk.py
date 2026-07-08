@@ -82,6 +82,30 @@ def test_close_is_idempotent(tmp_path):
     model.close()  # must not raise
 
 
+@pytest.mark.parametrize("on_disk", [False, True])
+def test_use_after_close_raises_clearly(on_disk, tmp_path):
+    """After close(), data and unloaded-metadata access raise a RuntimeError
+    that says the model is closed — same behavior in both loading modes."""
+    model = PBIXRay(os.path.join(DATA_DIR, "work.pbix"), on_disk=on_disk,
+                    temp_dir=str(tmp_path) if on_disk else None)
+    table = model.tables[0]
+    model.close()
+    with pytest.raises(RuntimeError, match="closed"):
+        model.get_table(table)
+    with pytest.raises(RuntimeError, match="closed"):
+        next(model.iter_table(table))
+    with pytest.raises(RuntimeError, match="closed"):
+        _ = model.dax_measures  # lazy metadata, not loaded before close
+
+
+def test_metadata_loaded_before_close_stays_readable():
+    """close() releases resources; already-materialized DataFrames survive."""
+    model = PBIXRay(os.path.join(DATA_DIR, "work.pbix"))
+    measures = model.dax_measures
+    model.close()
+    assert model.dax_measures is measures
+
+
 def test_column_selection():
     """get_table(columns=[...]) returns only the requested columns, matching the full decode."""
     model = PBIXRay(os.path.join(DATA_DIR, "work.pbix"))
@@ -99,6 +123,15 @@ def test_column_selection_unknown_raises():
     table = model.tables[0]
     with pytest.raises(ValueError):
         model.get_table(table, columns=["__definitely_not_a_column__"])
+
+
+def test_unknown_table_is_forgiving_with_or_without_columns():
+    """Unknown table name -> empty DataFrame, even when columns are requested;
+    iter_table yields nothing. Column validation only applies to known tables."""
+    model = PBIXRay(os.path.join(DATA_DIR, "work.pbix"))
+    assert model.get_table("__no_such_table__").empty
+    assert model.get_table("__no_such_table__", columns=["anything"]).empty
+    assert list(model.iter_table("__no_such_table__")) == []
 
 
 def test_metadata_loaded_lazily():
