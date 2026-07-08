@@ -74,6 +74,20 @@ def test_xlsx_relationships(xlsx_model):
 
 
 # -------------------------------------------------------------------------
+# Endpoints with no XLSX equivalent must still return an empty DataFrame
+# (uniform surface with PBIX), never raise.
+# -------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "endpoint",
+    ["aggregations", "ols", "perspectives", "tmschema_column_permissions"],
+)
+def test_xlsx_pbix_only_endpoints_empty(xlsx_model, endpoint):
+    df = getattr(xlsx_model, endpoint)
+    assert _is_df(df) and df.empty
+
+
+# -------------------------------------------------------------------------
 # get_table data fidelity — verified against CSV fixtures captured from
 # Excel's Power Pivot view. Compared as row-tuple multisets because
 # VertiPaq stores rows in RLE-friendly order, not insertion order.
