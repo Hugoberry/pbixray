@@ -110,7 +110,7 @@ To inspect Power BI aggregations (the "Manage aggregations" feature) as a resolv
 aggregations = model.aggregations
 print(aggregations)
 ```
-Each row maps one aggregation-table column to a detail (base) table. `Summarization` is the human label (`GroupBy`, `Sum`, `Count`, `Min`, `Max`); `DetailColumn` is `None` for the "Count table rows" case. A PBIX model with no aggregations returns an empty dataframe with these columns; on XLSX (no equivalent feature) the dataframe is empty and column-less.
+Each row maps one aggregation-table column to a detail (base) table. `Summarization` is the human label (`GroupBy`, `Sum`, `Count`, `Min`, `Max`); `DetailColumn` is `None` for the "Count table rows" case. A model with no aggregations returns an empty dataframe.
 ### Schema
 To get details about the data model schema and column types in a dataframe with `TableName`, `ColumnName`, and `PandasDataType` columns:
 ```python
@@ -135,14 +135,14 @@ To get object-level security restrictions as a resolved dataframe with `RoleName
 ols = model.ols
 print(ols)
 ```
-Each row is one secured object: `Scope='Column'` rows hide or expose a single column, `Scope='Table'` rows (where `ColumnName` is `None`) a whole table. `Permission` is `None` (hidden), `Read` (visible) or `Default`. Plain row-level-security rows are excluded — see `model.rls`. A PBIX model with no OLS returns an empty dataframe with these columns; on XLSX (no equivalent feature) the dataframe is empty and column-less.
+Each row is one secured object: `Scope='Column'` rows hide or expose a single column, `Scope='Table'` rows (where `ColumnName` is `None`) a whole table. `Permission` is `None` (hidden), `Read` (visible) or `Default`. Plain row-level-security rows are excluded — see `model.rls`. A model with no OLS returns an empty dataframe.
 ### Perspectives
 To inspect perspective membership as a single consolidated dataframe with `PerspectiveName`, `ObjectType`, `TableName`, `ObjectName` and `IncludeAll` columns:
 ```python
 perspectives = model.perspectives
 print(perspectives)
 ```
-Each row is one object included in a perspective; `ObjectType` is `Table`, `Column`, `Measure` or `Hierarchy`, and `IncludeAll` is populated only for `Table` rows. This is a friendly roll-up over the raw `tmschema_perspective_*` endpoints. A PBIX model with no perspectives returns an empty dataframe with these columns; on XLSX (no equivalent feature) the dataframe is empty and column-less.
+Each row is one object included in a perspective; `ObjectType` is `Table`, `Column`, `Measure` or `Hierarchy`, and `IncludeAll` is populated only for `Table` rows. This is a friendly roll-up over the raw `tmschema_perspective_*` endpoints. A model with no perspectives returns an empty dataframe.
 ### Get Table Contents
 To retrieve the contents of a specified table:
 ```python
@@ -179,7 +179,7 @@ whole iteration, so on dictionary-heavy models (e.g. wide free-text columns)
 pass `columns` to project only what you need. Combine with `on_disk=True` to
 also keep the decompressed model itself out of RAM.
 ### Statistics
-To get statistics about the model, including column cardinality and byte sizes of dictionary, hash index, and data components, in a dataframe with columns `TableName`, `ColumnName`, `Cardinality`, `Dictionary`, `HashIndex`, and `DataSize`:
+To get statistics about the model, including column cardinality and byte sizes of dictionary, hash index, and data components, in a dataframe with columns `TableName`, `ColumnName`, `Cardinality`, `Dictionary`, `HashIndex`, `DataSize`, `ModifiedTime`, and `StructureModifiedTime`:
 ```python
 statistics = model.statistics
 print(statistics)

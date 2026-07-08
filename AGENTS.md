@@ -44,7 +44,9 @@ pages a requested table touches are resident. (When the container's
 `on_disk=True` serves it directly from the `.pbix`/`.xlsx` with no
 temp-file copy at all.) `PBIXRay` is a context manager; use
 `with PBIXRay(path, on_disk=True) as model:` or call `model.close()` to
-release the mapping and temp file deterministically.
+release the mapping and temp file deterministically. After `close()`,
+`get_table`/`iter_table` and any metadata not yet loaded raise
+`RuntimeError`; DataFrames already materialized remain usable.
 
 Per-table levers:
 
@@ -95,7 +97,7 @@ Source of truth: [pbixray/core.py](pbixray/core.py).
 | `get_table(name, columns=None, strings_as_categorical=False)` | `DataFrame` | Row data; `RowNumber` excluded; unknown name → empty DataFrame (no exception)             |
 | `iter_table(name, columns=None, chunk_size=None, strings_as_categorical=True)` | iterator of `DataFrame` | Chunks follow VertiPaq segment boundaries; `chunk.index` is the global row range |
 | `schema`               | `DataFrame`         | `TableName`, `ColumnName`, `PandasDataType`                                                                              |
-| `statistics`           | `DataFrame`         | `TableName`, `ColumnName`, `Cardinality`, `Dictionary`, `HashIndex`, `DataSize`                                          |
+| `statistics`           | `DataFrame`         | `TableName`, `ColumnName`, `Cardinality`, `Dictionary`, `HashIndex`, `DataSize`, `ModifiedTime`, `StructureModifiedTime` |
 | `size`                 | `int`               | Total model size in bytes                                                                                                |
 | `relationships`        | `DataFrame`         | `FromTableName`, `FromColumnName`, `ToTableName`, `ToColumnName`, `IsActive`, `Cardinality`, `CrossFilteringBehavior`, … |
 | `power_query`          | `DataFrame`         | `TableName`, `Expression` (M code, from AS metadata — import models)                                                     |
