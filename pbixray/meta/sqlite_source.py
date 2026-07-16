@@ -250,6 +250,7 @@ class SqliteMetadataSource:
             return [
                 {
                     'min_data_id': seg.ss.min_data_id,
+                    'has_nulls': seg.ss.has_nulls,
                     'count_bit_packed': seg.subsegment.records if seg.has_subsegment != 0 else 0,
                     'bit_width': seg.bit_width,
                     'records': seg.records,
