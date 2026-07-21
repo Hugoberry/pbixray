@@ -72,6 +72,14 @@ def five_m_model():
 
 
 @pytest.fixture(scope="module")
+def mix_model():
+    # 2*2^20+1 rows -> 3 segments, with nulls placed so segments of the same
+    # nullable dictionary column disagree on SS.has_nulls. Regression guard
+    # for the per-segment (not per-column) bit-pack null adjustment (PR #52).
+    return PBIXRay(os.path.join(DATA_DIR, "Mix.pbix"))
+
+
+@pytest.fixture(scope="module")
 def legacy_schema17_model():
     # SCHEMAVERSION 17 PowerPivot-era model whose `Column` table has no `Type`
     # column (role lives in `BindingType`). Regression guard for that schema.
