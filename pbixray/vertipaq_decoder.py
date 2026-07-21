@@ -565,16 +565,18 @@ class _ColumnDecoder:
             for idf in idfs
         ]
 
-        null_adjustment = 0
+        dict_base = None
         if self.mode == 'dictionary':
             # Decode ids with the null-adjusted minimum while the dictionary
             # keeps the unadjusted one, so null rows land below dict_min. The
             # dictionary is shared across a column's partitions; its base
             # index is the (identical) min_data_id of the first partition.
-            null_adjustment = 1 if column_metadata["IsNullable"] else 0
+            # NOTE: the null adjustment is a per-SEGMENT property (SS.has_nulls),
+            # not a per-column one (IsNullable) -- see upstream issue for pbixray.
+            dict_base = per_idf_meta[0][1][0]['min_data_id']
             dictionary_buffer = get_data_slice(decoder._data_model, column_metadata["Dictionary"])
             decoded = decoder._read_dictionary(
-                dictionary_buffer, min_data_id=per_idf_meta[0][1][0]['min_data_id']
+                dictionary_buffer, min_data_id=dict_base
             )
             self._lookup = _DictionaryLookup(decoded.values)
             self._is_string = decoded.is_string
@@ -594,8 +596,14 @@ class _ColumnDecoder:
                 continue
             parsed_idf = decoder._parse_idf(get_data_slice(decoder._data_model, idf))
             for seg_idx, seg_meta in enumerate(segments_meta):
-                # The null adjustment uses this partition's own .idfmeta.
-                seg_meta_dec = {**seg_meta, 'min_data_id': seg_meta['min_data_id'] - null_adjustment}
+                # The null-adjusted base is per-SEGMENT: if this segment has
+                # nulls, bit-packed ids are based off the null id
+                # (dict_base - 1); otherwise off this segment's own min_data_id.
+                if self.mode == 'dictionary' and seg_meta.get('has_nulls'):
+                    base = dict_base - 1
+                else:
+                    base = seg_meta['min_data_id']
+                seg_meta_dec = {**seg_meta, 'min_data_id': base}
                 segment = parsed_idf.segments[seg_idx]
                 per_entry, real_len = decoder._segment_real_repeats(segment, seg_meta_dec)
                 self._segments.append((segment, seg_meta_dec, per_entry, real_len))
