@@ -597,13 +597,24 @@ class _ColumnDecoder:
             parsed_idf = decoder._parse_idf(get_data_slice(decoder._data_model, idf))
             for seg_idx, seg_meta in enumerate(segments_meta):
                 # The null-adjusted base is per-SEGMENT: if this segment has
-                # nulls, bit-packed ids are based off the null id
-                # (dict_base - 1); otherwise off this segment's own min_data_id.
-                if self.mode == 'dictionary' and seg_meta.get('has_nulls'):
-                    base = dict_base - 1
+                # nulls, bit-packed ids are based off the null id, one below the
+                # column minimum; otherwise off this segment's own min_data_id.
+                # That minimum is the shared dictionary's base for dictionary
+                # columns, and -- since value-encoded (hidx) columns have no
+                # dictionary -- the segment's own min_data_id for those.
+                null_id = None
+                if seg_meta.get('has_nulls'):
+                    base = (dict_base if self.mode == 'dictionary'
+                            else seg_meta['min_data_id']) - 1
+                    # Dictionary ids below dict_min already fall out of
+                    # _ids_to_codes as -1 (-> NaN). hidx has no such lookup to
+                    # miss, so remember the null slot and blank it explicitly in
+                    # decode_segment_codes.
+                    if self.mode == 'hidx':
+                        null_id = base
                 else:
                     base = seg_meta['min_data_id']
-                seg_meta_dec = {**seg_meta, 'min_data_id': base}
+                seg_meta_dec = {**seg_meta, 'min_data_id': base, 'null_id': null_id}
                 segment = parsed_idf.segments[seg_idx]
                 per_entry, real_len = decoder._segment_real_repeats(segment, seg_meta_dec)
                 self._segments.append((segment, seg_meta_dec, per_entry, real_len))
@@ -620,6 +631,13 @@ class _ColumnDecoder:
         ids = self._decoder._decode_idf_segment(segment, seg_meta, per_entry, real_len)
         if self.mode == 'dictionary':
             return self._decoder._ids_to_codes(ids, self._lookup)
+        null_id = seg_meta.get('null_id')
+        if null_id is not None:
+            # Value-encoded ids are arithmetic, not dictionary keys: blank the
+            # null slot here so NaN survives the (id + BaseId) / Magnitude in
+            # slice_values. Only segments that declare nulls pay the widening.
+            ids = ids.astype(np.float64)
+            ids[ids == null_id] = np.nan
         return ids
 
     def slice_values(self, seg_codes, lo, hi, strings_as_categorical):
