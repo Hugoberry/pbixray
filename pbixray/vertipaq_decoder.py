@@ -32,8 +32,7 @@ _HUFFMAN_CHARSET_BASED = 0x000aba91  # single-byte charset Huffman (latin-1 outp
 _HUFFMAN_GENERAL       = 0x000aba92  # UTF-16LE bytes via general Huffman
 
 # VertiPaq reserves data id 2 for NULL (XM_DATA_ID_NULL in the engine) and its
-# rebase pass shifts every column so the first real data id is 3
-# (XMValueColTranslatorSeg::RebaseSingleSegment computes delta = 3 - MinDataID).
+# rebase pass shifts every column so the first real data id is 3.
 # Both are absolute: they never vary by column, segment or partition, so neither
 # may be derived from a segment's declared min_data_id. A segment's min excludes
 # nulls -- they only set HasNulls -- and an all-null segment keeps the sentinel
