@@ -64,7 +64,9 @@ KNOWN_FAILURES = {
 
 
 def _xfail_if_known(pbix_path):
-    rel = os.path.relpath(pbix_path, SAMPLES_ROOT)
+    # KNOWN_FAILURES is written with "/" separators; relpath yields "\" on
+    # Windows, so normalise before comparing or the xfails silently never fire.
+    rel = os.path.relpath(pbix_path, SAMPLES_ROOT).replace(os.sep, "/")
     if rel in KNOWN_FAILURES:
         pytest.xfail(f"Known parsing issue: {rel}")
 
