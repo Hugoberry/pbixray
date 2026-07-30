@@ -80,6 +80,16 @@ def mix_model():
 
 
 @pytest.fixture(scope="module")
+def null_data_id_xlsx_model():
+    # Power Pivot workbook (500 rows) with nullable value-encoded, currency and
+    # string columns -- the only sample of that format with any nulls at all.
+    # Guards the XLSX metadata path: ColumnSegmentStats.HasNulls has to reach the
+    # decoder, and the dictionary base must not be taken from CompressionInfo.Min.
+    # See test_null_data_id.py for the M script.
+    return PBIXRay(os.path.join(DATA_DIR, "null_data_id.xlsx"))
+
+
+@pytest.fixture(scope="module")
 def three_segment_model():
     # 2*2^20+1 rows -> 3 segments, built so the bit-pack base and the
     # dictionary base can each be wrong in a way no other sample exposes:

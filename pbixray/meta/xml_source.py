@@ -349,6 +349,21 @@ class XmlMetadataSource:
             sub_member = next(
                 (m for m in seg.members if m.Name == "SubSegment"), None
             )
+            # ColumnSegmentStats is the XLSX counterpart of the PBIX .idfmeta SS
+            # record. Only HasNulls is taken from it: without that flag the
+            # decoder never marks the segment's null slot, so nulls decode as
+            # ordinary values. Its MinDataID excludes nulls (like SS.min_data_id)
+            # whereas the min_data_id below comes from CompressionInfo.Min, which
+            # is the bit-pack base; the two agree for null-free segments, and for
+            # the rest the decoder uses XM_DATA_ID_NULL, which is what Min holds.
+            has_nulls = False
+            stats_member = next(
+                (m for m in seg.members if m.Name == "ColumnSegmentStats"), None
+            )
+            if stats_member is not None and stats_member.XMObject is not None:
+                stats_props = stats_member.XMObject.properties
+                if stats_props is not None and hasattr(stats_props, 'HasNulls'):
+                    has_nulls = bool(stats_props.HasNulls)
             min_data_id = 0
             count_bit_packed = 0
             bit_width = 0
@@ -367,6 +382,7 @@ class XmlMetadataSource:
                         min_data_id = ci.properties.Min
             segments_meta.append({
                 'min_data_id': min_data_id,
+                'has_nulls': has_nulls,
                 'count_bit_packed': count_bit_packed,
                 'bit_width': bit_width,
                 'records': records,

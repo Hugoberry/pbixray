@@ -41,6 +41,29 @@ S1  dictionary-encoded, all-null segment 0. Deriving the dictionary base from
 Row order is storage order and rows are reordered within a segment, so
 expectations are keyed off N1, whose value is its own source row number.
 Segments concatenate in order, so a row's segment follows from its position.
+
+The same constants apply to the XLSX (Power Pivot) metadata path, which reaches
+them through different fields: per-segment stats live in ColumnSegmentStats
+rather than an .idfmeta SS record, and `min_data_id` is read from
+CompressionInfo.Min -- the bit-pack base, already null-inclusive -- rather than
+from the null-excluding minimum. `null_data_id.xlsx` is the only sample of that
+format containing nulls at all, built in Excel (Get & Transform -> Data Model):
+
+    let
+        n = 500,
+        Rows = List.Transform({1..n}, each {
+            _,
+            if Number.Mod(_, 7)  = 0 then null else _ * 3,
+            if Number.Mod(_, 5)  = 0 then null else _ / 100,
+            if Number.Mod(_, 11) = 0 then null else "s" & Text.From(Number.Mod(_, 40)),
+            _ * 2
+        }),
+        Source = #table(
+            type table [A = Int64.Type, N = Int64.Type, C = Currency.Type,
+                        S = Text.Type, K = Int64.Type],
+            Rows)
+    in
+        Source
 """
 import numpy as np
 import pandas as pd
@@ -166,3 +189,84 @@ def test_iter_table_matches_get_table(three_segment_model, table):
         assert streamed.isna().equals(whole.isna()), column
         present = ~whole.isna()
         assert (streamed[present].to_numpy() == whole[present].to_numpy()).all(), column
+
+
+# --------------------------------------------------------------------------
+# XLSX (Power Pivot) metadata path -- null_data_id.xlsx, 500 rows, 1 segment
+# --------------------------------------------------------------------------
+
+XLSX_ROWS = 500
+XLSX_NULLS = {"N": XLSX_ROWS // 7, "C": XLSX_ROWS // 5, "S": XLSX_ROWS // 11,
+              "A": 0, "K": 0}
+
+
+@pytest.fixture(scope="module")
+def xlsx_table(null_data_id_xlsx_model):
+    return null_data_id_xlsx_model.get_table("TheTable")
+
+
+@pytest.fixture(scope="module")
+def xlsx_source_row(xlsx_table):
+    """Source row number k per decoded row, from the null-free key column A."""
+    k = xlsx_table["A"].to_numpy(dtype="int64")
+    assert sorted(k) == list(range(1, XLSX_ROWS + 1))
+    return k
+
+
+def test_xlsx_segment_stats_reach_the_decoder(null_data_id_xlsx_model):
+    """has_nulls must survive the XLSX metadata path, per segment.
+
+    Without it the decoder cannot know a segment carries a null slot, and the
+    reserved id decodes as an ordinary value.
+    """
+    meta = null_data_id_xlsx_model._vertipaq_decoder._meta
+    schema = meta.schema_df
+    for _, column in schema[schema["TableName"] == "TheTable"].iterrows():
+        name = column["ColumnName"]
+        if name not in XLSX_NULLS:
+            continue
+        segments = meta.get_segment_meta(column)
+        assert len(segments) == 1, name
+        segment = segments[0]
+        assert 'has_nulls' in segment, name
+        assert bool(segment['has_nulls']) is (XLSX_NULLS[name] > 0), name
+        # min_data_id here is CompressionInfo.Min, i.e. the bit-pack base: the
+        # null id for a segment with nulls, the segment's own minimum otherwise.
+        expected = XM_DATA_ID_NULL if XLSX_NULLS[name] else XM_FIRST_DATA_ID
+        assert segment['min_data_id'] == expected, name
+
+
+def test_xlsx_null_counts(xlsx_table):
+    for column, expected in XLSX_NULLS.items():
+        assert int(xlsx_table[column].isna().sum()) == expected, column
+
+
+def test_xlsx_value_encoded_values(xlsx_table, xlsx_source_row):
+    """N (integer) and C (currency) are value-encoded and nullable."""
+    k = xlsx_source_row
+    n = xlsx_table["N"].to_numpy(dtype="float64")
+    expected_n = np.where(k % 7 == 0, np.nan, k * 3.0)
+    assert ((np.isnan(n) & np.isnan(expected_n)) | (n == expected_n)).all()
+
+    c = xlsx_table["C"].to_numpy(dtype="float64")
+    expected_c = np.where(k % 5 == 0, np.nan, k / 100)
+    assert ((np.isnan(c) & np.isnan(expected_c)) | (np.abs(c - expected_c) < 1e-9)).all()
+
+    # the null-free control keeps its integer dtype -- only segments that
+    # declare nulls widen
+    assert np.array_equal(xlsx_table["K"].to_numpy(dtype="int64"), k * 2)
+
+
+def test_xlsx_dictionary_values(xlsx_table, xlsx_source_row):
+    """S is dictionary-encoded: a base of CompressionInfo.Min would shift it.
+
+    Ids are assigned in insertion order, so an off-by-one base does not map to
+    the numerically adjacent string -- each row returns an arbitrary other row's
+    value, which is why equality here is checked row by row.
+    """
+    k = xlsx_source_row
+    s = xlsx_table["S"]
+    present = ~s.isna().to_numpy()
+    expected = np.char.add("s", (k[present] % 40).astype(str))
+    assert np.array_equal(s.to_numpy()[present].astype(str), expected)
+    assert (k[~present] % 11 == 0).all()
