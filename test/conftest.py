@@ -80,6 +80,16 @@ def mix_model():
 
 
 @pytest.fixture(scope="module")
+def three_segment_model():
+    # 2*2^20+1 rows -> 3 segments, built so the bit-pack base and the
+    # dictionary base can each be wrong in a way no other sample exposes:
+    # a nullable value-encoded segment whose own min_data_id is ~1M above the
+    # column's, and two all-null first segments carrying the min == max ==
+    # XM_DATA_ID_NULL sentinel. See test_null_data_id.py for the M script.
+    return PBIXRay(os.path.join(DATA_DIR, "3segment.pbix"))
+
+
+@pytest.fixture(scope="module")
 def legacy_schema17_model():
     # SCHEMAVERSION 17 PowerPivot-era model whose `Column` table has no `Type`
     # column (role lives in `BindingType`). Regression guard for that schema.

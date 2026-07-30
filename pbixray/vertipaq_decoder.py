@@ -31,6 +31,16 @@ _MAX_WORKERS = min(os.cpu_count() or 1, 8)
 _HUFFMAN_CHARSET_BASED = 0x000aba91  # single-byte charset Huffman (latin-1 output)
 _HUFFMAN_GENERAL       = 0x000aba92  # UTF-16LE bytes via general Huffman
 
+# VertiPaq reserves data id 2 for NULL (XM_DATA_ID_NULL in the engine) and its
+# rebase pass shifts every column so the first real data id is 3
+# (XMValueColTranslatorSeg::RebaseSingleSegment computes delta = 3 - MinDataID).
+# Both are absolute: they never vary by column, segment or partition, so neither
+# may be derived from a segment's declared min_data_id. A segment's min excludes
+# nulls -- they only set HasNulls -- and an all-null segment keeps the sentinel
+# min == max == XM_DATA_ID_NULL.
+XM_DATA_ID_NULL = 2
+XM_FIRST_DATA_ID = XM_DATA_ID_NULL + 1
+
 
 def _decode_compressed_page(args):
     """Run xmhuffman.decode_page + per-string charset decode for one page.
@@ -565,18 +575,17 @@ class _ColumnDecoder:
             for idf in idfs
         ]
 
-        dict_base = None
         if self.mode == 'dictionary':
-            # Decode ids with the null-adjusted minimum while the dictionary
-            # keeps the unadjusted one, so null rows land below dict_min. The
-            # dictionary is shared across a column's partitions; its base
-            # index is the (identical) min_data_id of the first partition.
-            # NOTE: the null adjustment is a per-SEGMENT property (SS.has_nulls),
-            # not a per-column one (IsNullable) -- see upstream issue for pbixray.
-            dict_base = per_idf_meta[0][1][0]['min_data_id']
+            # The dictionary is shared across a column's partitions and always
+            # starts at XM_FIRST_DATA_ID; null rows land below it and fall out of
+            # _ids_to_codes as -1 (-> NaN). It must NOT be derived from the first
+            # segment's min_data_id: that segment reports the sentinel when it is
+            # all-null, and a higher minimum when it no longer holds the column's
+            # (e.g. after segment removal). Either shifts every id in the column
+            # by the same amount, so each row decodes to a neighbouring entry.
             dictionary_buffer = get_data_slice(decoder._data_model, column_metadata["Dictionary"])
             decoded = decoder._read_dictionary(
-                dictionary_buffer, min_data_id=dict_base
+                dictionary_buffer, min_data_id=XM_FIRST_DATA_ID
             )
             self._lookup = _DictionaryLookup(decoded.values)
             self._is_string = decoded.is_string
@@ -596,22 +605,21 @@ class _ColumnDecoder:
                 continue
             parsed_idf = decoder._parse_idf(get_data_slice(decoder._data_model, idf))
             for seg_idx, seg_meta in enumerate(segments_meta):
-                # The null-adjusted base is per-SEGMENT: if this segment has
-                # nulls, bit-packed ids are based off the null id, one below the
-                # column minimum; otherwise off this segment's own min_data_id.
-                # That minimum is the shared dictionary's base for dictionary
-                # columns, and -- since value-encoded (hidx) columns have no
-                # dictionary -- the segment's own min_data_id for those.
+                # The base is per-SEGMENT and identical for both encodings: a
+                # segment holding nulls is based at XM_DATA_ID_NULL, however far
+                # above that its own values start; every other segment is based
+                # at its own minimum. `min_data_id - 1` is not a substitute --
+                # the two coincide only when the segment's minimum is the
+                # column's, which is false for any segment past the first.
                 null_id = None
                 if seg_meta.get('has_nulls'):
-                    base = (dict_base if self.mode == 'dictionary'
-                            else seg_meta['min_data_id']) - 1
+                    base = XM_DATA_ID_NULL
                     # Dictionary ids below dict_min already fall out of
                     # _ids_to_codes as -1 (-> NaN). hidx has no such lookup to
                     # miss, so remember the null slot and blank it explicitly in
                     # decode_segment_codes.
                     if self.mode == 'hidx':
-                        null_id = base
+                        null_id = XM_DATA_ID_NULL
                 else:
                     base = seg_meta['min_data_id']
                 seg_meta_dec = {**seg_meta, 'min_data_id': base, 'null_id': null_id}
