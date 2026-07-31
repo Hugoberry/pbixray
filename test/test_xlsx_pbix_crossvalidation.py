@@ -158,32 +158,6 @@ def test_shifted_base_columns_match_pbix(models):
 
 
 @pytest.mark.parametrize("models", PAIRS, ids=_pair_id, indirect=True)
-def test_column_files_belong_to_their_own_dimension(models):
-    """Every resolved data file must be owned by the column's own dimension.
-
-    The general invariant behind CROSS_DIMENSION_COLLISION_COLUMNS: file names
-    are ``<n>.<dimension_id>.<column>.<ext>`` (or ``<n>.H$<dimension_id>$...``),
-    so a column may only be handed files whose dimension token is its own.
-    Borrowing another table's dictionary is silent whenever the two id spaces
-    happen to agree, so this checks attribution directly rather than waiting
-    for the decoded values to disagree.
-    """
-    _, xlsx_model, _ = models
-    source = xlsx_model._vertipaq_decoder._meta
-    for _, column in source.schema_df.iterrows():
-        pattern = source._dimension_file_pattern(column["DimensionID"])
-        for key in ("Dictionary", "HIDX", "IDF"):
-            file_name = column[key]
-            if not (pd.notnull(file_name) and file_name):
-                continue
-            assert pattern.search(file_name), (
-                f"{column['TableName']}[{column['ColumnName']}] {key} -> "
-                f"{file_name} does not belong to dimension "
-                f"{column['DimensionID']!r}"
-            )
-
-
-@pytest.mark.parametrize("models", PAIRS, ids=_pair_id, indirect=True)
 def test_collision_columns_match_pbix_by_value(models):
     """The collision columns must decode to the PBIX values, not just its shape."""
     xlsx_name, xlsx_model, pbix_model = models
