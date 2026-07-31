@@ -108,6 +108,40 @@ def test_xlsx_get_table_matches_fixture(xlsx_model, table):
     )
 
 
+# -------------------------------------------------------------------------
+# Data files are named <n>.<dimension_id>.<column>.<ext> (hierarchy files use
+# <n>.H$<dimension_id>$<column>.<ext>), so the dimension id is a delimited
+# token. Matching it as a bare substring handed one table's files to another
+# whenever a dimension id also appeared inside some other table's column name.
+# -------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "dimension_id, file_name, owned",
+    [
+        # Files the dimension really owns.
+        ("Product", "0.Product.Product Key.0.idf", True),
+        ("Product", "0.Product.Product.dictionary", True),
+        ("Product", "3.H$Product$Product Key.hidx", True),
+        ("Fact_fb28d60b", "17.Fact_fb28d60b.Product Key.dictionary", True),
+        ("Fact_fb28d60b", "6.H$Fact_fb28d60b$Product Key.POS_TO_ID.0.idf", True),
+        # The Customer Profitability collision: "Product"/"Scenario" occur
+        # inside the fact table's column names, never as its dimension token.
+        ("Product", "17.Fact_fb28d60b.Product Key.dictionary", False),
+        ("Scenario", "17.Fact_fb28d60b.Scenario Key.dictionary", False),
+        # An id that is only a prefix or a suffix of the real one.
+        ("Fact", "17.Fact_fb28d60b.Product Key.dictionary", False),
+        ("fb28d60b", "17.Fact_fb28d60b.Product Key.dictionary", False),
+    ],
+)
+def test_dimension_file_pattern_matches_only_its_own_token(
+    dimension_id, file_name, owned
+):
+    from pbixray.meta.xml_source import XmlMetadataSource
+
+    pattern = XmlMetadataSource._dimension_file_pattern(dimension_id)
+    assert bool(pattern.search(file_name)) is owned
+
+
 def test_xlsx_get_table_no_rownumber_column(xlsx_model):
     # RowNumber is VertiPaq's internal storage position; we hide it the
     # same way PBIX does, so get_table only exposes user-facing columns.
