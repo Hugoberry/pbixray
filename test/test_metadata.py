@@ -184,6 +184,52 @@ def test_blog_demo_get_table_reseller(blog_demo_model):
 
 
 # ---------------------------------------------------------------------------
+# Power Query / parameter classification
+#
+# The Expression table stores M parameters and shared queries together, and
+# only `IsParameterQuery=true` in the expression's meta record separates them.
+# Adventure Works, Internet Sales holds one of each: two shared queries
+# (Product Category / Product Subcategory, staging queries with "Enable load"
+# off) and one real parameter.
+# ---------------------------------------------------------------------------
+
+def test_parameters_exclude_shared_queries(adventure_works_model):
+    params = adventure_works_model.m_parameters
+    assert list(params["ParameterName"]) == ["Adventure Works DW Excel Path"]
+    assert params["Expression"].str.contains("IsParameterQuery").all()
+
+
+def test_shared_queries_surface_in_power_query(adventure_works_model):
+    """A query with load disabled owns no partition — Expression is its only home."""
+    queries = adventure_works_model.power_query
+    shared = queries[queries["Kind"] == "Shared"]
+    assert set(shared["TableName"]) == {"Product Category", "Product Subcategory"}
+    assert shared["Expression"].str.strip().str.startswith("let").all()
+
+
+def test_loaded_queries_still_come_from_partitions(adventure_works_model):
+    queries = adventure_works_model.power_query
+    loaded = queries[queries["Kind"] == "Table"]
+    assert set(loaded["TableName"]) == set(adventure_works_model.tables)
+
+
+def test_no_expression_is_both_a_query_and_a_parameter(adventure_works_model):
+    """The two endpoints partition the Expression table; they must not overlap."""
+    queries = adventure_works_model.power_query
+    shared = set(queries[queries["Kind"] == "Shared"]["TableName"])
+    parameters = set(adventure_works_model.m_parameters["ParameterName"])
+    assert shared.isdisjoint(parameters)
+    # A shared query is never also a loaded table, so nothing is double-counted.
+    assert shared.isdisjoint(set(queries[queries["Kind"] == "Table"]["TableName"]))
+
+
+def test_power_query_kind_is_always_populated(adventure_works_model):
+    queries = adventure_works_model.power_query
+    assert set(queries["Kind"]) <= {"Table", "Shared"}
+    assert queries["Kind"].notna().all()
+
+
+# ---------------------------------------------------------------------------
 # Supplier Quality (old PBIX format) — get_table and remaining properties
 # ---------------------------------------------------------------------------
 
