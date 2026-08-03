@@ -62,15 +62,26 @@ SHIFTED_BASE_COLUMNS = {
 }
 
 # Columns that differ for a reason unrelated to the dictionary base, tracked so
-# they surface when fixed rather than being silently tolerated.
+# they surface when fixed rather than being silently tolerated. Empty today;
+# kept as the mechanism for recording the next one.
+KNOWN_DIFFERENCES = set()
+
+# Columns whose dimension id also occurs inside another table's *column* name,
+# so a substring test on the id attributed that table's files to them. Both live
+# in Customer Profitability, where dimension ``Product`` matched
+# ``17.Fact_<guid>.Product Key.dictionary`` and dimension ``Scenario`` matched
+# the fact table's ``Scenario Key`` dictionary. Both columns are value-encoded
+# and own no dictionary at all.
 #
-# Product[Product Key] is value-encoded -- its ids are 3/13/23/33/73/75 and
-# id + BaseId(7) gives 10/20/30/40/80/82, exactly the PBIX values -- but the
-# XLSX schema also names a Dictionary file for it, so _ColumnDecoder takes the
-# dictionary branch, builds a six-entry lookup keyed 3..8, and every id except
-# the first misses it and becomes NaN. Separate bug, separate fix.
-KNOWN_DIFFERENCES = {
-    ("Customer Profitability Sample-no-PV.xlsx", "Product", "Product Key"),
+# Only Product[Product Key] decoded visibly wrong (ids 3/13/23/33/73/75 against
+# a borrowed lookup keyed 3..9: one hit, five NaN). Scenario[Scenario Key] came
+# out right by coincidence -- its ids 3/4 map to 1/2 in the fact dictionary,
+# which is also what id + BaseId(-2) gives -- so it is pinned by value here;
+# a row/null/distinct profile never distinguished it.
+CROSS_DIMENSION_COLLISION_COLUMNS = {
+    "Customer Profitability Sample-no-PV.xlsx": [
+        ("Product", "Product Key"), ("Scenario", "Scenario Key"),
+    ],
 }
 
 pytestmark = pytest.mark.skipif(
@@ -144,6 +155,19 @@ def test_shifted_base_columns_match_pbix(models):
         values = _string_values(from_pbix)
         if values is not None:
             assert _string_values(from_xlsx) == values, f"{table}[{column}]"
+
+
+@pytest.mark.parametrize("models", PAIRS, ids=_pair_id, indirect=True)
+def test_collision_columns_match_pbix_by_value(models):
+    """The collision columns must decode to the PBIX values, not just its shape."""
+    xlsx_name, xlsx_model, pbix_model = models
+    for table, column in CROSS_DIMENSION_COLLISION_COLUMNS.get(xlsx_name, []):
+        from_xlsx = xlsx_model.get_table(table, columns=[column])[column]
+        from_pbix = pbix_model.get_table(table, columns=[column])[column]
+        assert sorted(from_xlsx.dropna()) == sorted(from_pbix.dropna()), (
+            f"{table}[{column}]"
+        )
+        assert _profile(from_xlsx) == _profile(from_pbix), f"{table}[{column}]"
 
 
 @pytest.mark.slow

@@ -416,11 +416,33 @@ class XmlMetadataSource:
         }
         return type_map.get(ssas_type, 'object')
     
+    @staticmethod
+    def _dimension_file_pattern(dimension_id):
+        """Matches the dimension token of a data file name.
+
+        Data files are named ``<n>.<dimension_id>.<column>.<ext>`` or
+        ``<n>.H$<dimension_id>$<column>.<ext>``, so the dimension id is a
+        delimited token, not just a substring. Testing it as a substring
+        misattributes files across tables whenever one dimension's id also
+        appears inside another table's *column* name: in Customer
+        Profitability, dimension ``Product`` matched
+        ``17.Fact_<guid>.Product Key.dictionary`` and adopted the fact
+        table's hash dictionary for its own value-encoded Product Key.
+
+        The leading ``<n>.`` is optional so a writer that omits it still
+        resolves; what matters is that the id is bounded by ``.`` or ``$``
+        on both sides.
+        """
+        return re.compile(
+            r'(?:^|\.)(?:H\$)?' + re.escape(dimension_id) + r'[.$]'
+        )
+
     def _find_column_files(self, dimension_id, column_name):
         files = {'dictionary': '', 'hidx': '', 'idf': ''}
+        dimension_pattern = self._dimension_file_pattern(dimension_id)
         for file_entry in self.data_model.file_log:
             file_name = file_entry['FileName']
-            if (dimension_id in file_name or f"H${dimension_id}" in file_name) and column_name in file_name:
+            if column_name in file_name and dimension_pattern.search(file_name):
                 if '.dictionary' in file_name and not '.ID_TO_POS.' in file_name and not '.POS_TO_ID.' in file_name:
                     if f".{column_name}.0.idf.dictionary" in file_name or f".{column_name}.dictionary" in file_name:
                         files['dictionary'] = file_name
