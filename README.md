@@ -69,17 +69,43 @@ metadata = model.metadata
 print(metadata)
 ```
 ### Power Query
-To display all M/Power Query code used for data transformation, in a dataframe with `TableName` and `Expression` columns:
+To display all M/Power Query code used for data transformation, in a dataframe with `TableName`, `Expression` and `Kind` columns:
 ```python
 power_query = model.power_query
 print(power_query)
+
+# Queries backing a loaded table, keyed by that table's name:
+print(power_query[power_query["Kind"] == "Table"])
 ```
+`Kind` distinguishes where a query lives in the model:
+
+| `Kind` | Meaning | `TableName` holds |
+| --- | --- | --- |
+| `Table` | Backs a loaded table (stored as that table's partition) | the table name |
+| `Shared` | Never became a table — a custom function, or a query with **Enable load** turned off | the query name |
+
+A shared query owns no partition, so the model's `Expression` table is the only
+place it is recorded. A model whose queries all have load disabled reports no
+tables at all while still returning its M here.
+
+> **Changed behavior:** `Kind` is new, and `power_query` previously returned only
+> `Kind == "Table"` rows. Shared queries used to be reported by `m_parameters`
+> instead (see below).
+
 ### M Parameters
 To display all M Parameters values in a dataframe with `ParameterName`, `Description`, `Expression` and `ModifiedTime` columns:
 ```python
 m_parameters = model.m_parameters
 print(m_parameters)
 ```
+Only genuine Power Query parameters are returned — those whose expression carries
+`IsParameterQuery=true` in its `meta` record.
+
+> **Changed behavior:** `m_parameters` previously returned every row of the
+> model's `Expression` table, which mixes parameters with shared queries, so
+> custom functions and load-disabled queries were reported as parameters. They
+> now appear in `power_query` with `Kind == "Shared"`. Expect fewer rows than in
+> earlier releases: a model with 19 expressions but 3 parameters returned 19.
 ### Model Size
 To find out the model size in bytes:
 ```python
@@ -233,7 +259,12 @@ if mashup is not None:
 ```
 `data_mashup` is `None` for files without a mashup, and raises `DataMashupError`
 if the part is malformed. These accessors are additive — `power_query` and
-`m_parameters` keep their existing AS-metadata behavior.
+`m_parameters` still read the AS metadata.
+
+Note that `mashup_queries["Kind"]` (`query` / `parameter`) answers a different
+question from `power_query["Kind"]` (`Table` / `Shared`): the former separates
+parameters from queries, the latter separates loaded tables from shared queries.
+`power_query` never contains parameters at all.
 
 ## Tabular Model Schema (TMSCHEMA) Endpoints
 

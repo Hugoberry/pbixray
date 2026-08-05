@@ -26,6 +26,7 @@ import os
 import glob
 import pytest
 from pbixray import PBIXRay
+from pbixray.exceptions import LiveConnectionError, NoEmbeddedModelError
 
 # ---------------------------------------------------------------------------
 # File discovery
@@ -54,21 +55,66 @@ PACKT_FILES     = _collect('Expert-Data-Modeling-with-Power-BI', '*.pbix')
 # ---------------------------------------------------------------------------
 
 # Files that expose known library bugs — tracked so they become visible when fixed.
-KNOWN_FAILURES = {
-    # schema_df lacks TableName/ColumnName/Cardinality for this DirectQuery-only model.
+KNOWN_FAILURES = set()
+
+# Models whose every query has "Enable load" turned off: the M is stored, but
+# nothing was ever loaded into the model. Reporting zero tables is correct, so
+# these assert the real contract — the queries must still be reachable.
+NO_LOADED_TABLES = {
     "Expert-Data-Modeling-with-Power-BI/Chapter07/Chapter 7, Values Datatypes.pbix",
-    # Plain Excel workbooks with no embedded Power BI data model (xl/model/item.data absent).
+}
+
+# Plain Excel workbooks with no embedded Power BI model (no xl/model/item.data).
+# Refusing these is the library's contract, not a bug, so they are asserted
+# rather than xfailed: an xfail passes just as happily on a generic parse error,
+# which is precisely the outcome the typed exception exists to prevent.
+NO_EMBEDDED_MODEL = {
     "powerbi-desktop-samples/AdventureWorks Sales Sample/AdventureWorks Sales.xlsx",
     "powerbi-desktop-samples/Monthly Desktop Blog Samples/2019/customerfeedback.xlsx",
 }
 
 
+def _rel(path):
+    # The sets above are written with "/" separators; relpath yields "\" on
+    # Windows, so normalise before comparing or the lookups silently never fire.
+    return os.path.relpath(path, SAMPLES_ROOT).replace(os.sep, "/")
+
+
 def _xfail_if_known(pbix_path):
-    # KNOWN_FAILURES is written with "/" separators; relpath yields "\" on
-    # Windows, so normalise before comparing or the xfails silently never fire.
-    rel = os.path.relpath(pbix_path, SAMPLES_ROOT).replace(os.sep, "/")
-    if rel in KNOWN_FAILURES:
-        pytest.xfail(f"Known parsing issue: {rel}")
+    if _rel(pbix_path) in KNOWN_FAILURES:
+        pytest.xfail(f"Known parsing issue: {_rel(pbix_path)}")
+
+
+def _is_modelless(path):
+    return _rel(path) in NO_EMBEDDED_MODEL
+
+
+def _assert_rejected_as_modelless(path):
+    """A workbook with no model must be refused by name, not by accident."""
+    with pytest.raises(NoEmbeddedModelError) as excinfo:
+        PBIXRay(path)
+    assert "No supported data model found" in str(excinfo.value)
+    # LiveConnectionError is the other NoEmbeddedModelError: a plain workbook
+    # holds no connection manifest, so reporting one would be a misdiagnosis.
+    assert not isinstance(excinfo.value, LiveConnectionError)
+
+
+def _has_no_loaded_tables(path):
+    return _rel(path) in NO_LOADED_TABLES
+
+
+def _assert_queries_survive_without_tables(path):
+    """No loaded tables, but the queries must not vanish with them.
+
+    A query with "Enable load" off owns no partition, so it is reachable only
+    through the Expression table. Before that was wired up, these models looked
+    completely empty.
+    """
+    model = PBIXRay(path)
+    assert list(model.tables) == [], "expected a model with nothing loaded"
+    queries = model.power_query
+    assert not queries.empty, "unloaded queries did not survive"
+    assert set(queries["Kind"]) == {"Shared"}, "nothing is loaded, so nothing is a table"
 
 
 def _smoke(pbix_path):
@@ -78,6 +124,10 @@ def _smoke(pbix_path):
       2. At least one table is reported
       3. The first table can be decoded to a non-empty DataFrame
     """
+    if _is_modelless(pbix_path):
+        return _assert_rejected_as_modelless(pbix_path)
+    if _has_no_loaded_tables(pbix_path):
+        return _assert_queries_survive_without_tables(pbix_path)
     _xfail_if_known(pbix_path)
     model = PBIXRay(pbix_path)
 
@@ -96,6 +146,8 @@ def _smoke_xlsx(xlsx_path):
     Table data retrieval (get_table) is not tested here: xlsx files do not
     store the RowNumber idfmeta entries that pbixray needs to decode columns.
     """
+    if _is_modelless(xlsx_path):
+        return _assert_rejected_as_modelless(xlsx_path)
     _xfail_if_known(xlsx_path)
     model = PBIXRay(xlsx_path)
 
@@ -110,6 +162,8 @@ def _metadata_properties(pbix_path):
     """
     import pandas as pd
 
+    if _is_modelless(pbix_path):
+        return _assert_rejected_as_modelless(pbix_path)
     _xfail_if_known(pbix_path)
     model = PBIXRay(pbix_path)
 

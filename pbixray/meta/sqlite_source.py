@@ -2,6 +2,7 @@ import apsw
 import io
 import logging
 import pandas as pd
+import re
 import warnings
 
 from ..abf.data_model import DataModel
@@ -53,6 +54,24 @@ class SqliteMetadataSource:
     _SUMMARIZATION_LABELS = {
         0: 'GroupBy', 1: 'Sum', 2: 'Count', 3: 'Min', 4: 'Max',
     }
+
+    # Canonical columns of ``m_df`` (see ``__populate_m``).
+    _M_COLUMNS = ['TableName', 'Expression', 'Kind']
+
+    # Canonical columns of ``m_parameters_df``.
+    _M_PARAMETER_COLUMNS = ['ParameterName', 'Description', 'Expression', 'ModifiedTime']
+
+    # Power Query marks a parameter by tagging its expression's ``meta`` record
+    # with ``IsParameterQuery=true``. Everything else in the ``Expression``
+    # table is a shared query: a custom function, or a query whose "Enable
+    # load" is off so it never became a table.
+    #
+    # The ``PBI_ResultType`` annotation is NOT a substitute. It reports what the
+    # expression evaluates to, not whether it is a parameter: the Packt
+    # "Chapter 3, Query Editor" model holds functions, lists, records and
+    # scalars that are ordinary queries, and treating every non-Table result as
+    # a parameter labels 14 of its 19 expressions wrongly (the true count is 3).
+    _PARAMETER_MARKER = re.compile(r'IsParameterQuery\s*=\s*true', re.IGNORECASE)
 
     # Friendly, resolved object-level-security view (see ``__populate_ols``).
     _OLS_COLUMNS = [
@@ -343,7 +362,34 @@ class SqliteMetadataSource:
         collapsed = collapsed.merge(idfs, on=['TableName', 'ColumnName'], how='left')
         return collapsed.drop(columns=['_ColumnPosition', '_PartitionPosition'])
 
+    def _split_expressions(self):
+        """``Expression`` rows split into ``(shared_queries, parameters)``.
+
+        The table holds both, distinguished only by ``_PARAMETER_MARKER``; it is
+        absent entirely on some legacy schemas, which reads as "neither".
+        """
+        empty = pd.DataFrame(columns=['Name', 'Description', 'Expression', 'ModifiedTime'])
+        if not self._has_column("Expression", "Expression"):
+            return empty, empty
+        rows = self._db.query(
+            "SELECT Name, Description, Expression, ModifiedTime FROM Expression;"
+        ).reindex(columns=empty.columns)
+        if rows.empty:
+            return empty, empty
+        is_parameter = rows['Expression'].fillna('').str.contains(
+            self._PARAMETER_MARKER
+        )
+        return rows[~is_parameter], rows[is_parameter]
+
     def __populate_m(self):
+        """Every M expression in the model, loaded tables and shared alike.
+
+        ``Kind`` is ``'Table'`` for a query backing a loaded table (its
+        ``TableName`` is that table) and ``'Shared'`` for one that never became
+        a table -- a custom function, or a query with "Enable load" off. Shared
+        queries have no table, so ``TableName`` carries the query name; they are
+        reachable no other way, since they own no partition.
+        """
         # ``Partition.Type`` is absent on legacy schemas; without it M (4) and
         # calculated (2) partitions can't be distinguished, so there are none.
         where = "WHERE p.Type = 4" if self._has_column("Partition", "Type") else "WHERE 0"
@@ -355,18 +401,28 @@ class SqliteMetadataSource:
         JOIN [Table] t ON t.ID = p.TableID
         {where};
         """
-        return self._db.query(sql)
+        loaded = self._db.query(sql).reindex(columns=['TableName', 'Expression'])
+        loaded = loaded.assign(Kind='Table')
+
+        shared, _ = self._split_expressions()
+        shared = pd.DataFrame({
+            'TableName': shared['Name'],
+            'Expression': shared['Expression'],
+            'Kind': 'Shared',
+        })
+        combined = pd.concat([loaded, shared], ignore_index=True)
+        return combined.reindex(columns=self._M_COLUMNS)
 
     def __populate_m_parameters(self):
-        sql = """
-        SELECT
-            Name as ParameterName,
-            Description,
-            Expression,
-            ModifiedTime
-        FROM Expression;
+        """Power Query parameters only -- see ``_PARAMETER_MARKER``.
+
+        Shared queries live in the same ``Expression`` table and used to be
+        returned here as well; they are reported by ``m_df`` instead.
         """
-        return self._db.query(sql)
+        _, parameters = self._split_expressions()
+        return parameters.rename(
+            columns={'Name': 'ParameterName'}
+        ).reindex(columns=self._M_PARAMETER_COLUMNS).reset_index(drop=True)
 
     def __populate_dax_tables(self):
         # See ``__populate_m``: no ``Partition.Type`` -> no calculated tables.
