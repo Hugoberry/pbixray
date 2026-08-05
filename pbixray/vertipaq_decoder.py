@@ -130,7 +130,14 @@ class VertiPaqDecoder:
         return result.astype(np.int64) + min_data_id
 
     def _extract_strings(self,buffer):
-        """Extract zero-terminated strings from buffer."""
+        """Extract zero-terminated strings from buffer.
+
+        The buffer must be the page's *used* characters only. A page's
+        allocation is padded with NULs beyond `buffer_used_characters`, and
+        each of those would otherwise split off an extra empty entry, pushing
+        the data ids of every later page out by that much (see
+        `unused_store_padding` in the dictionary struct).
+        """
         strings = buffer.split('\0')
         return strings[:-1]  # remove the last empty string
 

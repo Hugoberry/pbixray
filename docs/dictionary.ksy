@@ -75,6 +75,12 @@ types:
         contents: [0xCD,0xAB,0xCD,0xAB]
         
 
+  # `allocation_size` is the page's capacity in BYTES, while the two counters
+  # above it are in UTF-16 characters:
+  #     allocation_size == 2 * (buffer_used_characters + remaining_store_available)
+  # Only the used characters are strings; the rest of the allocation is NUL
+  # slack and must not reach the NUL-split that turns this buffer into
+  # dictionary entries.
   uncompressed_strings:
     seq:
       - id: remaining_store_available
@@ -85,8 +91,10 @@ types:
         type: u8
       - id: uncompressed_character_buffer
         type: str
-        size: allocation_size
+        size: buffer_used_characters * 2
         encoding: UTF-16LE
+      - id: unused_store_padding
+        size: allocation_size - buffer_used_characters * 2
 
   compressed_strings:
     seq:
