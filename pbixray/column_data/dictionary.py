@@ -239,7 +239,8 @@ class ColumnDataDictionary(KaitaiStruct):
             self.remaining_store_available = self._io.read_u8le()
             self.buffer_used_characters = self._io.read_u8le()
             self.allocation_size = self._io.read_u8le()
-            self.uncompressed_character_buffer = (self._io.read_bytes(self.allocation_size)).decode(u"UTF-16LE")
+            self.uncompressed_character_buffer = (self._io.read_bytes((self.buffer_used_characters * 2))).decode(u"UTF-16LE")
+            self.unused_store_padding = self._io.read_bytes((self.allocation_size - (self.buffer_used_characters * 2)))
 
 
         def _fetch_instances(self):
