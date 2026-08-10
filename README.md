@@ -1,295 +1,166 @@
 # PBIXRay
+
+**Read Power BI semantic models without Power BI.**
+
+[![PyPI](https://img.shields.io/pypi/v/pbixray)](https://pypi.org/project/pbixray/)
 [![Downloads](https://static.pepy.tech/badge/pbixray)](https://pepy.tech/project/pbixray)
-## Overview
+[![Python](https://img.shields.io/pypi/pyversions/pbixray)](https://pypi.org/project/pbixray/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-PBIXRay is a Python library designed to parse and analyze PBIX files, which are used with Microsoft Power BI. This library provides a straightforward way to extract valuable information from PBIX files, including tables, metadata, Power Query code, and more.
+No Power BI Desktop. No Analysis Services instance. No XMLA endpoint, no Premium capacity, no workspace, no restore. Just a file path.
 
-This library is the Python implementation of the logic embedded in the DuckDB extension [duckdb-pbix-extension](https://github.com/Hugoberry/duckdb-pbix-extension/).
+```python
+from pbixray import PBIXRay
 
-> **Note:** PBIXRay also supports Excel (XLSX) files with embedded PowerPivot models. You can use the same API to extract and analyze data models from XLSX files that contain PowerPivot data.
+model = PBIXRay("sales.pbix")
 
-> **Note:** Analysis Services backup files (`.abf`) are also accepted. An `.abf`
-> holds the same data model as a `.pbix`, just without the zip envelope, so the
-> same `PBIXRay('path/to/backup.abf')` API applies. Multi-partition tables
-> (classic SSAS partitioning and incremental-refresh partitions) are decoded in
-> full — `get_table` concatenates every partition in storage order.
+model.dax_measures         # every measure, as a DataFrame
+model.relationships        # the full model graph
+model.power_query          # all M code
+model.get_table("Sales")   # actual decoded rows
+```
 
-## Installation
+PBIXRay is a Python reader for the VertiPaq engine's on-disk format. It parses `.pbix` files, `.abf` Analysis Services backups and `.xlsx` PowerPivot workbooks, which are three containers around the same storage engine, and returns pandas DataFrames. Read-only, offline, cross-platform, with no Microsoft runtime involved at any stage.
 
-Install with pip:
+Every other way to inspect a model needs something running. Desktop open, a server connected, a backup restored, a capacity licensed. PBIXRay needs a file.
+
+---
+
+## Install
 
 ```bash
 pip install pbixray
 ```
 
-## Getting Started
-To start using PBIXRay, import the module and initialize it with the path to your PBIX file:
-```python
-from pbixray import PBIXRay
+Python 3.8 through 3.13, on macOS, Linux and Windows. Prebuilt wheels, so there is nothing to compile.
 
-model = PBIXRay('path/to/your/file.pbix')
-```
+---
 
-### Large models (on-disk loading)
-By default the entire decompressed data model is held in memory. For models whose
-uncompressed size approaches or exceeds available RAM, pass `on_disk=True`: the
-decompressed data is streamed to a temporary file and memory-mapped, so only the
-pages a requested table actually touches are faulted in. Use `temp_dir` to control
-where the spill file is created (defaults to the system temp directory).
+## What you can pull out
 
-```python
-# Spill to disk + mmap instead of holding everything in RAM.
-with PBIXRay('path/to/large.pbix', on_disk=True, temp_dir='/fast/scratch') as model:
-    df = model.get_table('Sales')
-# leaving the `with` block releases the mapping and removes the temp file
-```
-
-`PBIXRay` is also a context manager; `model.close()` (or exiting the `with` block)
-deterministically releases the memory map and the metadata connection. When
-`on_disk=False` (the default) behavior is unchanged. Metadata (DAX, TMSCHEMA_*, etc.)
-is loaded lazily on first access, so simply opening a file is cheap.
-
-The `DataModel` member is read in place from the container file whenever it is
-STORED in the zip (the normal case — it carries its own compression). If the
-member is additionally *uncompressed* (a raw ABF backup inside the zip),
-`on_disk=True` serves it directly from the `.pbix`/`.xlsx` with no temp-file
-copy at all.
-
-## Features and Usage
-### Tables
-To list all tables in the model:
-```python
-tables = model.tables
-print(tables)
-```
-### Metadata
-To get metadata about the Power BI configuration used during model creation:
-```python
-metadata = model.metadata
-print(metadata)
-```
-### Power Query
-To display all M/Power Query code used for data transformation, in a dataframe with `TableName` and `Expression` columns:
-```python
-power_query = model.power_query
-print(power_query)
-```
-### M Parameters
-To display all M Parameters values in a dataframe with `ParameterName`, `Description`, `Expression` and `ModifiedTime` columns:
-```python
-m_parameters = model.m_parameters
-print(m_parameters)
-```
-### Model Size
-To find out the model size in bytes:
-```python
-size = model.size
-print(f"Model size: {size} bytes")
-```
-### DAX Calculated Tables
-To view DAX calculated tables in a dataframe with `TableName` and `Expression` columns:
-```python
-dax_tables = model.dax_tables
-print(dax_tables)
-```
-### DAX Measures
-To access DAX measures in a dataframe with `TableName`, `Name`, `Expression`, `DisplayFolder`, and `Description` columns:
-```python
-dax_measures = model.dax_measures
-print(dax_measures)
-```
-### Calculated Columns
-To access calculated column DAX expressions in a dataframe with `TableName`,`ColumnName` and `Expression` columns:
-```python
-dax_columns = model.dax_columns
-print(dax_columns)
-```
-### Aggregations
-To inspect Power BI aggregations (the "Manage aggregations" feature) as a resolved dataframe with `AggregationTable`, `AggregationColumn`, `Summarization`, `DetailTable`, and `DetailColumn` columns:
-```python
-aggregations = model.aggregations
-print(aggregations)
-```
-Each row maps one aggregation-table column to a detail (base) table. `Summarization` is the human label (`GroupBy`, `Sum`, `Count`, `Min`, `Max`); `DetailColumn` is `None` for the "Count table rows" case. A model with no aggregations returns an empty dataframe.
-### Schema
-To get details about the data model schema and column types in a dataframe with `TableName`, `ColumnName`, and `PandasDataType` columns:
-```python
-schema = model.schema
-print(schema)
-```
-### Relationships
-To get the details about the data model relationships in a dataframe with `FromTableName`, `FromColumnName`, `ToTableName`, `ToColumnName`, `IsActive`, `Cardinality`, `CrossFilteringBehavior`, `FromKeyCount`, `ToKeyCount` and `RelyOnReferentialIntegrity` columns:
-```python
-relationships = model.relationships
-print(relationships)
-```
-### Row-Level Security (RLS)
-To get the details about Row-Level Security roles and permissions in a dataframe with `TableName`, `RoleName`, `RoleDescription`, `FilterExpression`, `State` and `MetadataPermission` columns:
-```python
-rls = model.rls
-print(rls)
-```
-### Object-Level Security (OLS)
-To get object-level security restrictions as a resolved dataframe with `RoleName`, `TableName`, `ColumnName`, `Scope` and `Permission` columns:
-```python
-ols = model.ols
-print(ols)
-```
-Each row is one secured object: `Scope='Column'` rows hide or expose a single column, `Scope='Table'` rows (where `ColumnName` is `None`) a whole table. `Permission` is `None` (hidden), `Read` (visible) or `Default`. Plain row-level-security rows are excluded — see `model.rls`. A model with no OLS returns an empty dataframe.
-### Perspectives
-To inspect perspective membership as a single consolidated dataframe with `PerspectiveName`, `ObjectType`, `TableName`, `ObjectName` and `IncludeAll` columns:
-```python
-perspectives = model.perspectives
-print(perspectives)
-```
-Each row is one object included in a perspective; `ObjectType` is `Table`, `Column`, `Measure` or `Hierarchy`, and `IncludeAll` is populated only for `Table` rows. This is a friendly roll-up over the raw `tmschema_perspective_*` endpoints. A model with no perspectives returns an empty dataframe.
-### Get Table Contents
-To retrieve the contents of a specified table:
-```python
-table_name = 'YourTableName'
-table_contents = model.get_table(table_name)
-print(table_contents)
-```
-To decode only a subset of columns from a wide table (decoding the others is skipped),
-pass `columns`:
-```python
-table_contents = model.get_table(table_name, columns=['ProductKey', 'Sales'])
-```
-With `strings_as_categorical=True` string columns come back as `pd.Categorical`,
-so each distinct value is stored once instead of once per row — a large memory
-saving on low-cardinality string columns:
-```python
-table_contents = model.get_table(table_name, strings_as_categorical=True)
-```
-Dictionary decode runs on a native Huffman kernel ([xmhuffman](https://github.com/Hugoberry/xmhuffman-cython)) and fans out across cores automatically for large dictionaries.
-### Stream Large Tables in Chunks
-For tables too large to materialize whole, `iter_table` yields DataFrame chunks
-instead of one DataFrame. Chunks follow VertiPaq segment boundaries, and
-`chunk_size` further splits each segment (chunks never span two segments, so
-tail chunks may be shorter). String columns default to `pd.Categorical`,
-sharing one categories array across all chunks; pass
-`strings_as_categorical=False` for plain object-dtype strings.
-```python
-with PBIXRay('path/to/large.pbix', on_disk=True) as model:
-    for chunk in model.iter_table('Sales', chunk_size=1_000_000):
-        process(chunk)  # chunk.index is the global row range
-```
-The dictionaries of every selected column are decoded up front and kept for the
-whole iteration, so on dictionary-heavy models (e.g. wide free-text columns)
-pass `columns` to project only what you need. Combine with `on_disk=True` to
-also keep the decompressed model itself out of RAM.
-### Statistics
-To get statistics about the model, including column cardinality and byte sizes of dictionary, hash index, and data components, in a dataframe with columns `TableName`, `ColumnName`, `Cardinality`, `Dictionary`, `HashIndex`, `DataSize`, `ModifiedTime`, and `StructureModifiedTime`:
-```python
-statistics = model.statistics
-print(statistics)
-```
-
-### Connections
-Reports expose their `Connections` manifest — the list of data connections
-declared by the report — as a list of dictionaries:
-```python
-print(model.connections)
-```
-Self-contained (import) models usually return an empty list.
-
-### Live-connection (thin) reports
-Some `.pbix` files are *thin reports* with no embedded model: they live-connect
-to an external Analysis Services server (`analysisServicesDatabaseLive`) or a
-Power BI Service dataset (`pbiServiceLive`). Because the model lives on a remote
-server, there is nothing to extract on disk, and constructing `PBIXRay` raises
-`LiveConnectionError`. The exception carries the parsed connection details so you
-can still identify what the report points at:
-```python
-from pbixray import PBIXRay, LiveConnectionError, NoEmbeddedModelError
-
-try:
-    model = PBIXRay("thin-report.pbix")
-except LiveConnectionError as e:
-    print(e.connection_type)   # e.g. 'pbiServiceLive'
-    print(e.database_name)     # remote dataset id, when available
-    print(e.connections)       # full manifest (list of dicts)
-```
-The exception hierarchy is `LiveConnectionError` → `NoEmbeddedModelError` →
-`PBIXRayError`. `NoEmbeddedModelError` is raised when a file has no model and no
-connection manifest. Both also subclass `RuntimeError` for backward
-compatibility.
-
-### Power Query (DataMashup)
-`power_query` and `m_parameters` read the M from the Analysis Services metadata,
-which works for **import** models. Some models — notably **DirectQuery / native
-SQL** — keep their queries and parameters only in the report's `DataMashup` part
-([MS-QDEFF]). `model.data_mashup` and `model.mashup_queries` parse that part
-directly:
-```python
-df = model.mashup_queries        # Name, Kind, IsParameter, Expression, Type, DefaultValue, AllowedValues
-params = df[df["IsParameter"]]   # the Power Query parameters and their metadata
-
-mashup = model.data_mashup       # None when the file has no DataMashup part
-if mashup is not None:
-    print(mashup.version)
-    for q in mashup.parameters:  # MQuery objects
-        print(q.name, q.param_type, q.default_value, q.allowed_values)
-```
-`data_mashup` is `None` for files without a mashup, and raises `DataMashupError`
-if the part is malformed. These accessors are additive — `power_query` and
-`m_parameters` keep their existing AS-metadata behavior.
-
-## Tabular Model Schema (TMSCHEMA) Endpoints
-
-Full equivalents of the Analysis Services `$System.TMSCHEMA_*` DMVs, read directly from the embedded SQLite metadata database.
-
-| Property | DMV equivalent |
+| | |
 |---|---|
-| `model.tmschema_model` | `TMSCHEMA_MODEL` |
-| `model.tmschema_tables` | `TMSCHEMA_TABLES` |
-| `model.tmschema_columns` | `TMSCHEMA_COLUMNS` |
-| `model.tmschema_partitions` | `TMSCHEMA_PARTITIONS` |
-| `model.tmschema_hierarchies` | `TMSCHEMA_HIERARCHIES` |
-| `model.tmschema_levels` | `TMSCHEMA_LEVELS` |
-| `model.tmschema_datasources` | `TMSCHEMA_DATASOURCES` |
-| `model.tmschema_perspectives` | `TMSCHEMA_PERSPECTIVES` |
-| `model.tmschema_perspective_tables` | `TMSCHEMA_PERSPECTIVE_TABLES` |
-| `model.tmschema_perspective_columns` | `TMSCHEMA_PERSPECTIVE_COLUMNS` |
-| `model.tmschema_perspective_hierarchies` | `TMSCHEMA_PERSPECTIVE_HIERARCHIES` |
-| `model.tmschema_perspective_measures` | `TMSCHEMA_PERSPECTIVE_MEASURES` |
-| `model.tmschema_kpis` | `TMSCHEMA_KPIS` |
-| `model.tmschema_annotations` | `TMSCHEMA_ANNOTATIONS` |
-| `model.tmschema_extended_properties` | `TMSCHEMA_EXTENDED_PROPERTIES` |
-| `model.tmschema_cultures` | `TMSCHEMA_CULTURES` |
-| `model.tmschema_translations` | `TMSCHEMA_OBJECT_TRANSLATIONS` |
-| `model.tmschema_linguistic_metadata` | `TMSCHEMA_LINGUISTIC_METADATA` |
-| `model.tmschema_query_groups` | `TMSCHEMA_QUERY_GROUPS` |
-| `model.tmschema_calculation_groups` | `TMSCHEMA_CALCULATION_GROUPS` |
-| `model.tmschema_calculation_items` | `TMSCHEMA_CALCULATION_ITEMS` |
-| `model.tmschema_calculation_expressions` | `TMSCHEMA_CALCULATION_EXPRESSIONS` |
-| `model.tmschema_variations` | `TMSCHEMA_VARIATIONS` |
-| `model.tmschema_attribute_hierarchies` | `TMSCHEMA_ATTRIBUTE_HIERARCHIES` |
-| `model.tmschema_sets` | `TMSCHEMA_SETS` |
-| `model.tmschema_refresh_policies` | `TMSCHEMA_REFRESH_POLICIES` |
-| `model.tmschema_detail_rows_definitions` | `TMSCHEMA_DETAIL_ROWS_DEFINITIONS` |
-| `model.tmschema_format_string_definitions` | `TMSCHEMA_FORMAT_STRING_DEFINITIONS` |
-| `model.tmschema_functions` | `TMSCHEMA_FUNCTIONS` |
-| `model.tmschema_calendars` | `TMSCHEMA_CALENDARS` |
-| `model.tmschema_calendar_column_groups` | `TMSCHEMA_CALENDAR_COLUMN_GROUPS` |
-| `model.tmschema_calendar_column_refs` | `TMSCHEMA_CALENDAR_COLUMN_REFERENCES` |
-| `model.tmschema_alternate_of` | `TMSCHEMA_ALTERNATE_OF` |
-| `model.tmschema_related_column_details` | `TMSCHEMA_RELATED_COLUMN_DETAILS` |
-| `model.tmschema_group_by_columns` | `TMSCHEMA_GROUP_BY_COLUMNS` |
-| `model.tmschema_binding_info` | `TMSCHEMA_BINDING_INFO` |
-| `model.tmschema_analytics_ai_metadata` | `TMSCHEMA_ANALYTICS_AI_METADATA` |
-| `model.tmschema_data_coverage_definitions` | `TMSCHEMA_DATA_COVERAGE_DEFINITIONS` |
-| `model.tmschema_role_memberships` | `TMSCHEMA_ROLE_MEMBERSHIPS` |
-| `model.tmschema_column_permissions` | `TMSCHEMA_COLUMN_PERMISSIONS` |
+| **Model logic** | measures, calculated columns, calculated tables, calculation groups |
+| **Transformations** | Power Query / M, M parameters, DataMashup queries (DirectQuery and native SQL) |
+| **Structure** | tables, columns, schema, relationships, hierarchies, perspectives, aggregations |
+| **Security** | row-level security, object-level security, roles and role memberships |
+| **Storage** | per-column cardinality, dictionary / hash-index / data sizes, total model size |
+| **Data** | decoded table contents, whole or streamed in chunks |
+| **Everything else** | all 40 `$System.TMSCHEMA_*` DMVs |
+
+Full reference and examples at **[pbixray.com/docs](https://www.pbixray.com/docs/)**.
+
+---
+
+## Three formats, one API
+
+File type is detected from the contents, so the same code works across all three.
+
+| Input | What it is |
+|---|---|
+| `.pbix` | Power BI Desktop file |
+| `.abf` | Analysis Services backup, readable without provisioning a server or restoring |
+| `.xlsx` | Excel workbook with an embedded PowerPivot model |
 
 ```python
-# Example — list all columns with their tables
-print(model.tmschema_columns[["TableName", "Name", "DataType", "IsHidden"]])
-
-# Example — inspect incremental refresh policies
-print(model.tmschema_refresh_policies)
-
-# Example — list all security roles and their members
-print(model.tmschema_role_memberships)
+PBIXRay("report.pbix")
+PBIXRay("nightly-backup.abf")
+PBIXRay("legacy-powerpivot.xlsx")
 ```
 
+ABF support turns a backup archive into something queryable without a restore. That covers retention audits, migration inventories, and answering "what was in this model in 2019" without standing anything up.
+
+---
+
+## The 40 DMVs, from a file
+
+Analysis Services exposes model metadata through `$System.TMSCHEMA_*` DMVs, normally reachable only over a live connection. PBIXRay reads all forty straight from the embedded metadata database.
+
+```python
+model.tmschema_refresh_policies    # incremental refresh configuration
+model.tmschema_role_memberships    # who is in which security role
+model.tmschema_column_permissions  # object-level permissions
+model.tmschema_partitions          # partition definitions and sources
+```
+
+<details>
+<summary><strong>All 40 endpoints</strong></summary>
+
+`tmschema_model` · `tmschema_tables` · `tmschema_columns` · `tmschema_partitions` · `tmschema_hierarchies` · `tmschema_levels` · `tmschema_datasources` · `tmschema_perspectives` · `tmschema_perspective_tables` · `tmschema_perspective_columns` · `tmschema_perspective_hierarchies` · `tmschema_perspective_measures` · `tmschema_kpis` · `tmschema_annotations` · `tmschema_extended_properties` · `tmschema_cultures` · `tmschema_translations` · `tmschema_linguistic_metadata` · `tmschema_query_groups` · `tmschema_calculation_groups` · `tmschema_calculation_items` · `tmschema_calculation_expressions` · `tmschema_variations` · `tmschema_attribute_hierarchies` · `tmschema_sets` · `tmschema_refresh_policies` · `tmschema_detail_rows_definitions` · `tmschema_format_string_definitions` · `tmschema_functions` · `tmschema_calendars` · `tmschema_calendar_column_groups` · `tmschema_calendar_column_refs` · `tmschema_alternate_of` · `tmschema_related_column_details` · `tmschema_group_by_columns` · `tmschema_binding_info` · `tmschema_analytics_ai_metadata` · `tmschema_data_coverage_definitions` · `tmschema_role_memberships` · `tmschema_column_permissions`
+
+</details>
+
+This makes governance tooling possible in places a live connection is not available. A pull request, a Lambda function, an air-gapped audit, a laptop with no license.
+
+---
+
+## Models bigger than your RAM
+
+Decompressed models are memory-mapped from disk rather than loaded whole, and tables stream by VertiPaq segment. Column projection and categorical strings cut memory further.
+
+```python
+with PBIXRay("20gb-model.pbix", on_disk=True) as model:
+    for chunk in model.iter_table("FactSales", chunk_size=1_000_000):
+        process(chunk)
+```
+
+Dictionary decoding runs on a native Huffman kernel ([xmhuffman](https://github.com/Hugoberry/xmhuffman-cython)) and fans out across cores.
+
+---
+
+## Built on PBIXRay
+
+
+### 🖥️ [PBIXRay for macOS](https://apps.apple.com/app/pbixray/id6787160588?mt=12)
+
+A native model inspector for Mac. Open a `.pbix` and browse tables, measures, relationships and storage statistics, with no Windows VM, no Parallels and no Power BI Desktop. It streams one table at a time, so models too large for memory open fine. Spotlight integration finds measures by name.
+
+Built for the Mac-based BI consultants Microsoft has never shipped a tool for.
+
+### 🌐 [pbix.info](https://pbix.info)
+
+Drop a model into the browser and explore it straight away. Metadata only, with no data or statistics extracted, focused on data origin and Power Query lineage. Nothing to install.
+
+### 🦆 [DuckDB extension](https://github.com/Hugoberry/duckdb-pbix-extension)
+
+Query PBIX files directly in SQL.
+
+---
+
+## Scope
+
+PBIXRay is a read-only extractor for the data model. It does not:
+
+- write, modify or repack files
+- evaluate DAX, so expressions come back as source text
+- run a query engine
+- connect to Power BI Service, Analysis Services, gateways or workspaces
+- refresh anything
+- parse the report layer, meaning visuals, pages, bookmarks and themes
+- support `.pbit`, `.pbids` or `.pbip`
+
+Read-only is a deliberate choice. A library that cannot write to a model also cannot corrupt one, which is what makes it safe to point at production artifacts and client files.
+
+---
+
+## Contributing
+
+The PBIX format is undocumented and reverse-engineered, so the test corpus is the specification. The most valuable contribution is a model that parses incorrectly.
+
+If you find one, [open an issue](https://github.com/Hugoberry/pbixray/issues) with the failure output and the structural details, such as encoding type, column metadata and offsets. Please never send file contents you do not own. A minimal reproduction is more useful than a real model and safer for everyone.
+
+---
+
+## Built on
+
+Decompression uses Microsoft's own MIT-licensed Xpress reference implementations, wrapped for Python as [xpress8](https://github.com/Hugoberry/xpress8-cython) and [xpress9](https://github.com/Hugoberry/xpress9-cython). Huffman dictionary decoding lives in [xmhuffman](https://github.com/Hugoberry/xmhuffman-cython). All three are kept in separate repositories so the Cython build and wheel distribution stay out of the main library.
+
+---
+
+## Links
+
+[Documentation](https://www.pbixray.com/docs/) · [Interactive demo](https://www.pbixray.com/demo/) · [PyPI](https://pypi.org/project/pbixray/) · [Support](https://www.pbixray.com/support/)
+
+MIT licensed. Built in London by [Alphaverse Limited](https://www.pbixray.com/).
+
+*Not affiliated with or endorsed by Microsoft. Power BI, Excel and Analysis Services are trademarks of Microsoft Corporation.*
