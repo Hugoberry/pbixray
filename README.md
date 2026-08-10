@@ -153,7 +153,7 @@ If you find one, [open an issue](https://github.com/Hugoberry/pbixray/issues) wi
 
 ## Built on
 
-Decompression uses Microsoft's own MIT-licensed Xpress reference implementations, wrapped for Python as [xpress8](https://github.com/Hugoberry/xpress8-cython) and [xpress9](https://github.com/Hugoberry/xpress9-cython). Huffman dictionary decoding lives in [xmhuffman](https://github.com/Hugoberry/xmhuffman-cython). All three are kept in separate repositories so the Cython build and wheel distribution stay out of the main library.
+Decompression uses Microsoft's own MIT-licensed Xpress reference implementations, wrapped for Python as [xpress8](https://github.com/Hugoberry/xpress8-python) and [xpress9](https://github.com/Hugoberry/xpress9-python). Huffman dictionary decoding lives in [xmhuffman](https://github.com/Hugoberry/xmhuffman-cython). All three are kept in separate repositories so the Cython build and wheel distribution stay out of the main library.
 
 ---
 
