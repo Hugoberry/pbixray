@@ -286,7 +286,8 @@ class SqliteMetadataSource:
         sql = f"""
         SELECT
             t.Name AS TableName,
-            c.ExplicitName AS ColumnName,
+            -- Type 4 columns have no ExplicitName, only InferredName.
+            COALESCE(c.ExplicitName, c.InferredName) AS ColumnName,
             sfd.FileName AS Dictionary,
             sfh.FileName AS HIDX,
             sfi.FileName AS IDF,
@@ -314,7 +315,8 @@ class SqliteMetadataSource:
         JOIN ColumnPartitionStorage cps ON cps.ColumnStorageID = cs.ID
         JOIN StorageFile sfi ON sfi.ID = cps.StorageFileID
         JOIN PartitionStorage ps ON ps.ID = cps.PartitionStorageID
-        WHERE {type_col} IN (1,2)
+        -- 1=Data, 2=Calculated, 4=CalculatedTableColumn (#61). 3=RowNumber excluded.
+        WHERE {type_col} IN (1,2,4)
         ORDER BY t.Name, cs.StoragePosition, ps.StoragePosition
         """
         return self.__collapse_partitions(self._db.query(sql))
