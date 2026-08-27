@@ -11,7 +11,13 @@ was swallowed into an empty schema and surfaced downstream as
 
 Fixture: ``data/old-schema17-DataTable.pbix`` (SCHEMAVERSION 17).
 """
+import os
+
 import pandas as pd
+
+from pbixray import PBIXRay
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
 
 
 def test_legacy_model_opens(legacy_schema17_model):
@@ -68,23 +74,50 @@ def test_legacy_all_dmv_dataframes_realize(legacy_schema17_model):
 
 
 # ---------------------------------------------------------------------------
-# Empty-schema models (only calculated tables / measures -> zero schema rows).
-# The schema query matches no rows and the APSW wrapper returns a column-less
-# frame; the model must still open instead of raising KeyError on the missing
-# TableName/ColumnName/Cardinality columns.
+# Calculated-table-only models. All their columns are Type 4, which the schema
+# query used to skip, so the whole model read as empty (see #61).
 # ---------------------------------------------------------------------------
 
 def test_empty_schema_model_opens(empty_schema_model):
     assert empty_schema_model is not None
 
 
-def test_empty_schema_has_stable_shape(empty_schema_model):
+def test_calc_only_model_has_stable_shape(empty_schema_model):
     model = empty_schema_model
+    assert list(model.schema.columns) == ["TableName", "ColumnName", "PandasDataType"]
+    # statistics is derived from the schema and must not raise either.
+    assert isinstance(model.statistics, pd.DataFrame)
+
+
+def test_calc_only_model_exposes_calculated_table_columns(empty_schema_model):
+    model = empty_schema_model
+    assert list(model.tables) == ["Date"]
+    schema = model.schema
+    # Type 4 columns carry no ExplicitName, so the names come from InferredName.
+    assert list(schema["ColumnName"]) == ["Date", "Month", "Month Number"]
+    assert not schema["ColumnName"].isna().any()
+    assert len(model.get_table("Date")) > 0
+
+
+def test_schema_with_no_rows_keeps_stable_shape(monkeypatch):
+    """A schema query matching no rows comes back column-less from the APSW
+    wrapper. The model must still open with a stable, empty schema."""
+    from pbixray.meta import sqlite_source
+
+    real_query = sqlite_source._SqliteReader.query
+
+    def no_schema_rows(self, sql):
+        if "ColumnPartitionStorage" in sql:
+            return pd.DataFrame()
+        return real_query(self, sql)
+
+    monkeypatch.setattr(sqlite_source._SqliteReader, "query", no_schema_rows)
+    model = PBIXRay(os.path.join(DATA_DIR, "empty-schema-calc-only.pbix"))
     assert len(model.tables) == 0
     assert list(model.schema.columns) == ["TableName", "ColumnName", "PandasDataType"]
     assert len(model.schema) == 0
-    # statistics is derived from the schema and must not raise either.
     assert isinstance(model.statistics, pd.DataFrame)
+    assert len(model.statistics) == 0
 
 
 def test_empty_schema_measures_still_work(empty_schema_model):
