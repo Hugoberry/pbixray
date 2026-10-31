@@ -429,9 +429,9 @@ class SqliteMetadataSource:
         sql = f"""
         SELECT
             ft.Name AS FromTableName,
-            fc.ExplicitName AS FromColumnName,
+            COALESCE(fc.ExplicitName, fc.InferredName) AS FromColumnName,
             tt.Name AS ToTableName,
-            tc.ExplicitName AS ToColumnName,
+            COALESCE(tc.ExplicitName, tc.InferredName) AS ToColumnName,
             rel.IsActive,
             CASE
                 WHEN rel.{from_cardinality} = 2 THEN 'M'
@@ -458,7 +458,7 @@ class SqliteMetadataSource:
             LEFT JOIN RelationshipIndexStorage rid ON rs.RelationshipIndexStorageID = rid.id
             LEFT JOIN RelationshipStorage rs2 ON rs2.id = rel.RelationshipStorage2ID
             LEFT JOIN RelationshipIndexStorage rid2 ON rs2.RelationshipIndexStorageID = rid2.id
-        WHERE ft.SystemFlags = 0 AND tt.SystemFlags = 0
+        WHERE (ft.SystemFlags & 1) = 0 AND (tt.SystemFlags & 1) = 0
         """
         return self._db.query(sql)
 

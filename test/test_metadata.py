@@ -57,6 +57,15 @@ def test_sales_returns_relationships(sales_returns_model):
     assert _is_df(sales_returns_model.relationships)
 
 
+def test_relationships_keep_system_flagged_tables_and_inferred_names(sales_returns_model):
+    """SystemFlags = 2 tables (auto date tables here) are real; only bit 1 marks an internal table. Their
+    columns can have only an inferred name."""
+    rel = sales_returns_model.relationships
+    assert len(rel) == 9
+    assert rel["ToTableName"].str.startswith("LocalDateTable_").sum() == 1
+    assert rel[["FromColumnName", "ToColumnName"]].notna().all().all()
+
+
 def test_sales_returns_dax_measures(sales_returns_model):
     assert _is_df(sales_returns_model.dax_measures)
 
